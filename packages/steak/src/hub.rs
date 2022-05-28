@@ -22,6 +22,11 @@ pub struct InstantiateMsg {
     pub unbond_period: u64,
     /// Initial set of validators who will receive the delegations
     pub validators: Vec<String>,
+
+    /// Contract address where fees are sent
+    pub protocol_fee_contract: String,
+    /// Fees that are being applied during reinvest of staking rewards
+    pub protocol_reward_fee: Decimal, // "1 is 100%, 0.05 is 5%"
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
