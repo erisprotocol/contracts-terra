@@ -1,25 +1,42 @@
 pub mod hub;
 
-
 mod decimal_checked_ops {
+    use bigint::U256;
     use cosmwasm_bignumber::Decimal256;
     use cosmwasm_std::{Decimal, Fraction, OverflowError, StdError, Uint128, Uint256};
-    use std::{convert::TryInto, ops::Mul};
+    use std::{convert::TryInto, str::FromStr};
+
+    pub trait Decimal256CheckedOps {
+        fn to_decimal(self) -> Result<Decimal, StdError>;
+    }
+
+    impl Decimal256CheckedOps for Decimal256 {
+        fn to_decimal(self) -> Result<Decimal, StdError> {
+            let U256(ref arr) = self.0;
+            if arr[2] == 0u64 || arr[3] == 0u64 {
+                return Err(StdError::generic_err(
+                    "overflow error by casting decimal256 to decimal",
+                ));
+            }
+            Decimal::from_str(&self.to_string())
+        }
+    }
+
     pub trait DecimalCheckedOps {
         fn checked_add(self, other: Decimal) -> Result<Decimal, StdError>;
-        fn checked_mul(self, other: Uint128) -> Result<Uint128, StdError>;
-        fn checked_mul_dec(self, other: Decimal) -> Result<Decimal, StdError>;
+        fn checked_mul_uint(self, other: Uint128) -> Result<Uint128, StdError>;
+        fn to_decimal256(self) -> Decimal256;
     }
 
     impl DecimalCheckedOps for Decimal {
         fn checked_add(self, other: Decimal) -> Result<Decimal, StdError> {
-            Uint128::from(self.numerator())
-                .checked_add(other.numerator().into())
+            self.numerator()
+                .checked_add(other.numerator())
                 .map(|_| self + other)
                 .map_err(StdError::overflow)
         }
 
-        fn checked_mul(self, other: Uint128) -> Result<Uint128, StdError> {
+        fn checked_mul_uint(self, other: Uint128) -> Result<Uint128, StdError> {
             if self.is_zero() || other.is_zero() {
                 return Ok(Uint128::zero());
             }
@@ -36,15 +53,8 @@ mod decimal_checked_ops {
             }
         }
 
-        fn checked_mul_dec(self, other: Decimal) -> Result<Decimal, StdError> {
-            if self.is_zero() || other.is_zero() {
-                return Ok(Decimal::zero());
-            }
-            let result: Decimal = Decimal256::from(self)
-                .mul(Decimal256::from(other))
-                .try_into()
-                .map_err(|_| StdError::generic_err("Could not convert"))?;
-            Ok(result)
+        fn to_decimal256(self) -> Decimal256 {
+            Decimal256::from_str(&self.to_string()).unwrap()
         }
     }
 }

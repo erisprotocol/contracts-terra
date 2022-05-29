@@ -1,5 +1,5 @@
-use cosmwasm_std::{Decimal, Deps, Env, Order, StdResult, Uint128};
-use cw_storage_plus::{Bound, U64Key};
+use cosmwasm_std::{Addr, Decimal, Deps, Env, Order, StdResult, Uint128};
+use cw_storage_plus::Bound;
 
 use eris_staking::hub::{
     Batch, ConfigResponse, PendingBatch, StateResponse, UnbondRequestsByBatchResponseItem,
@@ -22,7 +22,7 @@ pub fn config(deps: Deps) -> StdResult<ConfigResponse> {
         epoch_period: state.epoch_period.load(deps.storage)?,
         unbond_period: state.unbond_period.load(deps.storage)?,
         validators: state.validators.load(deps.storage)?,
-        fee_config: state.fee_config.load(deps.storage)?
+        fee_config: state.fee_config.load(deps.storage)?,
     })
 }
 
@@ -57,7 +57,7 @@ pub fn pending_batch(deps: Deps) -> StdResult<PendingBatch> {
 
 pub fn previous_batch(deps: Deps, id: u64) -> StdResult<Batch> {
     let state = State::default();
-    state.previous_batches.load(deps.storage, id.into())
+    state.previous_batches.load(deps.storage, id)
 }
 
 pub fn previous_batches(
@@ -68,7 +68,7 @@ pub fn previous_batches(
     let state = State::default();
 
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-    let start = start_after.map(|id| Bound::exclusive(U64Key::from(id)));
+    let start = start_after.map(Bound::exclusive);
 
     state
         .previous_batches
@@ -90,11 +90,19 @@ pub fn unbond_requests_by_batch(
     let state = State::default();
 
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-    let start = start_after.map(Bound::exclusive);
+
+    let mut start: Option<Bound<&Addr>> = None;
+    let addr: Addr;
+    if let Some(start_after) = start_after {
+        if let Ok(start_after_addr) = deps.api.addr_validate(&start_after) {
+            addr = start_after_addr;
+            start = Some(Bound::exclusive(&addr));
+        }
+    }
 
     state
         .unbond_requests
-        .prefix(id.into())
+        .prefix(id)
         .range(deps.storage, start, None, Order::Ascending)
         .take(limit)
         .map(|item| {
@@ -113,7 +121,8 @@ pub fn unbond_requests_by_user(
     let state = State::default();
 
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-    let start = start_after.map(|id| Bound::exclusive(U64Key::from(id)));
+    let addr = deps.api.addr_validate(&user)?;
+    let start = start_after.map(|id| Bound::exclusive((id, &addr)));
 
     state
         .unbond_requests
@@ -124,6 +133,7 @@ pub fn unbond_requests_by_user(
         .take(limit)
         .map(|item| {
             let (_, v) = item?;
+
             Ok(v.into())
         })
         .collect()
