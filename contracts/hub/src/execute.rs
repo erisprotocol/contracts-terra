@@ -4,10 +4,10 @@ use cosmwasm_std::{
     to_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, DepsMut, DistributionMsg, Env, Event,
     Order, Response, StdError, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
 };
+use cw2::set_contract_version;
 use cw20::{Cw20ExecuteMsg, MinterResponse};
 use cw20_base::msg::InstantiateMsg as Cw20InstantiateMsg;
 use eris_staking::DecimalCheckedOps;
-use terra_cosmwasm::TerraMsgWrapper;
 
 use eris_staking::hub::{
     Batch, CallbackMsg, ExecuteMsg, FeeConfig, InstantiateMsg, PendingBatch, UnbondRequest,
@@ -22,11 +22,16 @@ use crate::math::{
 use crate::state::State;
 use crate::types::{Coins, Delegation, SendFee};
 
+const CONTRACT_NAME: &str = "eris-hub";
+const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+
 //--------------------------------------------------------------------------------------------------
 // Instantiation
 //--------------------------------------------------------------------------------------------------
 
 pub fn instantiate(deps: DepsMut, env: Env, msg: InstantiateMsg) -> StdResult<Response> {
+    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
     let state = State::default();
 
     if msg.protocol_reward_fee.gt(&get_reward_fee_cap()) {
@@ -83,14 +88,14 @@ pub fn register_stake_token(deps: DepsMut, response: SubMsgResponse) -> StdResul
     let event = response
         .events
         .iter()
-        .find(|event| event.ty == "instantiate_contract")
-        .ok_or_else(|| StdError::generic_err("cannot find `instantiate_contract` event"))?;
+        .find(|event| event.ty == "instantiate")
+        .ok_or_else(|| StdError::generic_err("cannot find `instantiate` event"))?;
 
     let contract_addr_str = &event
         .attributes
         .iter()
-        .find(|attr| attr.key == "contract_address")
-        .ok_or_else(|| StdError::generic_err("cannot find `contract_address` attribute"))?
+        .find(|attr| attr.key == "_contract_address")
+        .ok_or_else(|| StdError::generic_err("cannot find `_contract_address` attribute"))?
         .value;
 
     let contract_addr = deps.api.addr_validate(contract_addr_str)?;
@@ -116,7 +121,7 @@ pub fn bond(
     env: Env,
     receiver: Addr,
     uluna_to_bond: Uint128,
-) -> StdResult<Response<TerraMsgWrapper>> {
+) -> StdResult<Response> {
     let state = State::default();
     let stake_token = state.stake_token.load(deps.storage)?;
     let validators = state.validators.load(deps.storage)?;
@@ -144,7 +149,7 @@ pub fn bond(
 
     let delegate_submsg = SubMsg::reply_on_success(new_delegation.to_cosmos_msg(), 2);
 
-    let mint_msg: CosmosMsg<TerraMsgWrapper> = CosmosMsg::Wasm(WasmMsg::Execute {
+    let mint_msg: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: stake_token.into(),
         msg: to_binary(&Cw20ExecuteMsg::Mint {
             recipient: receiver.to_string(),
@@ -167,7 +172,7 @@ pub fn bond(
         .add_attribute("action", "erishub/bond"))
 }
 
-pub fn harvest(deps: DepsMut, env: Env) -> StdResult<Response<TerraMsgWrapper>> {
+pub fn harvest(deps: DepsMut, env: Env) -> StdResult<Response> {
     let withdraw_submsgs = deps
         .querier
         .query_all_delegations(&env.contract.address)?
@@ -199,7 +204,7 @@ pub fn harvest(deps: DepsMut, env: Env) -> StdResult<Response<TerraMsgWrapper>> 
 /// execution.
 /// 2. Same as with `bond`, in the latest implementation we only delegate staking rewards with the
 /// validator that has the smallest delegation amount.
-pub fn reinvest(deps: DepsMut, env: Env) -> StdResult<Response<TerraMsgWrapper>> {
+pub fn reinvest(deps: DepsMut, env: Env) -> StdResult<Response> {
     let state = State::default();
     let validators = state.validators.load(deps.storage)?;
     let mut unlocked_coins = state.unlocked_coins.load(deps.storage)?;
@@ -322,7 +327,7 @@ pub fn queue_unbond(
     env: Env,
     receiver: Addr,
     ustake_to_burn: Uint128,
-) -> StdResult<Response<TerraMsgWrapper>> {
+) -> StdResult<Response> {
     let state = State::default();
 
     let mut pending_batch = state.pending_batch.load(deps.storage)?;
@@ -343,7 +348,7 @@ pub fn queue_unbond(
         },
     )?;
 
-    let mut msgs: Vec<CosmosMsg<TerraMsgWrapper>> = vec![];
+    let mut msgs: Vec<CosmosMsg> = vec![];
     if env.block.time.seconds() >= pending_batch.est_unbond_start_time {
         msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: env.contract.address.into(),
@@ -365,7 +370,7 @@ pub fn queue_unbond(
         .add_attribute("action", "erishub/queue_unbond"))
 }
 
-pub fn submit_batch(deps: DepsMut, env: Env) -> StdResult<Response<TerraMsgWrapper>> {
+pub fn submit_batch(deps: DepsMut, env: Env) -> StdResult<Response> {
     let state = State::default();
     let stake_token = state.stake_token.load(deps.storage)?;
     let validators = state.validators.load(deps.storage)?;
@@ -445,7 +450,7 @@ pub fn submit_batch(deps: DepsMut, env: Env) -> StdResult<Response<TerraMsgWrapp
         .add_attribute("action", "erishub/unbond"))
 }
 
-pub fn reconcile(deps: DepsMut, env: Env) -> StdResult<Response<TerraMsgWrapper>> {
+pub fn reconcile(deps: DepsMut, env: Env) -> StdResult<Response> {
     let state = State::default();
     let current_time = env.block.time.seconds();
 
@@ -505,7 +510,7 @@ pub fn withdraw_unbonded(
     env: Env,
     user: Addr,
     receiver: Addr,
-) -> StdResult<Response<TerraMsgWrapper>> {
+) -> StdResult<Response> {
     let state = State::default();
     let current_time = env.block.time.seconds();
 
@@ -582,7 +587,7 @@ pub fn withdraw_unbonded(
 // Ownership and management logics
 //--------------------------------------------------------------------------------------------------
 
-pub fn rebalance(deps: DepsMut, env: Env) -> StdResult<Response<TerraMsgWrapper>> {
+pub fn rebalance(deps: DepsMut, env: Env) -> StdResult<Response> {
     let state = State::default();
     let validators = state.validators.load(deps.storage)?;
 
@@ -605,11 +610,7 @@ pub fn rebalance(deps: DepsMut, env: Env) -> StdResult<Response<TerraMsgWrapper>
         .add_attribute("action", "erishub/rebalance"))
 }
 
-pub fn add_validator(
-    deps: DepsMut,
-    sender: Addr,
-    validator: String,
-) -> StdResult<Response<TerraMsgWrapper>> {
+pub fn add_validator(deps: DepsMut, sender: Addr, validator: String) -> StdResult<Response> {
     let state = State::default();
 
     state.assert_owner(deps.storage, &sender)?;
@@ -632,7 +633,7 @@ pub fn remove_validator(
     env: Env,
     sender: Addr,
     validator: String,
-) -> StdResult<Response<TerraMsgWrapper>> {
+) -> StdResult<Response> {
     let state = State::default();
 
     state.assert_owner(deps.storage, &sender)?;
@@ -662,11 +663,7 @@ pub fn remove_validator(
         .add_attribute("action", "erishub/remove_validator"))
 }
 
-pub fn transfer_ownership(
-    deps: DepsMut,
-    sender: Addr,
-    new_owner: String,
-) -> StdResult<Response<TerraMsgWrapper>> {
+pub fn transfer_ownership(deps: DepsMut, sender: Addr, new_owner: String) -> StdResult<Response> {
     let state = State::default();
 
     state.assert_owner(deps.storage, &sender)?;
@@ -675,7 +672,7 @@ pub fn transfer_ownership(
     Ok(Response::new().add_attribute("action", "erishub/transfer_ownership"))
 }
 
-pub fn accept_ownership(deps: DepsMut, sender: Addr) -> StdResult<Response<TerraMsgWrapper>> {
+pub fn accept_ownership(deps: DepsMut, sender: Addr) -> StdResult<Response> {
     let state = State::default();
 
     let previous_owner = state.owner.load(deps.storage)?;
@@ -700,7 +697,7 @@ pub fn update_config(
     sender: Addr,
     protocol_fee_contract: Option<String>,
     protocol_reward_fee: Option<Decimal>,
-) -> StdResult<Response<TerraMsgWrapper>> {
+) -> StdResult<Response> {
     let state = State::default();
 
     state.assert_owner(deps.storage, &sender)?;

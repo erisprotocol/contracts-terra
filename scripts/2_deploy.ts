@@ -98,6 +98,8 @@ const templates: Record<string, InstantiateMsg> = {
   msg["cw20_code_id"] = tokenCodeId;
   msg["owner"] = msg["owner"] || deployer.key.accAddress;
 
+  console.log("\n" + JSON.stringify(msg).replace(/\\/g, "") + "\n");
+
   await waitForConfirm("Proceed to deploy contracts?");
   const result = await instantiateWithConfirm(
     deployer,
@@ -106,6 +108,6 @@ const templates: Record<string, InstantiateMsg> = {
     msg
   );
   const address =
-    result.logs[0].eventsByType["instantiate_contract"]["contract_address"][0];
+    result.logs[0].eventsByType["instantiate"]["_contract_address"][0];
   console.log(`Contract instantiated! Address: ${address}`);
 })();

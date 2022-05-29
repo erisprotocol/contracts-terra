@@ -2,7 +2,6 @@ use cosmwasm_std::{to_binary, Addr, Coin, CosmosMsg, Decimal, Empty, StdResult, 
 use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use terra_cosmwasm::TerraMsgWrapper;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InstantiateMsg {
@@ -47,7 +46,7 @@ pub enum ExecuteMsg {
         validator: String,
     },
     /// Remove a validator from the whitelist; callable by the owner
-    RemoveValidator{
+    RemoveValidator {
         validator: String,
     },
     /// Transfer ownership to another account; will not take effect unless the new owner accepts
@@ -73,7 +72,7 @@ pub enum ExecuteMsg {
         protocol_fee_contract: Option<String>,
         /// Fees that are being applied during reinvest of staking rewards
         protocol_reward_fee: Option<Decimal>, // "1 is 100%, 0.05 is 5%"
-    }
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -96,7 +95,7 @@ pub enum CallbackMsg {
 }
 
 impl CallbackMsg {
-    pub fn into_cosmos_msg(&self, contract_addr: &Addr) -> StdResult<CosmosMsg<TerraMsgWrapper>> {
+    pub fn into_cosmos_msg(&self, contract_addr: &Addr) -> StdResult<CosmosMsg> {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: contract_addr.to_string(),
             msg: to_binary(&ExecuteMsg::Callback(self.clone()))?,
@@ -153,7 +152,7 @@ pub struct ConfigResponse {
     pub validators: Vec<String>,
 
     /// Information about applied fees
-    pub fee_config: FeeConfig
+    pub fee_config: FeeConfig,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -179,13 +178,12 @@ pub struct PendingBatch {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct FeeConfig {    
+pub struct FeeConfig {
     /// Contract address where fees are sent
     pub protocol_fee_contract: Addr,
     /// Fees that are being applied during reinvest of staking rewards
     pub protocol_reward_fee: Decimal, // "1 is 100%, 0.05 is 5%"
 }
-
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Batch {

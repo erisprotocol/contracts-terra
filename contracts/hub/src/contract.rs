@@ -3,9 +3,10 @@ use cosmwasm_std::{
     StdError, StdResult,
 };
 use cw20::Cw20ReceiveMsg;
-use terra_cosmwasm::TerraMsgWrapper;
 
-use eris_staking::hub::{CallbackMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, ReceiveMsg};
+use eris_staking::hub::{
+    CallbackMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, ReceiveMsg,
+};
 
 use crate::helpers::{parse_received_fund, unwrap_reply};
 use crate::state::State;
@@ -22,12 +23,7 @@ pub fn instantiate(
 }
 
 #[entry_point]
-pub fn execute(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    msg: ExecuteMsg,
-) -> StdResult<Response<TerraMsgWrapper>> {
+pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
     let api = deps.api;
     match msg {
         ExecuteMsg::Receive(cw20_msg) => receive(deps, env, info, cw20_msg),
@@ -62,7 +58,10 @@ pub fn execute(
         ExecuteMsg::Reconcile {} => execute::reconcile(deps, env),
         ExecuteMsg::SubmitBatch {} => execute::submit_batch(deps, env),
         ExecuteMsg::Callback(callback_msg) => callback(deps, env, info, callback_msg),
-        ExecuteMsg::UpdateConfig { protocol_fee_contract, protocol_reward_fee } => execute::update_config(deps, info.sender, protocol_fee_contract, protocol_reward_fee)
+        ExecuteMsg::UpdateConfig {
+            protocol_fee_contract,
+            protocol_reward_fee,
+        } => execute::update_config(deps, info.sender, protocol_fee_contract, protocol_reward_fee),
     }
 }
 
@@ -71,7 +70,7 @@ fn receive(
     env: Env,
     info: MessageInfo,
     cw20_msg: Cw20ReceiveMsg,
-) -> StdResult<Response<TerraMsgWrapper>> {
+) -> StdResult<Response> {
     let api = deps.api;
     match from_binary(&cw20_msg.msg)? {
         ReceiveMsg::QueueUnbond {
@@ -81,9 +80,10 @@ fn receive(
 
             let stake_token = state.stake_token.load(deps.storage)?;
             if info.sender != stake_token {
-                return Err(StdError::generic_err(
-                    format!("expecting Stake token, received {}", info.sender)
-                ));
+                return Err(StdError::generic_err(format!(
+                    "expecting Stake token, received {}",
+                    info.sender
+                )));
             }
 
             execute::queue_unbond(
@@ -101,7 +101,7 @@ fn callback(
     env: Env,
     info: MessageInfo,
     callback_msg: CallbackMsg,
-) -> StdResult<Response<TerraMsgWrapper>> {
+) -> StdResult<Response> {
     if env.contract.address != info.sender {
         return Err(StdError::generic_err("callbacks can only be invoked by the contract itself"));
     }
@@ -160,6 +160,6 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
 }
 
 #[entry_point]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response<TerraMsgWrapper>> {
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
     Ok(Response::new())
 }

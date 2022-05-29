@@ -1,26 +1,24 @@
 pub mod hub;
 
 mod decimal_checked_ops {
-    use bigint::U256;
-    use cosmwasm_bignumber::Decimal256;
-    use cosmwasm_std::{Decimal, Fraction, OverflowError, StdError, Uint128, Uint256};
+    use cosmwasm_std::{Decimal, Decimal256, Fraction, OverflowError, StdError, Uint128, Uint256};
     use std::{convert::TryInto, str::FromStr};
 
-    pub trait Decimal256CheckedOps {
-        fn to_decimal(self) -> Result<Decimal, StdError>;
-    }
+    // pub trait Decimal256CheckedOps {
+    //     fn to_decimal(self) -> Result<Decimal, StdError>;
+    // }
 
-    impl Decimal256CheckedOps for Decimal256 {
-        fn to_decimal(self) -> Result<Decimal, StdError> {
-            let U256(ref arr) = self.0;
-            if arr[2] == 0u64 || arr[3] == 0u64 {
-                return Err(StdError::generic_err(
-                    "overflow error by casting decimal256 to decimal",
-                ));
-            }
-            Decimal::from_str(&self.to_string())
-        }
-    }
+    // impl Decimal256CheckedOps for Decimal256 {
+    //     fn to_decimal(self) -> Result<Decimal, StdError> {
+    //         let U256(ref arr) = self.0;
+    //         if arr[2] == 0u64 || arr[3] == 0u64 {
+    //             return Err(StdError::generic_err(
+    //                 "overflow error by casting decimal256 to decimal",
+    //             ));
+    //         }
+    //         Decimal::from_str(&self.to_string())
+    //     }
+    // }
 
     pub trait DecimalCheckedOps {
         fn checked_add(self, other: Decimal) -> Result<Decimal, StdError>;

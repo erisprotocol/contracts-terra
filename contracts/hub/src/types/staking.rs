@@ -1,5 +1,4 @@
-use cosmwasm_std::{Coin, CosmosMsg, StakingMsg, BankMsg, Addr};
-use terra_cosmwasm::TerraMsgWrapper;
+use cosmwasm_std::{Addr, BankMsg, Coin, CosmosMsg, StakingMsg};
 
 #[derive(Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
@@ -16,14 +15,13 @@ impl Delegation {
         }
     }
 
-    pub fn to_cosmos_msg(&self) -> CosmosMsg<TerraMsgWrapper> {
+    pub fn to_cosmos_msg(&self) -> CosmosMsg {
         CosmosMsg::Staking(StakingMsg::Delegate {
             validator: self.validator.clone(),
             amount: Coin::new(self.amount, "uluna"),
         })
     }
 }
-
 
 #[derive(Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
@@ -40,7 +38,7 @@ impl SendFee {
         }
     }
 
-    pub fn to_cosmos_msg(&self) -> CosmosMsg<TerraMsgWrapper> {
+    pub fn to_cosmos_msg(&self) -> CosmosMsg {
         CosmosMsg::Bank(BankMsg::Send {
             to_address: self.to_address.clone(),
             amount: vec![Coin::new(self.amount, "uluna")],
@@ -62,7 +60,7 @@ impl Undelegation {
         }
     }
 
-    pub fn to_cosmos_msg(&self) -> CosmosMsg<TerraMsgWrapper> {
+    pub fn to_cosmos_msg(&self) -> CosmosMsg {
         CosmosMsg::Staking(StakingMsg::Undelegate {
             validator: self.validator.clone(),
             amount: Coin::new(self.amount, "uluna"),
@@ -86,7 +84,7 @@ impl Redelegation {
         }
     }
 
-    pub fn to_cosmos_msg(&self) -> CosmosMsg<TerraMsgWrapper> {
+    pub fn to_cosmos_msg(&self) -> CosmosMsg {
         CosmosMsg::Staking(StakingMsg::Redelegate {
             src_validator: self.src.clone(),
             dst_validator: self.dst.clone(),
