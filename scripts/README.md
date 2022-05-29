@@ -42,5 +42,5 @@ Other scripts work similarly to the examples above.
 ## Real examples
 
 ```bash
-ts-node 2_deploy.ts --network testnet --key testnet --msg /msgs/instantiate_testnet_msg.json
+ts-node 2_deploy.ts --network testnet --key testnet --hub-code-id 126 --token-code-id 125
 ```

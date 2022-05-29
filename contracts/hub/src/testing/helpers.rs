@@ -23,6 +23,7 @@ pub(super) fn mock_dependencies() -> OwnedDeps<MockStorage, MockApi, CustomQueri
         storage: MockStorage::default(),
         api: MockApi::default(),
         querier: CustomQuerier::default(),
+        custom_query_type: std::marker::PhantomData::default(),
     }
 }
 
@@ -36,6 +37,7 @@ pub(super) fn mock_env_at_timestamp(timestamp: u64) -> Env {
         contract: ContractInfo {
             address: Addr::unchecked(MOCK_CONTRACT_ADDR),
         },
+        transaction: None,
     }
 }
 

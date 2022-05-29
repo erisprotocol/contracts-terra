@@ -12,7 +12,7 @@ import {
 import * as keystore from "./keystore";
 
 const DEFAULT_GAS_SETTINGS = {
-  gasPrices: "1.25usek",
+  gasPrices: "0.15uluna",
   gasAdjustment: 1.2,
 };
 
@@ -20,12 +20,22 @@ const DEFAULT_GAS_SETTINGS = {
  * @notice Create an `LCDClient` instance based on provided network identifier
  */
 export function createLCDClient(network: string): LCDClient {
-  if (network === "mainnet") {
+  if (network === "classic") {
+    return new LCDClient({
+      chainID: "phoenix-1",
+      URL: "https://phoenix-lcd.terra.dev",
+    });
+  } else if (network === "testnet") {
+    return new LCDClient({
+      chainID: "pisco-1",
+      URL: "https://pisco-lcd.terra.dev",
+    });
+  } else if (network === "classic") {
     return new LCDClient({
       chainID: "columbus-5",
       URL: "https://lcd.terra.dev",
     });
-  } else if (network === "testnet") {
+  } else if (network === "classic-testnet") {
     return new LCDClient({
       chainID: "bombay-12",
       URL: "https://bombay-lcd.terra.dev",
@@ -101,7 +111,14 @@ export async function instantiateWithConfirm(
   initMsg: object
 ) {
   const result = await sendTxWithConfirm(signer, [
-    new MsgInstantiateContract(signer.key.accAddress, admin, codeId, initMsg),
+    new MsgInstantiateContract(
+      signer.key.accAddress,
+      admin,
+      codeId,
+      initMsg,
+      undefined,
+      "Eris Liquid Staking Hub"
+    ),
   ]);
   return result;
 }
