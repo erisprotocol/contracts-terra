@@ -3,7 +3,11 @@ use std::fs::create_dir_all;
 
 use cosmwasm_schema::{export_schema_with_title, remove_schemas, schema_for};
 
-use eris_staking::hub::{Batch, ExecuteMsg, InstantiateMsg, PendingBatch, QueryMsg, StateResponse, ConfigResponse, UnbondRequestsByBatchResponseItem, UnbondRequestsByUserResponseItem, FeeConfig};
+use eris_staking::hub::{
+    Batch, ConfigResponse, ExecuteMsg, FeeConfig, InstantiateMsg, PendingBatch, QueryMsg,
+    StateResponse, UnbondRequestsByBatchResponseItem, UnbondRequestsByUserResponseItem,
+    UnbondRequestsByUserResponseItemDetails,
+};
 
 fn main() {
     let mut out_dir = current_dir().unwrap();
@@ -28,5 +32,10 @@ fn main() {
         &schema_for!(UnbondRequestsByUserResponseItem),
         &out_dir,
         "UnbondRequestsByUserResponseItem",
+    );
+    export_schema_with_title(
+        &schema_for!(UnbondRequestsByUserResponseItemDetails),
+        &out_dir,
+        "UnbondRequestsByUserResponseItemDetails",
     );
 }

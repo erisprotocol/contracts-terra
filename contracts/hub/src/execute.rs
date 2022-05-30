@@ -76,7 +76,7 @@ pub fn instantiate(deps: DepsMut, env: Env, msg: InstantiateMsg) -> StdResult<Re
                 marketing: None,
             })?,
             funds: vec![],
-            label: "stake_token".to_string(),
+            label: "Eris Liquid Staking Token".to_string(),
         }),
         1,
     )))

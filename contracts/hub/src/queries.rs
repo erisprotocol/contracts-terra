@@ -3,7 +3,7 @@ use cw_storage_plus::Bound;
 
 use eris_staking::hub::{
     Batch, ConfigResponse, PendingBatch, StateResponse, UnbondRequestsByBatchResponseItem,
-    UnbondRequestsByUserResponseItem,
+    UnbondRequestsByUserResponseItem, UnbondRequestsByUserResponseItemDetails,
 };
 
 use crate::helpers::{query_cw20_total_supply, query_delegations};
@@ -135,6 +135,62 @@ pub fn unbond_requests_by_user(
             let (_, v) = item?;
 
             Ok(v.into())
+        })
+        .collect()
+}
+
+pub fn unbond_requests_by_user_details(
+    deps: Deps,
+    user: String,
+    start_after: Option<u64>,
+    limit: Option<u32>,
+    env: Env,
+) -> StdResult<Vec<UnbondRequestsByUserResponseItemDetails>> {
+    let state = State::default();
+
+    let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
+    let addr = deps.api.addr_validate(&user)?;
+    let start = start_after.map(|id| Bound::exclusive((id, &addr)));
+
+    let pending = state.pending_batch.load(deps.storage)?;
+
+    state
+        .unbond_requests
+        .idx
+        .user
+        .prefix(user)
+        .range(deps.storage, start, None, Order::Ascending)
+        .take(limit)
+        .map(|item| {
+            let (_, v) = item?;
+
+            let state_msg: String;
+            let previous: Option<Batch>;
+            if pending.id == v.id {
+                state_msg = "PENDING".to_string();
+                previous = None;
+            } else {
+                let batch = state.previous_batches.load(deps.storage, v.id)?;
+                previous = Some(batch.clone());
+                let current_time = env.block.time.seconds();
+                state_msg = if batch.est_unbond_end_time < current_time {
+                    "COMPLETED".to_string()
+                } else {
+                    "UNBONDING".to_string()
+                }
+            }
+
+            Ok(UnbondRequestsByUserResponseItemDetails {
+                id: v.id,
+                shares: v.shares,
+                state: state_msg,
+                pending: if pending.id == v.id {
+                    Some(pending.clone())
+                } else {
+                    None
+                },
+                batch: previous,
+            })
         })
         .collect()
 }

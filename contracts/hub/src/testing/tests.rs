@@ -12,7 +12,7 @@ use eris_staking::DecimalCheckedOps;
 use eris_staking::hub::{
     Batch, CallbackMsg, ConfigResponse, ExecuteMsg, FeeConfig, InstantiateMsg, PendingBatch,
     QueryMsg, ReceiveMsg, StateResponse, UnbondRequest, UnbondRequestsByBatchResponseItem,
-    UnbondRequestsByUserResponseItem,
+    UnbondRequestsByUserResponseItem, UnbondRequestsByUserResponseItemDetails,
 };
 
 use crate::contract::{execute, instantiate, reply};
@@ -21,6 +21,7 @@ use crate::math::{
     compute_redelegations_for_rebalancing, compute_redelegations_for_removal, compute_undelegations,
 };
 use crate::state::State;
+use crate::testing::helpers::query_helper_env;
 use crate::types::{Coins, Delegation, Redelegation, SendFee, Undelegation};
 
 use super::custom_querier::CustomQuerier;
@@ -72,17 +73,17 @@ fn setup_test() -> OwnedDeps<MockStorage, MockApi, CustomQuerier> {
                 })
                 .unwrap(),
                 funds: vec![],
-                label: "stake_token".to_string(),
+                label: "Eris Liquid Staking Token".to_string(),
             }),
             1
         )
     );
 
-    let event = Event::new("instantiate_contract")
+    let event = Event::new("instantiate")
         .add_attribute("creator", MOCK_CONTRACT_ADDR)
         .add_attribute("admin", "admin")
         .add_attribute("code_id", "69420")
-        .add_attribute("contract_address", "stake_token");
+        .add_attribute("_contract_address", "stake_token");
 
     let res = reply(
         deps.as_mut(),
@@ -1476,6 +1477,116 @@ fn querying_unbond_requests() {
         },
     );
     assert_eq!(res, vec![unbond_requests[3].clone().into()]);
+}
+
+#[test]
+fn querying_unbond_requests_details() {
+    let mut deps = mock_dependencies();
+    let state = State::default();
+
+    let unbond_requests = vec![
+        UnbondRequest {
+            id: 1,
+            user: Addr::unchecked("alice"),
+            shares: Uint128::new(123),
+        },
+        UnbondRequest {
+            id: 1,
+            user: Addr::unchecked("bob"),
+            shares: Uint128::new(234),
+        },
+        UnbondRequest {
+            id: 1,
+            user: Addr::unchecked("charlie"),
+            shares: Uint128::new(345),
+        },
+        UnbondRequest {
+            id: 2,
+            user: Addr::unchecked("alice"),
+            shares: Uint128::new(456),
+        },
+        UnbondRequest {
+            id: 3,
+            user: Addr::unchecked("alice"),
+            shares: Uint128::new(555),
+        },
+    ];
+
+    let pending = PendingBatch {
+        id: 3,
+        ustake_to_burn: Uint128::new(1000),
+        est_unbond_start_time: 20000,
+    };
+
+    state.pending_batch.save(deps.as_mut().storage, &pending).unwrap();
+
+    let batches = vec![
+        Batch {
+            id: 1,
+            reconciled: false,
+            total_shares: Uint128::new(123),
+            uluna_unclaimed: Uint128::new(678),
+            est_unbond_end_time: 10000,
+        },
+        Batch {
+            id: 2,
+            reconciled: false,
+            total_shares: Uint128::new(234),
+            uluna_unclaimed: Uint128::new(789),
+            est_unbond_end_time: 15000,
+        },
+    ];
+
+    for batch in &batches {
+        state.previous_batches.save(deps.as_mut().storage, batch.id, batch).unwrap();
+    }
+
+    for unbond_request in &unbond_requests {
+        state
+            .unbond_requests
+            .save(
+                deps.as_mut().storage,
+                (unbond_request.id, &Addr::unchecked(unbond_request.user.clone())),
+                unbond_request,
+            )
+            .unwrap();
+    }
+
+    let res: Vec<UnbondRequestsByUserResponseItemDetails> = query_helper_env(
+        deps.as_ref(),
+        QueryMsg::UnbondRequestsByUserDetails {
+            user: "alice".to_string(),
+            start_after: None,
+            limit: None,
+        },
+        12000,
+    );
+    assert_eq!(
+        res,
+        vec![
+            UnbondRequestsByUserResponseItemDetails {
+                id: 1,
+                shares: Uint128::new(123),
+                state: "COMPLETED".to_string(),
+                batch: Some(batches[0].clone()),
+                pending: None
+            },
+            UnbondRequestsByUserResponseItemDetails {
+                id: 2,
+                shares: Uint128::new(456),
+                state: "UNBONDING".to_string(),
+                batch: Some(batches[1].clone()),
+                pending: None
+            },
+            UnbondRequestsByUserResponseItemDetails {
+                id: 3,
+                shares: Uint128::new(555),
+                state: "PENDING".to_string(),
+                batch: None,
+                pending: Some(pending)
+            }
+        ]
+    );
 }
 
 //--------------------------------------------------------------------------------------------------

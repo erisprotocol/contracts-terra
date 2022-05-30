@@ -2,7 +2,8 @@ use std::env::current_dir;
 use std::fs::create_dir_all;
 
 use cosmwasm_schema::{export_schema_with_title, remove_schemas, schema_for};
-use cw20_base::msg::{InstantiateMsg, QueryMsg, ExecuteMsg};
+use cw20::BalanceResponse;
+use cw20_base::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 
 fn main() {
     let mut out_dir = current_dir().unwrap();
@@ -13,4 +14,6 @@ fn main() {
     export_schema_with_title(&schema_for!(InstantiateMsg), &out_dir, "InstantiateMsg");
     export_schema_with_title(&schema_for!(ExecuteMsg), &out_dir, "ExecuteMsg");
     export_schema_with_title(&schema_for!(QueryMsg), &out_dir, "QueryMsg");
+
+    export_schema_with_title(&schema_for!(BalanceResponse), &out_dir, "BalanceResponse");
 }

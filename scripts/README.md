@@ -44,3 +44,7 @@ Other scripts work similarly to the examples above.
 ```bash
 ts-node 2_deploy.ts --network testnet --key testnet --hub-code-id 126 --token-code-id 125
 ```
+
+```bash
+ts-node 3_migrate.ts --network testnet --key testnet --contract-address terra1cgurv08h780ygh3a4l2tjtxndksywskxp4mypkazuuazqas5m8kqleeupz
+```

@@ -160,6 +160,43 @@
         }
       },
       "additionalProperties": false
+    },
+    {
+      "description": "Enumreate all outstanding unbonding requests from given a user. Response: `Vec<UnbondRequestsByUserResponseItemDetails>`",
+      "type": "object",
+      "required": [
+        "unbond_requests_by_user_details"
+      ],
+      "properties": {
+        "unbond_requests_by_user_details": {
+          "type": "object",
+          "required": [
+            "user"
+          ],
+          "properties": {
+            "limit": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "start_after": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "user": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
     }
   ]
 }

@@ -134,6 +134,12 @@ pub enum QueryMsg {
         start_after: Option<u64>,
         limit: Option<u32>,
     },
+    /// Enumreate all outstanding unbonding requests from given a user. Response: `Vec<UnbondRequestsByUserResponseItemDetails>`
+    UnbondRequestsByUserDetails {
+        user: String,
+        start_after: Option<u64>,
+        limit: Option<u32>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -241,6 +247,23 @@ impl From<UnbondRequest> for UnbondRequestsByUserResponseItem {
             shares: s.shares,
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct UnbondRequestsByUserResponseItemDetails {
+    /// ID of the batch
+    pub id: u64,
+    /// The user's share in the batch
+    pub shares: Uint128,
+
+    // state of pending, unbonding or completed
+    pub state: String,
+
+    // The details of the unbonding batch
+    pub batch: Option<Batch>,
+
+    // Is set if the unbonding request is still pending
+    pub pending: Option<PendingBatch>,
 }
 
 pub type MigrateMsg = Empty;

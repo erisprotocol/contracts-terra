@@ -46,4 +46,12 @@ export type QueryMsg =
         user: string;
         [k: string]: unknown;
       };
+    }
+  | {
+      unbond_requests_by_user_details: {
+        limit?: number | null;
+        start_after?: number | null;
+        user: string;
+        [k: string]: unknown;
+      };
     };

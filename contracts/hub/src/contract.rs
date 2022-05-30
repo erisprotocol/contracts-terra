@@ -156,6 +156,18 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             start_after,
             limit,
         } => to_binary(&queries::unbond_requests_by_user(deps, user, start_after, limit)?),
+
+        QueryMsg::UnbondRequestsByUserDetails {
+            user,
+            start_after,
+            limit,
+        } => to_binary(&queries::unbond_requests_by_user_details(
+            deps,
+            user,
+            start_after,
+            limit,
+            env,
+        )?),
     }
 }
 
