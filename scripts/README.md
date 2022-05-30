@@ -58,6 +58,15 @@ ts-node 3_migrate.ts --network testnet --key testnet --contract-address terra1cg
 ts-node 5_harvest.ts --network testnet --key testnet --hub-address terra1cgurv08h780ygh3a4l2tjtxndksywskxp4mypkazuuazqas5m8kqleeupz
 ```
 
+```bash
+ts-node 6_rebalance.ts --network testnet --key testnet --hub-address terra1cgurv08h780ygh3a4l2tjtxndksywskxp4mypkazuuazqas5m8kqleeupz
+```
+
+```bash
+ts-node 10_add_validator.ts --network testnet --key testnet --hub-address terra1cgurv08h780ygh3a4l2tjtxndksywskxp4mypkazuuazqas5m8kqleeupz --validator-address terravaloper1uxx32m0u5svtvrujnpcs6pxuv7yvn4pjhl0fux
+```
+
+
 ### Mainnet
 ```bash
 ts-node 2_deploy.ts --network mainnet --key mainnet --hub-code-id 11 --token-code-id 12
