@@ -54,6 +54,10 @@ ts-node 2_deploy.ts --network testnet --key testnet --hub-code-id 126 --token-co
 ts-node 3_migrate.ts --network testnet --key testnet --contract-address terra1cgurv08h780ygh3a4l2tjtxndksywskxp4mypkazuuazqas5m8kqleeupz
 ```
 
+```bash
+ts-node 5_harvest.ts --network testnet --key testnet --hub-address terra1cgurv08h780ygh3a4l2tjtxndksywskxp4mypkazuuazqas5m8kqleeupz
+```
+
 ### Mainnet
 ```bash
 ts-node 2_deploy.ts --network mainnet --key mainnet --hub-code-id 11 --token-code-id 12
@@ -61,4 +65,8 @@ ts-node 2_deploy.ts --network mainnet --key mainnet --hub-code-id 11 --token-cod
 
 ```bash
 ts-node 3_migrate.ts --network mainnet --key mainnet --contract-address terra10788fkzah89xrdm27zkj5yvhj9x3494lxawzm5qq3vvxcqz2yzaqyd3enk
+```
+
+```bash
+ts-node 5_harvest.ts --network mainnet --key mainnet --hub-address terra10788fkzah89xrdm27zkj5yvhj9x3494lxawzm5qq3vvxcqz2yzaqyd3enk
 ```
