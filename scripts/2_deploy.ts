@@ -65,7 +65,7 @@ async function uploadCode(deployer: Wallet, path: string) {
 
 const templates: Record<string, InstantiateMsg> = {
   testnet: <InstantiateMsg>{
-    name: "Amplified LUNA",
+    name: "Eris Amplified LUNA",
     symbol: "ampLUNA",
     cw20_code_id: 0,
     decimals: 6,
@@ -73,6 +73,29 @@ const templates: Record<string, InstantiateMsg> = {
     unbond_period: 21 * 24 * 60 * 60,
     validators: ["terravaloper1cevf3xwxm8zjhj7yrnjc0qy6y6ng98lxgxp79x"],
     protocol_fee_contract: "terra1pm8wqcrvk2qysf30u4e5mwprjfj9hj87dph3ne",
+    protocol_reward_fee: "0.05",
+    owner: "",
+  },
+  mainnet: <InstantiateMsg>{
+    name: "Eris Amplified LUNA",
+    symbol: "ampLUNA",
+    cw20_code_id: 0,
+    decimals: 6,
+    epoch_period: 3 * 24 * 60 * 60,
+    unbond_period: 21 * 24 * 60 * 60,
+    validators: [
+      "terravaloper15lsftv92eyssjwkh2393s0nhjc07kryqen2fqf",
+      "terravaloper17kh8ngu3s74epwympaxrp4ukahm5rvtf5zc8ma",
+      "terravaloper1ge3vqn6cjkk2xkfwpg5ussjwxvahs2f6at87yp",
+      "terravaloper1u53qwdgafryksqnzq3k7e5eyph7jlh8kgc3va4",
+      "terravaloper188e99yz54744uhr8xjfxmmplhnuw75xea55zfp",
+      "terravaloper199fjq4rnfvz24cktl8cervx8h8e90rukmgdv5x",
+      "terravaloper13fkxypqa0e3lvzu2fay7mslc2xsghv26a3a7jl",
+      // "",
+      // "",
+      // "",
+    ],
+    protocol_fee_contract: "terra1rgggsspquaxjp4lmegx7a3q4l9lg44hnu7rjxa",
     protocol_reward_fee: "0.05",
     owner: "",
   },

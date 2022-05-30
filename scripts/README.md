@@ -42,9 +42,23 @@ Other scripts work similarly to the examples above.
 ## Real examples
 
 ```bash
+ts-node 1_manage_keys.ts add mainnet
+```
+
+### Testnet
+```bash
 ts-node 2_deploy.ts --network testnet --key testnet --hub-code-id 126 --token-code-id 125
 ```
 
 ```bash
 ts-node 3_migrate.ts --network testnet --key testnet --contract-address terra1cgurv08h780ygh3a4l2tjtxndksywskxp4mypkazuuazqas5m8kqleeupz
+```
+
+### Mainnet
+```bash
+ts-node 2_deploy.ts --network mainnet --key mainnet --hub-code-id 11 --token-code-id 12
+```
+
+```bash
+ts-node 3_migrate.ts --network mainnet --key mainnet --contract-address terra10788fkzah89xrdm27zkj5yvhj9x3494lxawzm5qq3vvxcqz2yzaqyd3enk
 ```

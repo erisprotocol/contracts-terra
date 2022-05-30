@@ -5,7 +5,7 @@ use cosmwasm_schema::{export_schema_with_title, remove_schemas, schema_for};
 
 use eris_staking::hub::{
     Batch, ConfigResponse, ExecuteMsg, FeeConfig, InstantiateMsg, PendingBatch, QueryMsg,
-    StateResponse, UnbondRequestsByBatchResponseItem, UnbondRequestsByUserResponseItem,
+    ReceiveMsg, StateResponse, UnbondRequestsByBatchResponseItem, UnbondRequestsByUserResponseItem,
     UnbondRequestsByUserResponseItemDetails,
 };
 
@@ -38,4 +38,5 @@ fn main() {
         &out_dir,
         "UnbondRequestsByUserResponseItemDetails",
     );
+    export_schema_with_title(&schema_for!(ReceiveMsg), &out_dir, "ReceiveMsg");
 }

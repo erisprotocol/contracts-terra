@@ -349,20 +349,31 @@ pub fn queue_unbond(
     )?;
 
     let mut msgs: Vec<CosmosMsg> = vec![];
+    let mut start_time = pending_batch.est_unbond_start_time.to_string();
     if env.block.time.seconds() >= pending_batch.est_unbond_start_time {
+        start_time = "immediate".to_string();
         msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: env.contract.address.into(),
+            contract_addr: env.contract.address.clone().into(),
             msg: to_binary(&ExecuteMsg::SubmitBatch {})?,
             funds: vec![],
         }));
     }
 
+    // let stake_token = state.stake_token.load(deps.storage)?;
+    // let validators = state.validators.load(deps.storage)?;
+    // let delegations = query_delegations(&deps.querier, &validators, &env.contract.address)?;
+    // let ustake_supply = query_cw20_total_supply(&deps.querier, &stake_token)?;
+    // let uluna_estimated = compute_unbond_amount(ustake_supply, ustake_to_burn, &delegations);
+
     let event = Event::new("erishub/unbond_queued")
         .add_attribute("time", env.block.time.seconds().to_string())
+        .add_attribute("est_unbond_start_time", start_time)
         .add_attribute("height", env.block.height.to_string())
         .add_attribute("id", pending_batch.id.to_string())
         .add_attribute("receiver", receiver)
-        .add_attribute("ustake_to_burn", ustake_to_burn);
+        .add_attribute("ustake_to_burn", ustake_to_burn)
+        // .add_attribute("uluna_estimated", uluna_estimated)
+        ;
 
     Ok(Response::new()
         .add_messages(msgs)

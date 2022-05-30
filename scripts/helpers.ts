@@ -20,7 +20,7 @@ const DEFAULT_GAS_SETTINGS = {
  * @notice Create an `LCDClient` instance based on provided network identifier
  */
 export function createLCDClient(network: string): LCDClient {
-  if (network === "classic") {
+  if (network === "mainnet") {
     return new LCDClient({
       chainID: "phoenix-1",
       URL: "https://phoenix-lcd.terra.dev",
@@ -44,7 +44,7 @@ export function createLCDClient(network: string): LCDClient {
     return new LocalTerra();
   } else {
     throw new Error(
-      `invalid network: ${network}, must be mainnet|testnet|localterra`
+      `invalid network: ${network}, must be mainnet|testnet|localterra|classic-testnet`
     );
   }
 }
