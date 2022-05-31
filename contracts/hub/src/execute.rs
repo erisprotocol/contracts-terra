@@ -17,7 +17,7 @@ use crate::constants::get_reward_fee_cap;
 use crate::helpers::{query_cw20_total_supply, query_delegation, query_delegations};
 use crate::math::{
     compute_mint_amount, compute_redelegations_for_rebalancing, compute_redelegations_for_removal,
-    compute_unbond_amount, compute_undelegations, reconcile_batches,
+    compute_unbond_amount, compute_undelegations, mark_reconciled_batches, reconcile_batches,
 };
 use crate::state::State;
 use crate::types::{Coins, Delegation, SendFee};
@@ -403,15 +403,6 @@ pub fn submit_batch(deps: DepsMut, env: Env) -> StdResult<Response> {
         compute_unbond_amount(ustake_supply, pending_batch.ustake_to_burn, &delegations);
     let new_undelegations = compute_undelegations(uluna_to_unbond, &delegations);
 
-    // NOTE: Regarding the `uluna_unclaimed` value
-    //
-    // If validators misbehave and get slashed during the unbonding period, the contract can receive
-    // LESS Luna than `uluna_to_unbond` when unbonding finishes!
-    //
-    // In this case, users who invokes `withdraw_unbonded` will have their txs failed as the contract
-    // does not have enough Luna balance.
-    //
-    // I don't have a solution for this... other than to manually fund contract with the slashed amount.
     state.previous_batches.save(
         deps.storage,
         pending_batch.id,
@@ -496,7 +487,15 @@ pub fn reconcile(deps: DepsMut, env: Env) -> StdResult<Response> {
     let uluna_actual = deps.querier.query_balance(&env.contract.address, "uluna")?.amount;
 
     if uluna_actual >= uluna_expected {
-        return Ok(Response::new());
+        mark_reconciled_batches(&mut batches);
+        for batch in &batches {
+            state.previous_batches.save(deps.storage, batch.id, batch)?;
+        }
+        let ids = batches.iter().map(|b| b.id.to_string()).collect::<Vec<_>>().join(",");
+        let event = Event::new("erishub/reconciled")
+            .add_attribute("ids", ids)
+            .add_attribute("uluna_deducted", "0");
+        return Ok(Response::new().add_event(event).add_attribute("action", "erishub/reconcile"));
     }
 
     let uluna_to_deduct = uluna_expected - uluna_actual;

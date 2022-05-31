@@ -77,8 +77,16 @@ export async function waitForConfirm(msg: string) {
 /**
  * @notice Same with `sendTransaction`, but requires confirmation for CLI before broadcasting
  */
-export async function sendTxWithConfirm(signer: Wallet, msgs: Msg[]) {
-  const tx = await signer.createAndSignTx({ msgs, ...DEFAULT_GAS_SETTINGS });
+export async function sendTxWithConfirm(
+  signer: Wallet,
+  msgs: Msg[],
+  memo?: string
+) {
+  const tx = await signer.createAndSignTx({
+    msgs,
+    ...DEFAULT_GAS_SETTINGS,
+    memo: memo as string,
+  });
   console.log("\n" + JSON.stringify(tx).replace(/\\/g, "") + "\n");
 
   await waitForConfirm("Confirm transaction before broadcasting");

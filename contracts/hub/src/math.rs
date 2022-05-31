@@ -63,7 +63,11 @@ pub(crate) fn compute_undelegations(
     let mut new_undelegations: Vec<Undelegation> = vec![];
     let mut uluna_available = uluna_to_unbond.u128();
     for (i, d) in current_delegations.iter().enumerate() {
-        let remainder_for_validator: u128 = if (i + 1) as u128 <= remainder { 1 } else { 0 };
+        let remainder_for_validator: u128 = if (i + 1) as u128 <= remainder {
+            1
+        } else {
+            0
+        };
         let uluna_for_validator = uluna_per_validator + remainder_for_validator;
 
         let mut uluna_to_undelegate = if d.amount < uluna_for_validator {
@@ -76,9 +80,7 @@ pub(crate) fn compute_undelegations(
         uluna_available -= uluna_to_undelegate;
 
         if uluna_to_undelegate > 0 {
-            new_undelegations.push(
-                Undelegation::new(&d.validator, uluna_to_undelegate),
-            );
+            new_undelegations.push(Undelegation::new(&d.validator, uluna_to_undelegate));
         }
 
         if uluna_available == 0 {
@@ -109,7 +111,11 @@ pub(crate) fn compute_redelegations_for_removal(
     let mut new_redelegations: Vec<Redelegation> = vec![];
     let mut uluna_available = delegation_to_remove.amount;
     for (i, d) in current_delegations.iter().enumerate() {
-        let remainder_for_validator: u128 = if (i + 1) as u128 <= remainder { 1 } else { 0 };
+        let remainder_for_validator: u128 = if (i + 1) as u128 <= remainder {
+            1
+        } else {
+            0
+        };
         let uluna_for_validator = uluna_per_validator + remainder_for_validator;
 
         let mut uluna_to_redelegate = if d.amount > uluna_for_validator {
@@ -122,9 +128,11 @@ pub(crate) fn compute_redelegations_for_removal(
         uluna_available -= uluna_to_redelegate;
 
         if uluna_to_redelegate > 0 {
-            new_redelegations.push(
-                Redelegation::new(&delegation_to_remove.validator, &d.validator, uluna_to_redelegate),
-            );
+            new_redelegations.push(Redelegation::new(
+                &delegation_to_remove.validator,
+                &d.validator,
+                uluna_to_redelegate,
+            ));
         }
 
         if uluna_available == 0 {
@@ -155,7 +163,11 @@ pub(crate) fn compute_redelegations_for_rebalancing(
     let mut src_delegations: Vec<Delegation> = vec![];
     let mut dst_delegations: Vec<Delegation> = vec![];
     for (i, d) in current_delegations.iter().enumerate() {
-        let remainder_for_validator: u128 = if (i + 1) as u128 <= remainder { 1 } else { 0 };
+        let remainder_for_validator: u128 = if (i + 1) as u128 <= remainder {
+            1
+        } else {
+            0
+        };
         let uluna_for_validator = uluna_per_validator + remainder_for_validator;
 
         match d.amount.cmp(&uluna_for_validator) {
@@ -187,9 +199,11 @@ pub(crate) fn compute_redelegations_for_rebalancing(
             dst_delegations[0].amount -= uluna_to_redelegate;
         }
 
-        new_redelegations.push(
-            Redelegation::new(&src_delegation.validator, &dst_delegation.validator, uluna_to_redelegate),
-        );
+        new_redelegations.push(Redelegation::new(
+            &src_delegation.validator,
+            &dst_delegation.validator,
+            uluna_to_redelegate,
+        ));
     }
 
     new_redelegations
@@ -211,10 +225,21 @@ pub(crate) fn reconcile_batches(batches: &mut [Batch], uluna_to_deduct: Uint128)
     let remainder = uluna_to_deduct.u128() % batch_count;
 
     for (i, batch) in batches.iter_mut().enumerate() {
-        let remainder_for_batch: u128 = if (i + 1) as u128 <= remainder { 1 } else { 0 };
+        let remainder_for_batch: u128 = if (i + 1) as u128 <= remainder {
+            1
+        } else {
+            0
+        };
         let uluna_for_batch = uluna_per_batch + remainder_for_batch;
 
         batch.uluna_unclaimed -= Uint128::new(uluna_for_batch);
+        batch.reconciled = true;
+    }
+}
+
+/// If all funds are available we still need to mark batches as reconciled
+pub(crate) fn mark_reconciled_batches(batches: &mut [Batch]) {
+    for (_, batch) in batches.iter_mut().enumerate() {
         batch.reconciled = true;
     }
 }

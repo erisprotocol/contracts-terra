@@ -42,30 +42,33 @@ Other scripts work similarly to the examples above.
 ## Real examples
 
 ```bash
-ts-node 1_manage_keys.ts add mainnet
+ts-node 1_manage_keys.ts add invest 
 ```
 
 ### Testnet
 ```bash
-ts-node 2_deploy.ts --network testnet --key testnet --hub-code-id 126 --token-code-id 125
+ts-node 2_deploy.ts --network testnet --key testnet --hub-code-id 169 --token-code-id 125
 ```
 
 ```bash
-ts-node 3_migrate.ts --network testnet --key testnet --contract-address terra1cgurv08h780ygh3a4l2tjtxndksywskxp4mypkazuuazqas5m8kqleeupz
+ts-node 3_migrate.ts --network testnet --key testnet --contract-address terra1kye343r8hl7wm6f3uzynyyzl2zmcm2sqmvvzwzj7et2j5jj7rjkqa2ue88
 ```
 
 ```bash
-ts-node 5_harvest.ts --network testnet --key testnet --hub-address terra1cgurv08h780ygh3a4l2tjtxndksywskxp4mypkazuuazqas5m8kqleeupz
+ts-node 5_harvest.ts --network testnet --key testnet --hub-address terra1kye343r8hl7wm6f3uzynyyzl2zmcm2sqmvvzwzj7et2j5jj7rjkqa2ue88
 ```
 
 ```bash
-ts-node 6_rebalance.ts --network testnet --key testnet --hub-address terra1cgurv08h780ygh3a4l2tjtxndksywskxp4mypkazuuazqas5m8kqleeupz
+ts-node 6_rebalance.ts --network testnet --key testnet --hub-address terra1kye343r8hl7wm6f3uzynyyzl2zmcm2sqmvvzwzj7et2j5jj7rjkqa2ue88
 ```
 
 ```bash
-ts-node 10_add_validator.ts --network testnet --key testnet --hub-address terra1cgurv08h780ygh3a4l2tjtxndksywskxp4mypkazuuazqas5m8kqleeupz --validator-address terravaloper1uxx32m0u5svtvrujnpcs6pxuv7yvn4pjhl0fux
+ts-node 8_submit_batch.ts --network testnet --key testnet --hub-address terra1kye343r8hl7wm6f3uzynyyzl2zmcm2sqmvvzwzj7et2j5jj7rjkqa2ue88
 ```
 
+```bash
+ts-node 10_add_validator.ts --network testnet --key testnet --hub-address terra1kye343r8hl7wm6f3uzynyyzl2zmcm2sqmvvzwzj7et2j5jj7rjkqa2ue88 --validator-address terravaloper1uxx32m0u5svtvrujnpcs6pxuv7yvn4pjhl0fux
+```
 
 ### Mainnet
 ```bash
@@ -78,4 +81,8 @@ ts-node 3_migrate.ts --network mainnet --key mainnet --contract-address terra107
 
 ```bash
 ts-node 5_harvest.ts --network mainnet --key mainnet --hub-address terra10788fkzah89xrdm27zkj5yvhj9x3494lxawzm5qq3vvxcqz2yzaqyd3enk
+```
+
+```bash
+ts-node 11_multisend.ts --network mainnet --key invest
 ```

@@ -349,40 +349,40 @@ fn registering_unlocked_coins() {
         ]
     );
 
-    // After swapping, we parse the `swap` event to find the received amount
-    let event = Event::new("swap")
-        .add_attribute("offer", "25959uusd")
-        .add_attribute("trader", MOCK_CONTRACT_ADDR.to_string())
-        .add_attribute("recipient", MOCK_CONTRACT_ADDR.to_string())
-        .add_attribute("swap_coin", "243uluna")
-        .add_attribute("swap_fee", "1uluna");
+    // // After swapping, we parse the `swap` event to find the received amount
+    // let event = Event::new("swap")
+    //     .add_attribute("offer", "25959uusd")
+    //     .add_attribute("trader", MOCK_CONTRACT_ADDR.to_string())
+    //     .add_attribute("recipient", MOCK_CONTRACT_ADDR.to_string())
+    //     .add_attribute("swap_coin", "243uluna")
+    //     .add_attribute("swap_fee", "1uluna");
 
-    reply(
-        deps.as_mut(),
-        mock_env(),
-        Reply {
-            id: 3,
-            result: cosmwasm_std::SubMsgResult::Ok(SubMsgResponse {
-                events: vec![event],
-                data: None,
-            }),
-        },
-    )
-    .unwrap();
+    // reply(
+    //     deps.as_mut(),
+    //     mock_env(),
+    //     Reply {
+    //         id: 3,
+    //         result: cosmwasm_std::SubMsgResult::Ok(SubMsgResponse {
+    //             events: vec![event],
+    //             data: None,
+    //         }),
+    //     },
+    // )
+    // .unwrap();
 
-    let unlocked_coins = state.unlocked_coins.load(deps.as_ref().storage).unwrap();
-    assert_eq!(
-        unlocked_coins,
-        vec![
-            Coin::new(123, "ukrw"),
-            Coin::new(477, "uluna"), // 234 (balance prior to swap) + 243 (swap proceedings)
-            Coin::new(345, "uusd"),
-            Coin::new(
-                69420,
-                "ibc/0471F1C4E7AFD3F07702BEF6DC365268D64570F7C1FDC98EA6098DD6DE59817B"
-            ),
-        ]
-    );
+    // let unlocked_coins = state.unlocked_coins.load(deps.as_ref().storage).unwrap();
+    // assert_eq!(
+    //     unlocked_coins,
+    //     vec![
+    //         Coin::new(123, "ukrw"),
+    //         Coin::new(477, "uluna"), // 234 (balance prior to swap) + 243 (swap proceedings)
+    //         Coin::new(345, "uusd"),
+    //         Coin::new(
+    //             69420,
+    //             "ibc/0471F1C4E7AFD3F07702BEF6DC365268D64570F7C1FDC98EA6098DD6DE59817B"
+    //         ),
+    //     ]
+    // );
 }
 
 #[test]
@@ -801,6 +801,93 @@ fn reconciling() {
             reconciled: true,
             total_shares: Uint128::new(1456),
             uluna_unclaimed: Uint128::new(1233), // 1506 - 273
+            est_unbond_end_time: 30000,
+        }
+    );
+
+    // Batches 1 and 4 should not have changed
+    let batch = state.previous_batches.load(deps.as_ref().storage, 1u64).unwrap();
+    assert_eq!(batch, previous_batches[0]);
+
+    let batch = state.previous_batches.load(deps.as_ref().storage, 4u64).unwrap();
+    assert_eq!(batch, previous_batches[3]);
+}
+
+#[test]
+fn reconciling_even_when_everything_ok() {
+    let mut deps = setup_test();
+    let state = State::default();
+
+    let previous_batches = vec![
+        Batch {
+            id: 1,
+            reconciled: true,
+            total_shares: Uint128::new(100000),
+            uluna_unclaimed: Uint128::new(100000),
+            est_unbond_end_time: 10000,
+        },
+        Batch {
+            id: 2,
+            reconciled: false,
+            total_shares: Uint128::new(1000),
+            uluna_unclaimed: Uint128::new(1000),
+            est_unbond_end_time: 20000,
+        },
+        Batch {
+            id: 3,
+            reconciled: false,
+            total_shares: Uint128::new(1500),
+            uluna_unclaimed: Uint128::new(1500),
+            est_unbond_end_time: 30000,
+        },
+        Batch {
+            id: 4,
+            reconciled: false,
+            total_shares: Uint128::new(1500),
+            uluna_unclaimed: Uint128::new(1500),
+            est_unbond_end_time: 40000, // not yet finished unbonding, ignored
+        },
+    ];
+
+    for previous_batch in &previous_batches {
+        state
+            .previous_batches
+            .save(deps.as_mut().storage, previous_batch.id, previous_batch)
+            .unwrap();
+    }
+
+    state.unlocked_coins.save(deps.as_mut().storage, &vec![Coin::new(1000, "uluna")]).unwrap();
+
+    deps.querier.set_bank_balances(&[Coin::new(3500, "uluna")]);
+
+    execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(35000),
+        mock_info("worker", &[]),
+        ExecuteMsg::Reconcile {},
+    )
+    .unwrap();
+
+    let batch = state.previous_batches.load(deps.as_ref().storage, 2u64).unwrap();
+    assert_eq!(
+        batch,
+        Batch {
+            id: 2,
+            reconciled: true,
+            total_shares: Uint128::new(1000),
+            uluna_unclaimed: Uint128::new(1000),
+            est_unbond_end_time: 20000,
+        }
+    );
+
+    let batch = state.previous_batches.load(deps.as_ref().storage, 3u64).unwrap();
+    assert_eq!(
+        batch,
+        Batch {
+            id: 3,
+            reconciled: true,
+            total_shares: Uint128::new(1500),
+            uluna_unclaimed: Uint128::new(1500),
             est_unbond_end_time: 30000,
         }
     );
