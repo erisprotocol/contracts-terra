@@ -4,7 +4,7 @@
     "coverage": "bash build_coverage.sh",
     "schema": "yarn schema:create && yarn schema:ts",
     "schema:create": "bash build_schema.sh",
-    "schema:ts": "cd .. && json2ts -i contracts/hub/**/*.json -o scripts/types/hub && json2ts -i contracts/token/**/*.json -o scripts/types/token"
+    "schema:ts": "cd .. && json2ts -i contracts/hub/**/*.json -o ../liquid-staking-scripts/types/hub && json2ts -i contracts/token/**/*.json -o ../liquid-staking-scripts/types/token"
   },
   "dependencies": {
     "@terra-money/terra.js": "^3.0.8",
@@ -25,5 +25,6 @@
   },
   "engines": {
     "node": ">=16"
-  }
+  },
+  "license": "AGPL-3.0-or-later"
 }
