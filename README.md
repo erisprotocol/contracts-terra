@@ -19,8 +19,8 @@ A previous version ([v1.0.0-rc0](https://github.com/st4k3h0us3/steak-contracts/r
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Eris Staking Hub          | [`terra10788fkzah89xrdm27zkj5yvhj9x3494lxawzm5qq3vvxcqz2yzaqyd3enk`](https://finder.terra.money/mainnet/address/terra10788fkzah89xrdm27zkj5yvhj9x3494lxawzm5qq3vvxcqz2yzaqyd3enk) |
 | Eris Liquid Staking Token | [`terra1ecgazyd0waaj3g7l9cmy5gulhxkps2gmxu9ghducvuypjq68mq2s5lvsct`](https://finder.terra.money/mainnet/address/terra1ecgazyd0waaj3g7l9cmy5gulhxkps2gmxu9ghducvuypjq68mq2s5lvsct) |
-| ampLUNA-LUNA Pair         | [`terra1ccxwgew8aup6fysd7eafjzjz6hw89n40h273sgu3pl4lxrajnk5st2hvfh`](https://finder.terra.money/testnet/address/terra1ccxwgew8aup6fysd7eafjzjz6hw89n40h273sgu3pl4lxrajnk5st2hvfh) |
-| ampLUNA-LUNA LP Token     | [`terra1eh2aulwsyc9m45ggeznav402xcck4ll0yn0xgtlxyf4zkwch7juqsxvfzr`](https://finder.terra.money/testnet/address/terra1eh2aulwsyc9m45ggeznav402xcck4ll0yn0xgtlxyf4zkwch7juqsxvfzr) |
+| ampLUNA-LUNA Pair         | [`terra1ccxwgew8aup6fysd7eafjzjz6hw89n40h273sgu3pl4lxrajnk5st2hvfh`](https://finder.terra.money/mainnet/address/terra1ccxwgew8aup6fysd7eafjzjz6hw89n40h273sgu3pl4lxrajnk5st2hvfh) |
+| ampLUNA-LUNA LP Token     | [`terra1eh2aulwsyc9m45ggeznav402xcck4ll0yn0xgtlxyf4zkwch7juqsxvfzr`](https://finder.terra.money/mainnet/address/terra1eh2aulwsyc9m45ggeznav402xcck4ll0yn0xgtlxyf4zkwch7juqsxvfzr) |
 
 ### Testnet
 
