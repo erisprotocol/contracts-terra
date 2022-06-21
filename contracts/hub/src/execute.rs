@@ -121,6 +121,7 @@ pub fn bond(
     env: Env,
     receiver: Addr,
     uluna_to_bond: Uint128,
+    donate: bool,
 ) -> StdResult<Response> {
     let state = State::default();
     let stake_token = state.stake_token.load(deps.storage)?;
@@ -145,7 +146,11 @@ pub fn bond(
 
     // Query the current supply of Staking Token and compute the amount to mint
     let ustake_supply = query_cw20_total_supply(&deps.querier, &stake_token)?;
-    let ustake_to_mint = compute_mint_amount(ustake_supply, uluna_to_bond, &delegations);
+    let ustake_to_mint = if donate {
+        Uint128::zero()
+    } else {
+        compute_mint_amount(ustake_supply, uluna_to_bond, &delegations)
+    };
 
     let delegate_submsg = SubMsg::reply_on_success(new_delegation.to_cosmos_msg(), 2);
 
@@ -165,11 +170,15 @@ pub fn bond(
         .add_attribute("uluna_bonded", uluna_to_bond)
         .add_attribute("ustake_minted", ustake_to_mint);
 
-    Ok(Response::new()
-        .add_submessage(delegate_submsg)
-        .add_message(mint_msg)
-        .add_event(event)
-        .add_attribute("action", "erishub/bond"))
+    let mut response = Response::new().add_submessage(delegate_submsg);
+
+    if !donate {
+        response = response.add_message(mint_msg);
+    }
+
+    response = response.add_event(event).add_attribute("action", "erishub/bond");
+
+    Ok(response)
 }
 
 pub fn harvest(deps: DepsMut, env: Env) -> StdResult<Response> {
