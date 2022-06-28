@@ -34,7 +34,11 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             env,
             receiver.map(|s| api.addr_validate(&s)).transpose()?.unwrap_or(info.sender),
             parse_received_fund(&info.funds, "uluna")?,
+            false,
         ),
+        ExecuteMsg::Donate {} => {
+            execute::bond(deps, env, info.sender, parse_received_fund(&info.funds, "uluna")?, true)
+        },
         ExecuteMsg::WithdrawUnbonded {
             receiver,
         } => execute::withdraw_unbonded(

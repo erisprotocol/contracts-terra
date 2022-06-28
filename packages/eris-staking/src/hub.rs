@@ -37,6 +37,8 @@ pub enum ExecuteMsg {
     Bond {
         receiver: Option<String>,
     },
+    /// Donates specified amount of Luna to pool
+    Donate {},
     /// Withdraw Luna that have finished unbonding in previous batches
     WithdrawUnbonded {
         receiver: Option<String>,

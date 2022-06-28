@@ -37,6 +37,19 @@
       "additionalProperties": false
     },
     {
+      "description": "Donates specified amount of Luna to pool",
+      "type": "object",
+      "required": [
+        "donate"
+      ],
+      "properties": {
+        "donate": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
       "description": "Withdraw Luna that have finished unbonding in previous batches",
       "type": "object",
       "required": [
