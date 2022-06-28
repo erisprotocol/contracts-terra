@@ -45,6 +45,14 @@ For interacting with the smart contract clone <https://github.com/erisprotocol/l
 - Fixed an issue in reconciliation when the expected Luna was correct the unbinding queue items were not marked reconciled
 - move scripts to another repository, so that the repo of the smart contracts will not be touched as much <https://github.com/erisprotocol/liquid-staking-scripts>
 
+## Changelog
+
+### Hub Version 1.1.0
+
+- Support new execute operation "donate" to add LUNA without minting ampLUNA. Will be used to increase the exchange_rate
+- Extended "state" query to include the full tvl in uluna.
+- Added migration version handling
+
 ## License
 
 Contents of this repository are open source under [GNU General Public License v3](./LICENSE) or later.

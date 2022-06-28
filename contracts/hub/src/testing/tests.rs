@@ -137,6 +137,9 @@ fn proper_instantiation() {
             total_uluna: Uint128::zero(),
             exchange_rate: Decimal::one(),
             unlocked_coins: vec![],
+            unbonding: Uint128::zero(),
+            available: Uint128::zero(),
+            tvl_uluna: Uint128::zero(),
         },
     );
 
@@ -249,6 +252,109 @@ fn bonding() {
             total_uluna: Uint128::new(1037345),
             exchange_rate: Decimal::from_ratio(1037345u128, 1012043u128),
             unlocked_coins: vec![],
+            unbonding: Uint128::zero(),
+            available: Uint128::zero(),
+            tvl_uluna: Uint128::new(1037345),
+        }
+    );
+}
+
+#[test]
+fn donating() {
+    let mut deps = setup_test();
+
+    // Bond when no delegation has been made
+    // In this case, the full deposit simply goes to the first validator
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("user_1", &[Coin::new(1000000, "uluna")]),
+        ExecuteMsg::Bond {
+            receiver: None,
+        },
+    )
+    .unwrap();
+
+    assert_eq!(res.messages.len(), 2);
+    assert_eq!(
+        res.messages[0],
+        SubMsg::reply_on_success(Delegation::new("alice", 1000000).to_cosmos_msg(), 2)
+    );
+    assert_eq!(
+        res.messages[1],
+        SubMsg {
+            id: 0,
+            msg: CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "stake_token".to_string(),
+                msg: to_binary(&Cw20ExecuteMsg::Mint {
+                    recipient: "user_1".to_string(),
+                    amount: Uint128::new(1000000)
+                })
+                .unwrap(),
+                funds: vec![]
+            }),
+            gas_limit: None,
+            reply_on: ReplyOn::Never,
+        }
+    );
+
+    // Bond when there are existing delegations, and Luna:Stake exchange rate is >1
+    // Previously user 1 delegated 1,000,000 uluna. We assume we have accumulated 2.5% yield at 1025000 staked
+    deps.querier.set_staking_delegations(&[
+        Delegation::new("alice", 341667),
+        Delegation::new("bob", 341667),
+        Delegation::new("charlie", 341666),
+    ]);
+    deps.querier.set_cw20_total_supply("stake_token", 1000000);
+
+    let res: StateResponse = query_helper(deps.as_ref(), QueryMsg::State {});
+    assert_eq!(
+        res,
+        StateResponse {
+            total_ustake: Uint128::new(1000000),
+            total_uluna: Uint128::new(1025000),
+            exchange_rate: Decimal::from_ratio(1025000u128, 1000000u128),
+            unlocked_coins: vec![],
+            unbonding: Uint128::zero(),
+            available: Uint128::zero(),
+            tvl_uluna: Uint128::new(1025000),
+        }
+    );
+
+    // Charlie has the smallest amount of delegation, so the full deposit goes to him
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("user_2", &[Coin::new(12345, "uluna")]),
+        ExecuteMsg::Donate {},
+    )
+    .unwrap();
+
+    assert_eq!(res.messages.len(), 1);
+    assert_eq!(
+        res.messages[0],
+        SubMsg::reply_on_success(Delegation::new("charlie", 12345).to_cosmos_msg(), 2)
+    );
+
+    // Check the state after bonding
+    deps.querier.set_staking_delegations(&[
+        Delegation::new("alice", 341667),
+        Delegation::new("bob", 341667),
+        Delegation::new("charlie", 354011),
+    ]);
+
+    // nothing has been minted -> ustake stays the same, only uluna and exchange rate is changing.
+    let res: StateResponse = query_helper(deps.as_ref(), QueryMsg::State {});
+    assert_eq!(
+        res,
+        StateResponse {
+            total_ustake: Uint128::new(1000000),
+            total_uluna: Uint128::new(1037345),
+            exchange_rate: Decimal::from_ratio(1037345u128, 1000000u128),
+            unlocked_coins: vec![],
+            unbonding: Uint128::zero(),
+            available: Uint128::zero(),
+            tvl_uluna: Uint128::new(1037345),
         }
     );
 }
@@ -788,6 +894,20 @@ fn submitting_batch() {
             uluna_unclaimed: Uint128::new(95197),
             est_unbond_end_time: 2083601 // 269,201 + 1,814,400
         }
+    );
+
+    let res: StateResponse = query_helper_env(deps.as_ref(), QueryMsg::State {}, 2083600);
+    assert_eq!(
+        res,
+        StateResponse {
+            total_ustake: Uint128::from(1012043u128),
+            total_uluna: Uint128::from(1037345u128),
+            exchange_rate: Decimal::from_ratio(1037345u128, 1012043u128),
+            unlocked_coins: vec![],
+            unbonding: Uint128::from(95197u128),
+            available: Uint128::zero(),
+            tvl_uluna: Uint128::from(95197u128 + 1037345u128),
+        },
     );
 }
 

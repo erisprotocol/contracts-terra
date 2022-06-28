@@ -167,12 +167,18 @@ pub struct ConfigResponse {
 pub struct StateResponse {
     /// Total supply to the Stake token
     pub total_ustake: Uint128,
-    /// Total amount of uluna staked
+    /// Total amount of uluna staked (bonded)
     pub total_uluna: Uint128,
     /// The exchange rate between ustake and uluna, in terms of uluna per ustake
     pub exchange_rate: Decimal,
     /// Staking rewards currently held by the contract that are ready to be reinvested
     pub unlocked_coins: Vec<Coin>,
+    // Amount of uluna currently unbonding
+    pub unbonding: Uint128,
+    // Amount of uluna currently available as balance of the contract
+    pub available: Uint128,
+    // Total amount of uluna within the contract (bonded + unbonding + available)
+    pub tvl_uluna: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
