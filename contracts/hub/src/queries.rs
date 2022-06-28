@@ -36,6 +36,23 @@ pub fn state(deps: Deps, env: Env) -> StdResult<StateResponse> {
     let delegations = query_delegations(&deps.querier, &validators, &env.contract.address)?;
     let total_uluna: u128 = delegations.iter().map(|d| d.amount).sum();
 
+    // only not reconciled batches are relevant as they are still unbonding and estimated unbond time in the future.
+    let unbonding: u128 = state
+        .previous_batches
+        .idx
+        .reconciled
+        .prefix(false.into())
+        .range(deps.storage, None, None, Order::Descending)
+        .map(|item| {
+            let (_, v) = item.unwrap();
+            v
+        })
+        .filter(|item| item.est_unbond_end_time > env.block.time.seconds())
+        .map(|item| item.uluna_unclaimed.u128())
+        .sum();
+
+    let available = deps.querier.query_balance(&env.contract.address, "uluna")?.amount;
+
     let exchange_rate = if total_ustake.is_zero() {
         Decimal::one()
     } else {
@@ -47,6 +64,11 @@ pub fn state(deps: Deps, env: Env) -> StdResult<StateResponse> {
         total_uluna: Uint128::new(total_uluna),
         exchange_rate,
         unlocked_coins: state.unlocked_coins.load(deps.storage)?,
+        unbonding: Uint128::from(unbonding),
+        available,
+        tvl_uluna: Uint128::from(total_uluna)
+            .checked_add(Uint128::from(unbonding))?
+            .checked_add(available)?,
     })
 }
 

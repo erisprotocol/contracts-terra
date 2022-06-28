@@ -3,12 +3,18 @@
   "title": "StateResponse",
   "type": "object",
   "required": [
+    "available",
     "exchange_rate",
     "total_uluna",
     "total_ustake",
+    "tvl_uluna",
+    "unbonding",
     "unlocked_coins"
   ],
   "properties": {
+    "available": {
+      "$ref": "#/definitions/Uint128"
+    },
     "exchange_rate": {
       "description": "The exchange rate between ustake and uluna, in terms of uluna per ustake",
       "allOf": [
@@ -18,7 +24,7 @@
       ]
     },
     "total_uluna": {
-      "description": "Total amount of uluna staked",
+      "description": "Total amount of uluna staked (bonded)",
       "allOf": [
         {
           "$ref": "#/definitions/Uint128"
@@ -32,6 +38,12 @@
           "$ref": "#/definitions/Uint128"
         }
       ]
+    },
+    "tvl_uluna": {
+      "$ref": "#/definitions/Uint128"
+    },
+    "unbonding": {
+      "$ref": "#/definitions/Uint128"
     },
     "unlocked_coins": {
       "description": "Staking rewards currently held by the contract that are ready to be reinvested",

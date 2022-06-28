@@ -137,6 +137,9 @@ fn proper_instantiation() {
             total_uluna: Uint128::zero(),
             exchange_rate: Decimal::one(),
             unlocked_coins: vec![],
+            unbonding: Uint128::zero(),
+            available: Uint128::zero(),
+            tvl_uluna: Uint128::zero(),
         },
     );
 
@@ -249,6 +252,9 @@ fn bonding() {
             total_uluna: Uint128::new(1037345),
             exchange_rate: Decimal::from_ratio(1037345u128, 1012043u128),
             unlocked_coins: vec![],
+            unbonding: Uint128::zero(),
+            available: Uint128::zero(),
+            tvl_uluna: Uint128::new(1037345),
         }
     );
 }
@@ -309,6 +315,9 @@ fn donating() {
             total_uluna: Uint128::new(1025000),
             exchange_rate: Decimal::from_ratio(1025000u128, 1000000u128),
             unlocked_coins: vec![],
+            unbonding: Uint128::zero(),
+            available: Uint128::zero(),
+            tvl_uluna: Uint128::new(1025000),
         }
     );
 
@@ -343,6 +352,9 @@ fn donating() {
             total_uluna: Uint128::new(1037345),
             exchange_rate: Decimal::from_ratio(1037345u128, 1000000u128),
             unlocked_coins: vec![],
+            unbonding: Uint128::zero(),
+            available: Uint128::zero(),
+            tvl_uluna: Uint128::new(1037345),
         }
     );
 }
@@ -788,6 +800,20 @@ fn submitting_batch() {
             uluna_unclaimed: Uint128::new(95197),
             est_unbond_end_time: 2083601 // 269,201 + 1,814,400
         }
+    );
+
+    let res: StateResponse = query_helper_env(deps.as_ref(), QueryMsg::State {}, 2083600);
+    assert_eq!(
+        res,
+        StateResponse {
+            total_ustake: Uint128::from(1012043u128),
+            total_uluna: Uint128::from(1037345u128),
+            exchange_rate: Decimal::from_ratio(1037345u128, 1012043u128),
+            unlocked_coins: vec![],
+            unbonding: Uint128::from(95197u128),
+            available: Uint128::zero(),
+            tvl_uluna: Uint128::from(95197u128 + 1037345u128),
+        },
     );
 }
 

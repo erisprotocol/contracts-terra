@@ -2,12 +2,14 @@ use cosmwasm_std::{
     entry_point, from_binary, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response,
     StdError, StdResult,
 };
+use cw2::set_contract_version;
 use cw20::Cw20ReceiveMsg;
 
 use eris_staking::hub::{
     CallbackMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, ReceiveMsg,
 };
 
+use crate::constants::{CONTRACT_NAME, CONTRACT_VERSION};
 use crate::helpers::{parse_received_fund, unwrap_reply};
 use crate::state::State;
 use crate::{execute, queries};
@@ -176,6 +178,14 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
 }
 
 #[entry_point]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
-    Ok(Response::new())
+pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+    // let contract_version = get_contract_version(deps.storage)?;
+
+    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+    Ok(Response::new()
+        // .add_attribute("previous_contract_name", &contract_version.contract)
+        // .add_attribute("previous_contract_version", &contract_version.version)
+        .add_attribute("new_contract_name", CONTRACT_NAME)
+        .add_attribute("new_contract_version", CONTRACT_VERSION))
 }
