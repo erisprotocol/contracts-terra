@@ -1,4 +1,5 @@
 pub mod hub;
+pub mod yieldextractor;
 
 mod decimal_checked_ops {
     use cosmwasm_std::{Decimal, Decimal256, Fraction, OverflowError, StdError, Uint128, Uint256};

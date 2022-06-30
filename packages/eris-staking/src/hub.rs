@@ -1,4 +1,6 @@
-use cosmwasm_std::{to_binary, Addr, Coin, CosmosMsg, Decimal, Empty, StdResult, Uint128, WasmMsg};
+use cosmwasm_std::{
+    to_binary, Addr, Coin, CosmosMsg, Decimal, Empty, StdResult, Timestamp, Uint128, WasmMsg,
+};
 use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -179,6 +181,36 @@ pub struct StateResponse {
     pub available: Uint128,
     // Total amount of uluna within the contract (bonded + unbonding + available)
     pub tvl_uluna: Uint128,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct SteakStateResponse {
+    /// Total supply to the Stake token
+    pub total_ustake: Uint128,
+    /// Total amount of uluna staked (bonded)
+    pub total_uluna: Uint128,
+    /// The exchange rate between ustake and uluna, in terms of uluna per ustake
+    pub exchange_rate: Decimal,
+    /// Staking rewards currently held by the contract that are ready to be reinvested
+    pub unlocked_coins: Vec<Coin>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct StaderStateResponse {
+    pub state: StaderState,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct StaderState {
+    pub total_staked: Uint128,
+    pub exchange_rate: Decimal, // shares to token value. 1 share = (ExchangeRate) tokens.
+    pub last_reconciled_batch_id: u64,
+    pub current_undelegation_batch_id: u64,
+    pub last_undelegation_time: Timestamp,
+    pub last_swap_time: Timestamp,
+    pub last_reinvest_time: Timestamp,
+    pub validators: Vec<Addr>,
+    pub reconciled_funds_to_withdraw: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
