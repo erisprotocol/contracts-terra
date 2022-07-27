@@ -1,7 +1,4 @@
-use cosmwasm_std::{
-    to_binary, Addr, Coin, CosmosMsg, Decimal, Empty, Response, StdError, StdResult, Uint128,
-    WasmMsg,
-};
+use cosmwasm_std::{Addr, Decimal, Empty, Uint128};
 use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -39,6 +36,8 @@ pub struct InstantiateMsg {
     pub decimals: u8,
     /// Name of yield extractor pool token
     pub name: String,
+    /// Label for the token
+    pub label: String,
 
     /// Hub contract
     pub hub_contract: String,

@@ -1,5 +1,3 @@
-use std::borrow::BorrowMut;
-
 use cosmwasm_std::{
     to_binary, Addr, CosmosMsg, Decimal, DepsMut, Env, Event, Response, StdError, StdResult,
     SubMsg, SubMsgResponse, Uint128, WasmMsg,
@@ -61,7 +59,7 @@ pub fn instantiate(deps: DepsMut, env: Env, msg: InstantiateMsg) -> StdResult<Re
                 marketing: None,
             })?,
             funds: vec![],
-            label: "Eris Yield Extraction LP Token".to_string(),
+            label: msg.label,
         }),
         1,
     )))
@@ -93,15 +91,17 @@ pub fn register_lp_token(deps: DepsMut, response: SubMsgResponse) -> StdResult<R
 // Harvesting logic
 //--------------------------------------------------------------------------------------------------
 
-pub fn harvest(deps: DepsMut, env: Env, user: Addr) -> StdResult<Response> {
+pub fn harvest(mut deps: DepsMut, env: Env, user: Addr) -> StdResult<Response> {
     let state = State::default();
     let stake_token = state.stake_token.load(deps.storage)?;
     let extract_config = state.extract_config.load(deps.storage)?;
 
-    let stake_available = extract(deps, env, &state, None)?;
+    let _stake_available = extract(&mut deps, env, &state, None)?;
     let stake_extracted = state.stake_extracted.load(deps.storage)?;
+    let stake_harvested = state.stake_harvested.load(deps.storage)?;
 
-    state.stake_extracted.save(deps.storage, &Uint128::zero());
+    state.stake_extracted.save(deps.storage, &Uint128::zero())?;
+    state.stake_harvested.save(deps.storage, &stake_harvested.checked_add(stake_extracted)?)?;
 
     // refund remaining stake token
     let harvest_msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -127,13 +127,18 @@ pub fn harvest(deps: DepsMut, env: Env, user: Addr) -> StdResult<Response> {
 // Deposit / Withdraw logic
 //--------------------------------------------------------------------------------------------------
 
-pub fn withdraw(deps: DepsMut, env: Env, user: Addr, lp_amount: Uint128) -> StdResult<Response> {
+pub fn withdraw(
+    mut deps: DepsMut,
+    env: Env,
+    user: Addr,
+    lp_amount: Uint128,
+) -> StdResult<Response> {
     let state = State::default();
 
     let stake_token = state.stake_token.load(deps.storage)?;
     let lp_token = state.lp_token.load(deps.storage)?;
     let lp_token_supply = query_cw20_total_supply(&deps.querier, &lp_token)?;
-    let stake_available = extract(deps, env, &state, None)?;
+    let stake_available = extract(&mut deps, env, &state, None)?;
 
     let stake_withdraw_amount =
         compute_withdraw_amount(lp_token_supply, lp_amount, stake_available);
@@ -169,7 +174,7 @@ pub fn withdraw(deps: DepsMut, env: Env, user: Addr, lp_amount: Uint128) -> StdR
 }
 
 pub fn deposit(
-    deps: DepsMut,
+    mut deps: DepsMut,
     env: Env,
     receiver: Addr,
     stake_deposited: Uint128,
@@ -178,7 +183,7 @@ pub fn deposit(
 
     let lp_token = state.lp_token.load(deps.storage)?;
     let lp_token_supply = query_cw20_total_supply(&deps.querier, &lp_token)?;
-    let stake_available = extract(deps, env, &state, Some(stake_deposited))?;
+    let stake_available = extract(&mut deps, env, &state, Some(stake_deposited))?;
 
     let lp_mint_amount = compute_mint_amount(lp_token_supply, stake_deposited, stake_available);
 
@@ -203,7 +208,7 @@ pub fn deposit(
 }
 
 pub fn extract(
-    deps: DepsMut,
+    deps: &mut DepsMut,
     env: Env,
     state: &State,
     offset_balance: Option<Uint128>,

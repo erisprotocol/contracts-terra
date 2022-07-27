@@ -5,7 +5,7 @@ use cosmwasm_std::{
 };
 use serde::de::DeserializeOwned;
 
-use eris_staking::hub::QueryMsg;
+use eris_staking::yieldextractor::QueryMsg;
 
 use crate::contract::query;
 
@@ -45,7 +45,7 @@ pub(super) fn query_helper<T: DeserializeOwned>(deps: Deps, msg: QueryMsg) -> T 
     from_binary(&query(deps, mock_env(), msg).unwrap()).unwrap()
 }
 
-pub(super) fn query_helper_env<T: DeserializeOwned>(
+pub(super) fn _query_helper_env<T: DeserializeOwned>(
     deps: Deps,
     msg: QueryMsg,
     timestamp: u64,

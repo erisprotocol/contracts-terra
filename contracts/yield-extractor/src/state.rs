@@ -3,7 +3,7 @@ use cw_storage_plus::Item;
 
 use eris_staking::yieldextractor::ExtractConfig;
 
-pub(crate) struct State<'a> {
+pub struct State<'a> {
     /// Account who can call certain privileged functions
     pub owner: Item<'a, Addr>,
     /// Pending ownership transfer, awaiting acceptance by the new owner

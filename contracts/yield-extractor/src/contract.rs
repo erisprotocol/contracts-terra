@@ -24,7 +24,6 @@ pub fn instantiate(
 
 #[entry_point]
 pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
-    let api = deps.api;
     match msg {
         ExecuteMsg::Receive(cw20_msg) => receive(deps, env, info, cw20_msg),
         ExecuteMsg::TransferOwnership {
@@ -68,7 +67,7 @@ fn receive(
             let stake_token = state.stake_token.load(deps.storage)?;
             if info.sender != stake_token {
                 return Err(StdError::generic_err(format!(
-                    "expecting LP token, received {}",
+                    "expecting Stake token, received {}",
                     info.sender
                 )));
             }
@@ -79,7 +78,7 @@ fn receive(
 }
 
 #[entry_point]
-pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> StdResult<Response> {
+pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> StdResult<Response> {
     match reply.id {
         1 => execute::register_lp_token(deps, unwrap_reply(reply)?),
         id => Err(StdError::generic_err(format!("invalid reply id: {}; must be 1-3", id))),

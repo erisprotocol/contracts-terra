@@ -2,19 +2,20 @@ use std::collections::HashMap;
 
 use cosmwasm_std::testing::{BankQuerier, StakingQuerier, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, Addr, Coin, Empty, FullDelegation, Querier, QuerierResult,
-    QueryRequest, SystemError, WasmQuery,
+    from_binary, from_slice, Coin, Empty, Querier, QuerierResult, QueryRequest, SystemError,
+    WasmQuery,
 };
 use cw20::Cw20QueryMsg;
-
-use crate::types::Delegation;
+use eris_staking::hub::QueryMsg;
 
 use super::cw20_querier::Cw20Querier;
+use super::eris_querier::ErisQuerier;
 use super::helpers::err_unsupported_query;
 
 #[derive(Default)]
 pub(super) struct CustomQuerier {
     pub cw20_querier: Cw20Querier,
+    pub eris_querier: ErisQuerier,
     pub bank_querier: BankQuerier,
     pub staking_querier: StakingQuerier,
 }
@@ -54,23 +55,8 @@ impl CustomQuerier {
         self.cw20_querier.total_supplies.insert(token.to_string(), total_supply);
     }
 
-    pub fn set_bank_balances(&mut self, balances: &[Coin]) {
+    pub fn _set_bank_balances(&mut self, balances: &[Coin]) {
         self.bank_querier = BankQuerier::new(&[(MOCK_CONTRACT_ADDR, balances)])
-    }
-
-    pub fn set_staking_delegations(&mut self, delegations: &[Delegation]) {
-        let fds = delegations
-            .iter()
-            .map(|d| FullDelegation {
-                delegator: Addr::unchecked(MOCK_CONTRACT_ADDR),
-                validator: d.validator.clone(),
-                amount: Coin::new(d.amount, "uluna"),
-                can_redelegate: Coin::new(0, "uluna"),
-                accumulated_rewards: vec![],
-            })
-            .collect::<Vec<_>>();
-
-        self.staking_querier = StakingQuerier::new("uluna", &[], &fds);
     }
 
     pub fn handle_query(&self, request: &QueryRequest<Empty>) -> QuerierResult {
@@ -79,6 +65,12 @@ impl CustomQuerier {
                 contract_addr,
                 msg,
             }) => {
+                if contract_addr == "hub" {
+                    if let Ok(query) = from_binary::<QueryMsg>(msg) {
+                        return self.eris_querier.handle_query(contract_addr, query);
+                    }
+                }
+
                 if let Ok(query) = from_binary::<Cw20QueryMsg>(msg) {
                     return self.cw20_querier.handle_query(contract_addr, query);
                 }
