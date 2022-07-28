@@ -65,8 +65,6 @@ pub enum ExecuteMsg {
     UpdateConfig {
         /// Contract address where fees are sent
         yield_extract_addr: Option<String>,
-        /// Fees that are being applied during reinvest of staking rewards
-        yield_extract_p: Option<Decimal>, // "1 is 100%, 0.05 is 5%"
     },
 
     /// Transfer ownership to another account; will not take effect unless the new owner accepts
@@ -92,10 +90,13 @@ pub enum QueryMsg {
     /// The contract's configurations. Response: `ConfigResponse`
     Config {},
     /// The contract's current state. Response: `StateResponse`
-    State {},
+    State {
+        // if addr is provided, will also return the state for the addr
+        addr: Option<String>,
+    },
     // Returns information about the share value [`ShareResponse`].
     Share {
-        addr: String,
+        addr: Option<String>,
     },
 }
 
@@ -126,18 +127,27 @@ pub struct StateResponse {
     /// Total supply to the lp token
     pub total_lp: Uint128,
     /// Total amount of uluna staked (bonded)
-    pub total_lsd: Uint128,
+    pub stake_balance: Uint128,
     // Amount of lsd to be harvestable
-    pub harvestable: Uint128,
+    pub stake_extracted: Uint128,
 
-    pub total_harvest: Uint128,
+    // Total stake harvested
+    pub stake_harvested: Uint128,
+
+    // stake_balance - stake_extracted
+    pub stake_available: Uint128,
 
     /// The exchange rate between ustake and uluna, in terms of uluna per ustake
-    pub exchange_rate_lp_lsd: Decimal,
+    pub exchange_rate_lp_stake: Decimal,
     /// The exchange rate between the liquid staking derivate and uluna
-    pub exchange_rate_lsd_uluna: Decimal,
-    // Total amount of uluna within the contract (lsd * exchange_rate_lsd_uluna)
+    pub exchange_rate_stake_uluna: Decimal,
+    // Total amount of uluna within the contract (stake_balance * exchange_rate_stake_uluna)
     pub tvl_uluna: Uint128,
+
+    // amount of LP shares the provided addr holds
+    pub user_share: Option<Uint128>,
+    // amount of assets the user would get (stake)
+    pub user_received_asset: Option<Uint128>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

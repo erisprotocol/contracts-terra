@@ -3,19 +3,17 @@
   "title": "StateResponse",
   "type": "object",
   "required": [
-    "available",
-    "exchange_rate",
-    "total_uluna",
-    "total_ustake",
-    "tvl_uluna",
-    "unbonding",
-    "unlocked_coins"
+    "exchange_rate_lp_stake",
+    "exchange_rate_stake_uluna",
+    "stake_available",
+    "stake_balance",
+    "stake_extracted",
+    "stake_harvested",
+    "total_lp",
+    "tvl_uluna"
   ],
   "properties": {
-    "available": {
-      "$ref": "#/definitions/Uint128"
-    },
-    "exchange_rate": {
+    "exchange_rate_lp_stake": {
       "description": "The exchange rate between ustake and uluna, in terms of uluna per ustake",
       "allOf": [
         {
@@ -23,7 +21,18 @@
         }
       ]
     },
-    "total_uluna": {
+    "exchange_rate_stake_uluna": {
+      "description": "The exchange rate between the liquid staking derivate and uluna",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Decimal"
+        }
+      ]
+    },
+    "stake_available": {
+      "$ref": "#/definitions/Uint128"
+    },
+    "stake_balance": {
       "description": "Total amount of uluna staked (bonded)",
       "allOf": [
         {
@@ -31,8 +40,14 @@
         }
       ]
     },
-    "total_ustake": {
-      "description": "Total supply to the Stake token",
+    "stake_extracted": {
+      "$ref": "#/definitions/Uint128"
+    },
+    "stake_harvested": {
+      "$ref": "#/definitions/Uint128"
+    },
+    "total_lp": {
+      "description": "Total supply to the lp token",
       "allOf": [
         {
           "$ref": "#/definitions/Uint128"
@@ -42,33 +57,28 @@
     "tvl_uluna": {
       "$ref": "#/definitions/Uint128"
     },
-    "unbonding": {
-      "$ref": "#/definitions/Uint128"
+    "user_received_asset": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Uint128"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
-    "unlocked_coins": {
-      "description": "Staking rewards currently held by the contract that are ready to be reinvested",
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/Coin"
-      }
+    "user_share": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Uint128"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "definitions": {
-    "Coin": {
-      "type": "object",
-      "required": [
-        "amount",
-        "denom"
-      ],
-      "properties": {
-        "amount": {
-          "$ref": "#/definitions/Uint128"
-        },
-        "denom": {
-          "type": "string"
-        }
-      }
-    },
     "Decimal": {
       "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0\n\nThe greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
       "type": "string"

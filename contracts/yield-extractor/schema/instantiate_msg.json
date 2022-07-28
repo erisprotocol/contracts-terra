@@ -5,76 +5,85 @@
   "required": [
     "cw20_code_id",
     "decimals",
-    "epoch_period",
+    "hub_contract",
+    "interface",
+    "label",
     "name",
     "owner",
-    "protocol_fee_contract",
-    "protocol_reward_fee",
+    "stake_token",
     "symbol",
-    "unbond_period",
-    "validators"
+    "yield_extract_addr",
+    "yield_extract_p"
   ],
   "properties": {
     "cw20_code_id": {
-      "description": "Code ID of the CW20 token contract",
+      "description": "Code ID of the CW20 token contract for the pool token",
       "type": "integer",
       "format": "uint64",
       "minimum": 0.0
     },
     "decimals": {
-      "description": "Number of decimals of the liquid staking token",
+      "description": "Number of decimals of the yield extractor pool token",
       "type": "integer",
       "format": "uint8",
       "minimum": 0.0
     },
-    "epoch_period": {
-      "description": "How often the unbonding queue is to be executed, in seconds",
-      "type": "integer",
-      "format": "uint64",
-      "minimum": 0.0
+    "hub_contract": {
+      "description": "Hub contract",
+      "type": "string"
+    },
+    "interface": {
+      "description": "defines how to interact with the hub_contract for reading the exchange_rate",
+      "allOf": [
+        {
+          "$ref": "#/definitions/LiquidStakingType"
+        }
+      ]
+    },
+    "label": {
+      "description": "Label for the token",
+      "type": "string"
     },
     "name": {
-      "description": "Name of the liquid staking token",
+      "description": "Name of yield extractor pool token",
       "type": "string"
     },
     "owner": {
       "description": "Account who can call certain privileged functions",
       "type": "string"
     },
-    "protocol_fee_contract": {
-      "description": "Contract address where fees are sent",
+    "stake_token": {
       "type": "string"
     },
-    "protocol_reward_fee": {
-      "description": "Fees that are being applied during reinvest of staking rewards",
+    "symbol": {
+      "description": "Symbol of the yield extractor pool token",
+      "type": "string"
+    },
+    "yield_extract_addr": {
+      "description": "Address where extracted yield should be deposited",
+      "type": "string"
+    },
+    "yield_extract_p": {
+      "description": "Percentage of yield that should be extracted (between 0 and 1)",
       "allOf": [
         {
           "$ref": "#/definitions/Decimal"
         }
       ]
-    },
-    "symbol": {
-      "description": "Symbol of the liquid staking token",
-      "type": "string"
-    },
-    "unbond_period": {
-      "description": "The staking module's unbonding time, in seconds",
-      "type": "integer",
-      "format": "uint64",
-      "minimum": 0.0
-    },
-    "validators": {
-      "description": "Initial set of validators who will receive the delegations",
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
     }
   },
   "definitions": {
     "Decimal": {
       "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0\n\nThe greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
       "type": "string"
+    },
+    "LiquidStakingType": {
+      "type": "string",
+      "enum": [
+        "eris",
+        "stader",
+        "steak"
+      ]
     }
   }
 }

@@ -21,5 +21,9 @@ pub(crate) fn compute_withdraw_amount(
     lp_to_burn: Uint128,
     stake_available: Uint128,
 ) -> Uint128 {
-    stake_available.multiply_ratio(lp_to_burn, lp_supply)
+    if lp_supply.is_zero() {
+        Uint128::zero()
+    } else {
+        stake_available.multiply_ratio(lp_to_burn, lp_supply)
+    }
 }

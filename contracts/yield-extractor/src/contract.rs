@@ -33,8 +33,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
         ExecuteMsg::Harvest {} => execute::harvest(deps, env, info.sender),
         ExecuteMsg::UpdateConfig {
             yield_extract_addr,
-            yield_extract_p,
-        } => execute::update_config(deps, info.sender, yield_extract_addr, yield_extract_p),
+        } => execute::update_config(deps, info.sender, yield_extract_addr),
     }
 }
 
@@ -89,7 +88,9 @@ pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> StdResult<Response> {
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&queries::config(deps)?),
-        QueryMsg::State {} => to_binary(&queries::state(deps, env)?),
+        QueryMsg::State {
+            addr,
+        } => to_binary(&queries::state(deps, env, addr)?),
         QueryMsg::Share {
             addr,
         } => to_binary(&queries::share(deps, env, addr)?),

@@ -3,22 +3,26 @@
   "title": "ReceiveMsg",
   "oneOf": [
     {
-      "description": "Submit an unbonding request to the current unbonding queue; automatically invokes `unbond` if `epoch_time` has elapsed since when the last unbonding queue was executed.",
+      "description": "Deposit cw20 ampLuna into the vault",
       "type": "object",
       "required": [
-        "queue_unbond"
+        "deposit"
       ],
       "properties": {
-        "queue_unbond": {
-          "type": "object",
-          "properties": {
-            "receiver": {
-              "type": [
-                "string",
-                "null"
-              ]
-            }
-          }
+        "deposit": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "withdraw"
+      ],
+      "properties": {
+        "withdraw": {
+          "type": "object"
         }
       },
       "additionalProperties": false

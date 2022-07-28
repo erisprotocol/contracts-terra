@@ -242,8 +242,8 @@ pub fn extract(
         return Ok(stake_available);
     }
 
-    // no check needed, as we checked for "le" already.
-    let exchange_rate_diff = current_exchange_rate - last_exchange_rate;
+    // no check needed, as we checked for "le" already. current_exchange_rate is also not zero
+    let exchange_rate_diff = (current_exchange_rate - last_exchange_rate) / current_exchange_rate;
 
     let stake_to_extract = exchange_rate_diff
         .checked_mul(extract_config.yield_extract_p)?
@@ -296,7 +296,6 @@ pub fn update_config(
     deps: DepsMut,
     sender: Addr,
     yield_extract_addr: Option<String>,
-    yield_extract_p: Option<Decimal>,
 ) -> StdResult<Response> {
     let state = State::default();
 
@@ -306,11 +305,6 @@ pub fn update_config(
 
     if let Some(yield_extract_addr) = yield_extract_addr {
         extract_config.yield_extract_addr = deps.api.addr_validate(&yield_extract_addr)?;
-    }
-
-    if let Some(yield_extract_p) = yield_extract_p {
-        assert_valid_yield_extract(&yield_extract_p)?;
-        extract_config.yield_extract_p = yield_extract_p;
     }
 
     state.extract_config.save(deps.storage, &extract_config)?;

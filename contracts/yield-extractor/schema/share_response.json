@@ -1,32 +1,21 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "PendingBatch",
+  "title": "ShareResponse",
   "type": "object",
   "required": [
-    "est_unbond_start_time",
-    "id",
-    "ustake_to_burn"
+    "received_asset",
+    "share",
+    "total_lp"
   ],
   "properties": {
-    "est_unbond_start_time": {
-      "description": "Estimated time when this batch will be submitted for unbonding",
-      "type": "integer",
-      "format": "uint64",
-      "minimum": 0.0
+    "received_asset": {
+      "$ref": "#/definitions/Uint128"
     },
-    "id": {
-      "description": "ID of this batch",
-      "type": "integer",
-      "format": "uint64",
-      "minimum": 0.0
+    "share": {
+      "$ref": "#/definitions/Uint128"
     },
-    "ustake_to_burn": {
-      "description": "Total amount of `ustake` to be burned in this batch",
-      "allOf": [
-        {
-          "$ref": "#/definitions/Uint128"
-        }
-      ]
+    "total_lp": {
+      "$ref": "#/definitions/Uint128"
     }
   },
   "definitions": {
