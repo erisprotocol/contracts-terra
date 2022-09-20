@@ -1,7 +1,7 @@
-use std::str::FromStr;
+use std::{collections::HashSet, str::FromStr};
 
 use cosmwasm_std::{
-    Addr, Coin, QuerierWrapper, Reply, StdError, StdResult, SubMsgResponse, Uint128,
+    Addr, Api, Coin, QuerierWrapper, Reply, Response, StdError, StdResult, SubMsgResponse, Uint128,
 };
 use cw20::{Cw20QueryMsg, TokenInfoResponse};
 
@@ -94,4 +94,34 @@ pub(crate) fn parse_received_fund(funds: &[Coin], denom: &str) -> StdResult<Uint
     }
 
     Ok(fund.amount)
+}
+
+/// Dedupes a Vector of strings using a hashset.
+pub fn dedup(v: &mut Vec<String>) {
+    let mut set = HashSet::new();
+
+    v.retain(|x| set.insert(x.clone()));
+}
+
+/// Dedupes and checks a list of received addrs
+pub fn dedupe_check_received_addrs(validators: &mut Vec<String>, api: &dyn Api) -> StdResult<()> {
+    dedup(validators);
+
+    for validator in validators {
+        api.addr_validate(validator.as_str())?;
+    }
+
+    Ok(())
+}
+
+/// Returns a lowercased, validated address upon success. Otherwise returns [`Err`]
+/// ## Params
+/// * **api** is an object of type [`Api`]
+///
+/// * **addr** is an object of type [`Addr`]
+pub fn addr_validate_to_lower(api: &dyn Api, addr: &str) -> StdResult<Addr> {
+    if addr.to_lowercase() != addr {
+        return Err(StdError::generic_err(format!("Address {} should be lowercase", addr)));
+    }
+    api.addr_validate(addr)
 }
