@@ -17,7 +17,7 @@ use eris_staking::hub::{
 };
 
 use crate::contract::{execute, instantiate, reply};
-use crate::helpers::{dedup, parse_coin, parse_received_fund};
+use crate::helpers::{dedupe, parse_coin, parse_received_fund};
 use crate::math::{
     compute_redelegations_for_rebalancing, compute_redelegations_for_removal, compute_undelegations,
 };
@@ -1978,7 +1978,7 @@ fn running_dedup() {
         "terraveloper1".to_string(),
         "terraveloper1".to_string(),
     ];
-    dedup(&mut validators);
+    dedupe(&mut validators);
 
     assert_eq!(
         validators,
