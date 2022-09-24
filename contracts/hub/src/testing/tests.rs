@@ -1,4 +1,5 @@
 use std::str::FromStr;
+use std::vec;
 
 use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
@@ -16,7 +17,7 @@ use eris_staking::hub::{
 };
 
 use crate::contract::{execute, instantiate, reply};
-use crate::helpers::{parse_coin, parse_received_fund};
+use crate::helpers::{dedupe, parse_coin, parse_received_fund};
 use crate::math::{
     compute_redelegations_for_rebalancing, compute_redelegations_for_removal, compute_undelegations,
 };
@@ -1962,4 +1963,25 @@ fn receiving_funds() {
 
     let amount = parse_received_fund(&[Coin::new(69420, "uluna")], "uluna").unwrap();
     assert_eq!(amount, Uint128::new(69420));
+}
+
+#[test]
+fn running_dedup() {
+    let mut validators = vec![
+        "terraveloper1".to_string(),
+        "terraveloper2".to_string(),
+        "terraveloper3".to_string(),
+        "terraveloper1".to_string(),
+        "terraveloper3".to_string(),
+        "terraveloper3".to_string(),
+        "terraveloper2".to_string(),
+        "terraveloper1".to_string(),
+        "terraveloper1".to_string(),
+    ];
+    dedupe(&mut validators);
+
+    assert_eq!(
+        validators,
+        vec!["terraveloper1".to_string(), "terraveloper2".to_string(), "terraveloper3".to_string()]
+    )
 }

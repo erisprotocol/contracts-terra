@@ -129,15 +129,7 @@ pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> StdResult<Response> {
             "receiver",
             "amount",
         ),
-        // 3 => execute::register_received_coins(
-        //     deps,
-        //     env,
-        //     unwrap_reply(reply)?.events,
-        //     "swap",
-        //     "recipient",
-        //     "swap_coin",
-        // ),
-        id => Err(StdError::generic_err(format!("invalid reply id: {}; must be 1-3", id))),
+        id => Err(StdError::generic_err(format!("invalid reply id: {}; must be 1-2", id))),
     }
 }
 

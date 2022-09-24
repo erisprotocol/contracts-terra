@@ -280,7 +280,7 @@ dependencies = [
 
 [[package]]
 name = "eris-staking"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -291,7 +291,7 @@ dependencies = [
 
 [[package]]
 name = "eris-staking-hub"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -305,7 +305,7 @@ dependencies = [
 
 [[package]]
 name = "eris-staking-token"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",

@@ -14,7 +14,10 @@ use eris_staking::hub::{
 };
 
 use crate::constants::{get_reward_fee_cap, CONTRACT_NAME, CONTRACT_VERSION};
-use crate::helpers::{query_cw20_total_supply, query_delegation, query_delegations};
+use crate::helpers::{
+    addr_validate_to_lower, dedupe_check_received_addrs, query_cw20_total_supply, query_delegation,
+    query_delegations,
+};
 use crate::math::{
     compute_mint_amount, compute_redelegations_for_rebalancing, compute_redelegations_for_removal,
     compute_unbond_amount, compute_undelegations, mark_reconciled_batches, reconcile_batches,
@@ -38,7 +41,12 @@ pub fn instantiate(deps: DepsMut, env: Env, msg: InstantiateMsg) -> StdResult<Re
     state.owner.save(deps.storage, &deps.api.addr_validate(&msg.owner)?)?;
     state.epoch_period.save(deps.storage, &msg.epoch_period)?;
     state.unbond_period.save(deps.storage, &msg.unbond_period)?;
-    state.validators.save(deps.storage, &msg.validators)?;
+
+    let mut validators = msg.validators;
+    dedupe_check_received_addrs(&mut validators, deps.api)
+        .map_err(|_| StdError::generic_err("invalid validators"))?;
+
+    state.validators.save(deps.storage, &validators)?;
     state.unlocked_coins.save(deps.storage, &vec![])?;
     state.fee_config.save(
         deps.storage,
@@ -365,21 +373,13 @@ pub fn queue_unbond(
         }));
     }
 
-    // let stake_token = state.stake_token.load(deps.storage)?;
-    // let validators = state.validators.load(deps.storage)?;
-    // let delegations = query_delegations(&deps.querier, &validators, &env.contract.address)?;
-    // let ustake_supply = query_cw20_total_supply(&deps.querier, &stake_token)?;
-    // let uluna_estimated = compute_unbond_amount(ustake_supply, ustake_to_burn, &delegations);
-
     let event = Event::new("erishub/unbond_queued")
         .add_attribute("time", env.block.time.seconds().to_string())
         .add_attribute("est_unbond_start_time", start_time)
         .add_attribute("height", env.block.height.to_string())
         .add_attribute("id", pending_batch.id.to_string())
         .add_attribute("receiver", receiver)
-        .add_attribute("ustake_to_burn", ustake_to_burn)
-        // .add_attribute("uluna_estimated", uluna_estimated)
-        ;
+        .add_attribute("ustake_to_burn", ustake_to_burn);
 
     Ok(Response::new()
         .add_messages(msgs)
@@ -630,6 +630,7 @@ pub fn add_validator(deps: DepsMut, sender: Addr, validator: String) -> StdResul
     let state = State::default();
 
     state.assert_owner(deps.storage, &sender)?;
+    addr_validate_to_lower(deps.api, validator.as_str())?;
 
     state.validators.update(deps.storage, |mut validators| {
         if validators.contains(&validator) {

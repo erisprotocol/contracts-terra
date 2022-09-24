@@ -1,6 +1,6 @@
 [package]
 name = "eris-staking"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["devs <devs@erisprotocol.com>"]
 edition = "2018"
 description = "Liquid staking protocol for the cosmos"
