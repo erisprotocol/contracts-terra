@@ -13,7 +13,7 @@ use eris_staking::hub::{
     Batch, CallbackMsg, ExecuteMsg, FeeConfig, InstantiateMsg, PendingBatch, UnbondRequest,
 };
 
-use crate::constants::get_reward_fee_cap;
+use crate::constants::{get_reward_fee_cap, CONTRACT_NAME, CONTRACT_VERSION};
 use crate::helpers::{
     addr_validate_to_lower, dedupe_check_received_addrs, query_cw20_total_supply, query_delegation,
     query_delegations,
@@ -24,9 +24,6 @@ use crate::math::{
 };
 use crate::state::State;
 use crate::types::{Coins, Delegation, SendFee};
-
-const CONTRACT_NAME: &str = "eris-hub";
-const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 //--------------------------------------------------------------------------------------------------
 // Instantiation
