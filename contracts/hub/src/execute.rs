@@ -7,9 +7,9 @@ use cosmwasm_std::{
 use cw2::set_contract_version;
 use cw20::{Cw20ExecuteMsg, MinterResponse};
 use cw20_base::msg::InstantiateMsg as Cw20InstantiateMsg;
-use eris_staking::DecimalCheckedOps;
+use eris::DecimalCheckedOps;
 
-use eris_staking::hub::{
+use eris::hub::{
     Batch, CallbackMsg, ExecuteMsg, FeeConfig, InstantiateMsg, PendingBatch, UnbondRequest,
 };
 

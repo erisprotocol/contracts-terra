@@ -1,0 +1,36 @@
+[package]
+name = "eris-generator-proxy"
+version = "1.0.0"
+authors = ["Spectrum", "Eris"]
+edition = "2021"
+description = "Proxy contract to Astroport generator"
+
+exclude = [
+  # Those files are rust-optimizer artifacts. You might want to commit them for convenience but they should not be part of the source code publication.
+  "contract.wasm",
+  "hash.txt",
+]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# for quicker tests, cargo test --lib
+# for more explicit tests, cargo test --features=backtraces
+backtraces = ["cosmwasm-std/backtraces"]
+
+[dependencies]
+astroport = { git = "https://github.com/astroport-fi/astroport-core.git", branch = "main", default-features = false }
+astroport-governance = { git = "https://github.com/astroport-fi/astroport-governance.git", branch = "main", default-features = false }
+eris = { path = "../../../packages/eris" }
+cw20 = { version = "0.13.2" }
+cosmwasm-std = "1.0"
+cw-storage-plus = { version = "0.13.2" }
+schemars = "0.8.1"
+serde = { version = "1.0.137", default-features = false, features = ["derive"] }
+thiserror = { version = "1.0.31" }
+
+[dev-dependencies]
+cosmwasm-schema = "1.0.0"

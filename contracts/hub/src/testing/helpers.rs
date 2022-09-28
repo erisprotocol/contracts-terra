@@ -5,7 +5,7 @@ use cosmwasm_std::{
 };
 use serde::de::DeserializeOwned;
 
-use eris_staking::hub::QueryMsg;
+use eris::hub::QueryMsg;
 
 use crate::contract::query;
 

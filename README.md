@@ -56,3 +56,5 @@ For interacting with the smart contract clone <https://github.com/erisprotocol/l
 ## License
 
 Contents of this repository are open source under [GNU General Public License v3](./LICENSE) or later.
+
+Part of the repository (amp-compounder) is a fork from <https://github.com/spectrumprotocol/spectrum-core> and is licensed under Apache v2.

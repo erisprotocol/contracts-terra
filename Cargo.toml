@@ -1,7 +1,13 @@
 [workspace]
-members = ["contracts/*", "packages/*"]
+members = [
+    "contracts/amp-extractor",
+    "contracts/hub",
+    "contracts/token",
+    "contracts/amp-compounder/*",
+    "packages/*",
+]
 
-[profile.release.package.eris-staking]
+[profile.release.package.eris]
 opt-level = 3
 debug = false
 debug-assertions = false
@@ -9,6 +15,12 @@ codegen-units = 1
 incremental = false
 
 [profile.release]
+opt-level = 3
+debug = false
 rpath = false
 lto = true
+debug-assertions = false
+codegen-units = 1
+panic = 'abort'
+incremental = false
 overflow-checks = true
