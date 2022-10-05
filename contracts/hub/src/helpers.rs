@@ -1,8 +1,6 @@
 use std::{collections::HashSet, str::FromStr};
 
-use cosmwasm_std::{
-    Addr, Api, Coin, QuerierWrapper, Reply, Response, StdError, StdResult, SubMsgResponse, Uint128,
-};
+use cosmwasm_std::{Addr, Api, Coin, QuerierWrapper, StdError, StdResult, Uint128};
 use cw20::{Cw20QueryMsg, TokenInfoResponse};
 
 use crate::types::Delegation;

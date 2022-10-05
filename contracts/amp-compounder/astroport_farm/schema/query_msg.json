@@ -20,10 +20,10 @@
       "description": "Returns the deposited balances",
       "type": "object",
       "required": [
-        "reward_info"
+        "user_info"
       ],
       "properties": {
-        "reward_info": {
+        "user_info": {
           "type": "object",
           "required": [
             "staker_addr"
@@ -45,7 +45,15 @@
       ],
       "properties": {
         "state": {
-          "type": "object"
+          "type": "object",
+          "properties": {
+            "staker_addr": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
         }
       },
       "additionalProperties": false

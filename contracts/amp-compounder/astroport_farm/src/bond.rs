@@ -24,7 +24,7 @@ pub fn bond_assets(
     slippage_tolerance: Option<Decimal>,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
-    let staking_token = config.lp_token;
+    let lp_token = config.lp_token;
 
     let mut messages: Vec<CosmosMsg> = vec![];
     let mut funds: Vec<Coin> = vec![];
@@ -46,11 +46,16 @@ pub fn bond_assets(
         }
     }
 
-    let compound =
-        config.compound_proxy.compound_msg(assets, funds, no_swap, slippage_tolerance)?;
+    let compound = config.compound_proxy.compound_msg(
+        assets,
+        funds,
+        no_swap,
+        slippage_tolerance,
+        &lp_token,
+    )?;
     messages.push(compound);
 
-    let prev_balance = query_token_balance(&deps.querier, staking_token, &env.contract.address)?;
+    let prev_balance = query_token_balance(&deps.querier, lp_token, &env.contract.address)?;
     messages.push(
         CallbackMsg::BondTo {
             to: info.sender,
@@ -143,6 +148,7 @@ fn bond_internal(
         attr("action", "bond"),
         attr("amount", amount),
         attr("bond_amount", amount),
+        attr("bond_share", bond_share),
     ]))
 }
 

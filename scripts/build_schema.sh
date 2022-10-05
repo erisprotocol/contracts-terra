@@ -6,16 +6,16 @@ set -o pipefail
 projectPath=$(cd "$(dirname "${0}")" && cd ../ && pwd)
 
 for c in "$projectPath"/contracts/*; do
-  if [[ "$c" != *"tokenomics" ]]; then
-    if [[ "$c" != *"periphery" ]]; then
+  if [[ "$c" != *"amp-compounder" ]]; then
       (cd $c && cargo schema)
-    fi
   fi
 done
 
-# for c in "$projectPath"/contracts/tokenomics/*; do
-#   (cd $c && cargo schema)
-# done
+for c in "$projectPath"/contracts/amp-compounder/*; do
+  if [[ "$c" != *"README.md" ]]; then
+    (cd $c && cargo schema)
+  fi
+done
 
 # for c in "$projectPath"/contracts/periphery/*; do
 #   (cd $c && cargo schema)

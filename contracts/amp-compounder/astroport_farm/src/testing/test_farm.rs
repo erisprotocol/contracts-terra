@@ -1,7 +1,6 @@
 use crate::contract::{execute, instantiate, query, reply};
 use crate::error::ContractError;
 use crate::state::Config;
-
 use astroport::asset::{Asset, AssetInfo};
 use astroport::generator::{
     Cw20HookMsg as GeneratorCw20HookMsg, ExecuteMsg as GeneratorExecuteMsg,
@@ -13,13 +12,14 @@ use cosmwasm_std::{
     OwnedDeps, Reply, Response, StdError, SubMsgResponse, Timestamp, Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg, Expiration};
+use eris::adapters::compounder::Compounder;
 use eris::adapters::generator::Generator;
 use eris::adapters::token::Token;
 use eris::astroport_farm::{
     CallbackMsg, Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg, StateResponse, TokenInit,
     UserInfoResponse,
 };
-use eris::compound_proxy::{Compounder, ExecuteMsg as CompoundProxyExecuteMsg};
+use eris::compound_proxy::ExecuteMsg as CompoundProxyExecuteMsg;
 
 use super::mock_querier::{mock_dependencies, WasmMockQuerier};
 
@@ -40,6 +40,7 @@ const LP_TOKEN: &str = "lp_token";
 const AMP_LP_TOKEN: &str = "amp_lp_token";
 const IBC_TOKEN: &str = "ibc/stablecoin";
 
+#[allow(clippy::redundant_clone)]
 #[test]
 fn test() -> Result<(), ContractError> {
     let mut deps = mock_dependencies();
@@ -65,6 +66,7 @@ fn assert_error(res: Result<Response, ContractError>, expected: &str) {
     }
 }
 
+#[allow(clippy::redundant_clone)]
 fn create(
     deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>,
 ) -> Result<(), ContractError> {
@@ -151,6 +153,7 @@ fn create(
     Ok(())
 }
 
+#[allow(clippy::redundant_clone)]
 fn config(
     deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>,
 ) -> Result<(), ContractError> {
@@ -250,6 +253,7 @@ fn config(
     Ok(())
 }
 
+#[allow(clippy::redundant_clone)]
 fn owner(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Result<(), ContractError> {
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(0);
@@ -316,6 +320,7 @@ fn owner(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Result<
     Ok(())
 }
 
+#[allow(clippy::redundant_clone)]
 fn bond(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Result<(), ContractError> {
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(101);
@@ -364,16 +369,16 @@ fn bond(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Result<(
 
     // query reward info
     let msg = QueryMsg::UserInfo {
-        staker_addr: USER_1.to_string(),
+        addr: USER_1.to_string(),
     };
     let res: UserInfoResponse = from_binary(&query(deps.as_ref(), env.clone(), msg)?)?;
     assert_eq!(
         res,
         UserInfoResponse {
-            bond_amount: Uint128::from(100000u128),
-            bond_share: Uint128::from(100000u128),
-            lp_balance: Uint128::from(100000u128),
-            total_share: Uint128::from(100000u128),
+            user_lp_amount: Uint128::from(100000u128),
+            user_amp_lp_amount: Uint128::from(100000u128),
+            total_lp: Uint128::from(100000u128),
+            total_amp_lp: Uint128::from(100000u128),
         }
     );
 
@@ -412,29 +417,33 @@ fn bond(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Result<(
 
     // query reward info
     let msg = QueryMsg::UserInfo {
-        staker_addr: USER_2.to_string(),
+        addr: USER_2.to_string(),
     };
     let res: UserInfoResponse = from_binary(&query(deps.as_ref(), env.clone(), msg)?)?;
     assert_eq!(
         res,
         UserInfoResponse {
-            bond_amount: Uint128::from(50000u128),
-            bond_share: Uint128::from(50000u128),
-            lp_balance: Uint128::from(150000u128),
-            total_share: Uint128::from(150000u128),
+            user_lp_amount: Uint128::from(50000u128),
+            user_amp_lp_amount: Uint128::from(50000u128),
+            total_lp: Uint128::from(150000u128),
+            total_amp_lp: Uint128::from(150000u128),
         }
     );
 
     // query state
-    let msg = QueryMsg::State {};
+    let msg = QueryMsg::State {
+        addr: None,
+    };
     let res: StateResponse = from_binary(&query(deps.as_ref(), env.clone(), msg)?)?;
     assert_eq!(
         res,
         StateResponse {
             total_lp: Uint128::from(150000u128),
             total_amp_lp: Uint128::from(150000u128),
-            total_share: Uint128::from(150000u128),
-            exchange_rate: Decimal::one()
+            user_info: None,
+            exchange_rate: Decimal::one(),
+            locked_assets: vec![],
+            pair_contract: Addr::unchecked("pair")
         }
     );
 
@@ -443,31 +452,31 @@ fn bond(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Result<(
 
     // query reward info for user_1, bond amount should be 100000 + 20000 = 120000
     let msg = QueryMsg::UserInfo {
-        staker_addr: USER_1.to_string(),
+        addr: USER_1.to_string(),
     };
     let res: UserInfoResponse = from_binary(&query(deps.as_ref(), env.clone(), msg)?)?;
     assert_eq!(
         res,
         UserInfoResponse {
-            bond_amount: Uint128::from(120000u128),
-            bond_share: Uint128::from(100000u128),
-            lp_balance: Uint128::from(180000u128),
-            total_share: Uint128::from(150000u128),
+            user_lp_amount: Uint128::from(120000u128),
+            user_amp_lp_amount: Uint128::from(100000u128),
+            total_lp: Uint128::from(180000u128),
+            total_amp_lp: Uint128::from(150000u128),
         }
     );
 
     // query reward info for user_2, bond amount should be 50000 + 10000 = 60000
     let msg = QueryMsg::UserInfo {
-        staker_addr: USER_2.to_string(),
+        addr: USER_2.to_string(),
     };
     let res: UserInfoResponse = from_binary(&query(deps.as_ref(), env.clone(), msg)?)?;
     assert_eq!(
         res,
         UserInfoResponse {
-            bond_amount: Uint128::from(60000u128),
-            bond_share: Uint128::from(50000u128),
-            lp_balance: Uint128::from(180000u128),
-            total_share: Uint128::from(150000u128),
+            user_lp_amount: Uint128::from(60000u128),
+            user_amp_lp_amount: Uint128::from(50000u128),
+            total_lp: Uint128::from(180000u128),
+            total_amp_lp: Uint128::from(150000u128),
         }
     );
 
@@ -505,31 +514,31 @@ fn bond(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Result<(
 
     // query reward info for user_1, bond amount should be 120000 - 60000 = 60000
     let msg = QueryMsg::UserInfo {
-        staker_addr: USER_1.to_string(),
+        addr: USER_1.to_string(),
     };
     let res: UserInfoResponse = from_binary(&query(deps.as_ref(), env.clone(), msg)?)?;
     assert_eq!(
         res,
         UserInfoResponse {
-            bond_amount: Uint128::from(60000u128),
-            bond_share: Uint128::from(50000u128),
-            lp_balance: Uint128::from(120000u128),
-            total_share: Uint128::from(100000u128),
+            user_lp_amount: Uint128::from(60000u128),
+            user_amp_lp_amount: Uint128::from(50000u128),
+            total_lp: Uint128::from(120000u128),
+            total_amp_lp: Uint128::from(100000u128),
         }
     );
 
     // query reward info for user_2
     let msg = QueryMsg::UserInfo {
-        staker_addr: USER_2.to_string(),
+        addr: USER_2.to_string(),
     };
     let res: UserInfoResponse = from_binary(&query(deps.as_ref(), env.clone(), msg)?)?;
     assert_eq!(
         res,
         UserInfoResponse {
-            bond_amount: Uint128::from(60000u128),
-            bond_share: Uint128::from(50000u128),
-            lp_balance: Uint128::from(120000u128),
-            total_share: Uint128::from(100000u128),
+            user_lp_amount: Uint128::from(60000u128),
+            user_amp_lp_amount: Uint128::from(50000u128),
+            total_lp: Uint128::from(120000u128),
+            total_amp_lp: Uint128::from(100000u128),
         }
     );
 
@@ -565,31 +574,31 @@ fn bond(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Result<(
 
     // query reward info for user_2, bond amount should be 60000 - 60000 = 0
     let msg = QueryMsg::UserInfo {
-        staker_addr: USER_2.to_string(),
+        addr: USER_2.to_string(),
     };
     let res: UserInfoResponse = from_binary(&query(deps.as_ref(), env.clone(), msg)?)?;
     assert_eq!(
         res,
         UserInfoResponse {
-            bond_amount: Uint128::from(0u128),
-            bond_share: Uint128::from(0u128),
-            lp_balance: Uint128::from(60000u128),
-            total_share: Uint128::from(50000u128),
+            user_lp_amount: Uint128::from(0u128),
+            user_amp_lp_amount: Uint128::from(0u128),
+            total_lp: Uint128::from(60000u128),
+            total_amp_lp: Uint128::from(50000u128),
         }
     );
 
     // query reward info for user_1
     let msg = QueryMsg::UserInfo {
-        staker_addr: USER_1.to_string(),
+        addr: USER_1.to_string(),
     };
     let res: UserInfoResponse = from_binary(&query(deps.as_ref(), env.clone(), msg)?)?;
     assert_eq!(
         res,
         UserInfoResponse {
-            bond_amount: Uint128::from(60000u128),
-            bond_share: Uint128::from(50000u128),
-            lp_balance: Uint128::from(60000u128),
-            total_share: Uint128::from(50000u128),
+            user_lp_amount: Uint128::from(60000u128),
+            user_amp_lp_amount: Uint128::from(50000u128),
+            total_lp: Uint128::from(60000u128),
+            total_amp_lp: Uint128::from(50000u128),
         }
     );
 
@@ -657,8 +666,9 @@ fn bond(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Result<(
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: COMPOUND_PROXY.to_string(),
                 msg: to_binary(&CompoundProxyExecuteMsg::Compound {
+                    lp_token: LP_TOKEN.to_string(),
                     rewards: assets.clone(),
-                    to: None,
+                    receiver: None,
                     no_swap: None,
                     slippage_tolerance: Some(Decimal::percent(2)),
                 })?,
@@ -711,8 +721,9 @@ fn bond(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Result<(
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: COMPOUND_PROXY.to_string(),
                 msg: to_binary(&CompoundProxyExecuteMsg::Compound {
+                    lp_token: LP_TOKEN.to_string(),
                     rewards: assets,
-                    to: None,
+                    receiver: None,
                     no_swap: Some(true),
                     slippage_tolerance: None,
                 })?,
@@ -774,35 +785,40 @@ fn bond(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Result<(
 
     // query reward info for user_1, bond amount should be 60000 + 10000 = 70000
     let msg = QueryMsg::UserInfo {
-        staker_addr: USER_1.to_string(),
+        addr: USER_1.to_string(),
     };
     let res: UserInfoResponse = from_binary(&query(deps.as_ref(), env.clone(), msg)?)?;
     assert_eq!(
         res,
         UserInfoResponse {
-            bond_amount: Uint128::from(70000u128),
-            bond_share: Uint128::from(58333u128),
-            lp_balance: Uint128::from(70000u128),
-            total_share: Uint128::from(58333u128),
+            user_lp_amount: Uint128::from(70000u128),
+            user_amp_lp_amount: Uint128::from(58333u128),
+            total_lp: Uint128::from(70000u128),
+            total_amp_lp: Uint128::from(58333u128),
         }
     );
 
     // query state
-    let msg = QueryMsg::State {};
+    let msg = QueryMsg::State {
+        addr: None,
+    };
     let res: StateResponse = from_binary(&query(deps.as_ref(), env.clone(), msg)?)?;
     assert_eq!(
         res,
         StateResponse {
             total_lp: Uint128::from(70000u128),
             total_amp_lp: Uint128::from(58333u128),
-            total_share: Uint128::from(58333u128),
-            exchange_rate: Decimal::from_ratio(70000u128, 58333u128)
+            exchange_rate: Decimal::from_ratio(70000u128, 58333u128),
+            locked_assets: vec![],
+            pair_contract: Addr::unchecked("pair"),
+            user_info: None
         }
     );
 
     Ok(())
 }
 
+#[allow(clippy::redundant_clone)]
 fn mint_and_msg(
     deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>,
     token: &str,
@@ -851,6 +867,7 @@ fn unbond_msg(amount: Uint128, sender: String) -> ExecuteMsg {
     })
 }
 
+#[allow(clippy::redundant_clone)]
 fn _deposit_time(
     deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>,
 ) -> Result<(), ContractError> {
@@ -876,16 +893,16 @@ fn _deposit_time(
 
     // query reward info for user_3, should get only 10000
     let msg = QueryMsg::UserInfo {
-        staker_addr: USER_3.to_string(),
+        addr: USER_3.to_string(),
     };
     let res: UserInfoResponse = from_binary(&query(deps.as_ref(), env.clone(), msg)?)?;
     assert_eq!(
         res,
         UserInfoResponse {
-            bond_amount: Uint128::from(9999u128),
-            bond_share: Uint128::from(8333u128),
-            lp_balance: Uint128::from(85000u128),
-            total_share: Uint128::from(66666u128),
+            user_lp_amount: Uint128::from(9999u128),
+            user_amp_lp_amount: Uint128::from(8333u128),
+            total_lp: Uint128::from(85000u128),
+            total_amp_lp: Uint128::from(66666u128),
         }
     );
 
@@ -893,31 +910,31 @@ fn _deposit_time(
 
     // query reward info for user_3, should increase to 10312 instead of 10624
     let msg = QueryMsg::UserInfo {
-        staker_addr: USER_3.to_string(),
+        addr: USER_3.to_string(),
     };
     let res: UserInfoResponse = from_binary(&query(deps.as_ref(), env.clone(), msg)?)?;
     assert_eq!(
         res,
         UserInfoResponse {
-            bond_amount: Uint128::from(10311u128),
-            bond_share: Uint128::from(8333u128),
-            lp_balance: Uint128::zero(),
-            total_share: Uint128::zero(),
+            user_lp_amount: Uint128::from(10311u128),
+            user_amp_lp_amount: Uint128::from(8333u128),
+            total_lp: Uint128::zero(),
+            total_amp_lp: Uint128::zero(),
         }
     );
 
     // query reward info for user_1, should be 74375
     let msg = QueryMsg::UserInfo {
-        staker_addr: USER_1.to_string(),
+        addr: USER_1.to_string(),
     };
     let res: UserInfoResponse = from_binary(&query(deps.as_ref(), env.clone(), msg)?)?;
     assert_eq!(
         res,
         UserInfoResponse {
-            bond_amount: Uint128::from(74375u128),
-            bond_share: Uint128::from(58333u128),
-            lp_balance: Uint128::zero(),
-            total_share: Uint128::zero(),
+            user_lp_amount: Uint128::from(74375u128),
+            user_amp_lp_amount: Uint128::from(58333u128),
+            total_lp: Uint128::zero(),
+            total_amp_lp: Uint128::zero(),
         }
     );
 
@@ -926,16 +943,16 @@ fn _deposit_time(
 
     // query reward info for user_3, should increase 10624
     let msg = QueryMsg::UserInfo {
-        staker_addr: USER_3.to_string(),
+        addr: USER_3.to_string(),
     };
     let res: UserInfoResponse = from_binary(&query(deps.as_ref(), env.clone(), msg)?)?;
     assert_eq!(
         res,
         UserInfoResponse {
-            bond_amount: Uint128::from(10624u128),
-            bond_share: Uint128::from(8333u128),
-            lp_balance: Uint128::zero(),
-            total_share: Uint128::zero(),
+            user_lp_amount: Uint128::from(10624u128),
+            user_amp_lp_amount: Uint128::from(8333u128),
+            total_lp: Uint128::zero(),
+            total_amp_lp: Uint128::zero(),
         }
     );
 
@@ -973,22 +990,23 @@ fn _deposit_time(
 
     // query reward info for user_1, should be 74375 + 312 (from user_3 penalty)= 74687
     let msg = QueryMsg::UserInfo {
-        staker_addr: USER_1.to_string(),
+        addr: USER_1.to_string(),
     };
     let res: UserInfoResponse = from_binary(&query(deps.as_ref(), env.clone(), msg)?)?;
     assert_eq!(
         res,
         UserInfoResponse {
-            bond_amount: Uint128::from(74689u128),
-            bond_share: Uint128::from(58333u128),
-            lp_balance: Uint128::zero(),
-            total_share: Uint128::zero(),
+            user_lp_amount: Uint128::from(74689u128),
+            user_amp_lp_amount: Uint128::from(58333u128),
+            total_lp: Uint128::zero(),
+            total_amp_lp: Uint128::zero(),
         }
     );
 
     Ok(())
 }
 
+#[allow(clippy::redundant_clone)]
 fn compound(
     deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>,
 ) -> Result<(), ContractError> {
@@ -1062,6 +1080,7 @@ fn compound(
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: COMPOUND_PROXY.to_string(),
                 msg: to_binary(&CompoundProxyExecuteMsg::Compound {
+                    lp_token: LP_TOKEN.to_string(),
                     rewards: vec![
                         Asset {
                             info: AssetInfo::Token {
@@ -1076,7 +1095,7 @@ fn compound(
                             amount: Uint128::from(47500u128),
                         },
                     ],
-                    to: None,
+                    receiver: None,
                     no_swap: None,
                     slippage_tolerance: Some(Decimal::percent(3)),
                 })?,
@@ -1124,6 +1143,7 @@ fn compound(
     Ok(())
 }
 
+#[allow(clippy::redundant_clone)]
 fn callback(
     deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>,
 ) -> Result<(), ContractError> {

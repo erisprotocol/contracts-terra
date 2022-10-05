@@ -1,16 +1,14 @@
-use astroport::asset::{PairInfo, AssetInfo};
+use astroport::asset::{token_asset_info, AssetInfo, PairInfo};
+use astroport::factory::FeeInfoResponse;
+use astroport::pair::QueryMsg::{Pair, Simulation};
+use astroport::pair::SimulationResponse;
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Addr, Coin, Empty, OwnedDeps, Querier, QuerierResult,
-    QueryRequest, SystemError, SystemResult, Uint128, WasmQuery,
+    from_binary, from_slice, to_binary, Addr, Coin, ContractResult, Empty, OwnedDeps, Querier,
+    QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery,
 };
-use std::collections::HashMap;
-
-use astroport::factory::FeeInfoResponse;
-use astroport::factory::QueryMsg::FeeInfo;
-use astroport::pair::QueryMsg::{Pair, Simulation};
 use cw20::{BalanceResponse, Cw20QueryMsg, TokenInfoResponse};
-use astroport::pair::SimulationResponse;
+use std::collections::HashMap;
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
 /// this uses our CustomQuerier.
@@ -72,7 +70,7 @@ impl Querier for WasmMockQuerier {
                     error: format!("Parsing query request: {}", e),
                     request: bin_request.into(),
                 })
-            }
+            },
         };
         self.handle_query(&request)
     }
@@ -81,10 +79,15 @@ impl Querier for WasmMockQuerier {
 impl WasmMockQuerier {
     pub fn handle_query(&self, request: &QueryRequest<Empty>) -> QuerierResult {
         match &request {
-            QueryRequest::Wasm(WasmQuery::Smart { contract_addr, msg }) => {
+            QueryRequest::Wasm(WasmQuery::Smart {
+                contract_addr,
+                msg,
+            }) => {
                 if contract_addr == "factory" {
-                    match from_binary(&msg).unwrap() {
-                        FeeInfo { .. } => SystemResult::Ok(
+                    match from_binary(msg).unwrap() {
+                        astroport::factory::QueryMsg::FeeInfo {
+                            ..
+                        } => SystemResult::Ok(
                             to_binary(&FeeInfoResponse {
                                 fee_address: Some(Addr::unchecked("fee_address")),
                                 total_fee_bps: 30,
@@ -92,83 +95,187 @@ impl WasmMockQuerier {
                             })
                             .into(),
                         ),
+                        astroport::factory::QueryMsg::Pair {
+                            asset_infos,
+                        } => {
+                            if asset_infos.contains(&token_asset_info(Addr::unchecked("unknown"))) {
+                                SystemResult::Ok(ContractResult::Err("unknown pair".to_string()))
+                            } else {
+                                SystemResult::Ok(
+                                    to_binary(&PairInfo {
+                                        asset_infos,
+                                        contract_addr: Addr::unchecked("pair-x"),
+                                        liquidity_token: Addr::unchecked("lp-x"),
+                                        pair_type: astroport::factory::PairType::Xyk {},
+                                    })
+                                    .into(),
+                                )
+                            }
+                        },
+                        _ => panic!("DO NOT ENTER HERE"),
+                    }
+                } else if contract_addr == "router" {
+                    match from_binary(msg).unwrap() {
+                        astroport::router::QueryMsg::SimulateSwapOperations {
+                            ..
+                        } => SystemResult::Ok(
+                            to_binary(&astroport::router::SimulateSwapOperationsResponse {
+                                amount: Uint128::from(1000000u128),
+                            })
+                            .into(),
+                        ),
+
                         _ => panic!("DO NOT ENTER HERE"),
                     }
                 } else if contract_addr == "pair_contract" {
-                    match from_binary(&msg).unwrap() {
-                        Pair { .. } => SystemResult::Ok(
+                    match from_binary(msg).unwrap() {
+                        Pair {
+                            ..
+                        } => SystemResult::Ok(
                             to_binary(&PairInfo {
                                 asset_infos: vec![
                                     {
-                                        AssetInfo::Token { contract_addr: Addr::unchecked("token") }
+                                        AssetInfo::Token {
+                                            contract_addr: Addr::unchecked("token"),
+                                        }
                                     },
                                     {
-                                        AssetInfo::NativeToken { denom: "uluna".to_string() }
+                                        AssetInfo::NativeToken {
+                                            denom: "uluna".to_string(),
+                                        }
                                     },
                                 ],
                                 contract_addr: Addr::unchecked("pair_contract"),
                                 liquidity_token: Addr::unchecked("liquidity_token"),
-                                pair_type: astroport::factory::PairType::Xyk {  },
+                                pair_type: astroport::factory::PairType::Xyk {},
+                            })
+                            .into(),
+                        ),
+                        _ => panic!("DO NOT ENTER HERE"),
+                    }
+                } else if contract_addr == "pair0001" {
+                    match from_binary(msg).unwrap() {
+                        Pair {
+                            ..
+                        } => SystemResult::Ok(
+                            to_binary(&PairInfo {
+                                asset_infos: vec![
+                                    {
+                                        AssetInfo::Token {
+                                            contract_addr: Addr::unchecked("any"),
+                                        }
+                                    },
+                                    {
+                                        AssetInfo::NativeToken {
+                                            denom: "uluna".to_string(),
+                                        }
+                                    },
+                                ],
+                                contract_addr: Addr::unchecked("pair0001"),
+                                liquidity_token: Addr::unchecked("liquidity_token_1"),
+                                pair_type: astroport::factory::PairType::Xyk {},
+                            })
+                            .into(),
+                        ),
+                        _ => panic!("DO NOT ENTER HERE"),
+                    }
+                } else if contract_addr == "pair0002" {
+                    match from_binary(msg).unwrap() {
+                        Pair {
+                            ..
+                        } => SystemResult::Ok(
+                            to_binary(&PairInfo {
+                                asset_infos: vec![
+                                    {
+                                        AssetInfo::NativeToken {
+                                            denom: "uluna".to_string(),
+                                        }
+                                    },
+                                    {
+                                        AssetInfo::NativeToken {
+                                            denom: "ibc/token".to_string(),
+                                        }
+                                    },
+                                ],
+                                contract_addr: Addr::unchecked("pair0002"),
+                                liquidity_token: Addr::unchecked("liquidity_token_2"),
+                                pair_type: astroport::factory::PairType::Xyk {},
                             })
                             .into(),
                         ),
                         _ => panic!("DO NOT ENTER HERE"),
                     }
                 } else if contract_addr == "pair_contract_2" {
-                    match from_binary(&msg).unwrap() {
-                        Pair { .. } => SystemResult::Ok(
+                    match from_binary(msg).unwrap() {
+                        Pair {
+                            ..
+                        } => SystemResult::Ok(
                             to_binary(&PairInfo {
                                 asset_infos: vec![
                                     {
-                                        AssetInfo::NativeToken { denom: "uluna".to_string() }
+                                        AssetInfo::NativeToken {
+                                            denom: "uluna".to_string(),
+                                        }
                                     },
                                     {
-                                        AssetInfo::NativeToken { denom: "ibc/B3504E092456BA618CC28AC671A71FB08C6CA0FD0BE7C8A5B5A3E2DD933CC9E4".to_string() }
-                                    }
+                                        AssetInfo::NativeToken {
+                                            denom: "ibc/token".to_string(),
+                                        }
+                                    },
                                 ],
                                 contract_addr: Addr::unchecked("pair_contract_2"),
-                                liquidity_token: Addr::unchecked("liquidity_token"),
-                                pair_type: astroport::factory::PairType::Xyk {  },
+                                liquidity_token: Addr::unchecked("liquidity_token_3"),
+                                pair_type: astroport::factory::PairType::Xyk {},
                             })
-                                .into(),
+                            .into(),
                         ),
                         _ => panic!("DO NOT ENTER HERE"),
                     }
                 } else if contract_addr == "pair_astro_token" {
-                    match from_binary(&msg).unwrap() {
-                        Pair { .. } => SystemResult::Ok(
+                    match from_binary(msg).unwrap() {
+                        Pair {
+                            ..
+                        } => SystemResult::Ok(
                             to_binary(&PairInfo {
                                 asset_infos: vec![
                                     {
-                                        AssetInfo::Token { contract_addr: Addr::unchecked("astro") }
+                                        AssetInfo::Token {
+                                            contract_addr: Addr::unchecked("astro"),
+                                        }
                                     },
                                     {
-                                        AssetInfo::Token { contract_addr: Addr::unchecked("token") }
+                                        AssetInfo::Token {
+                                            contract_addr: Addr::unchecked("token"),
+                                        }
                                     },
                                 ],
                                 contract_addr: Addr::unchecked("pair_astro_token"),
                                 liquidity_token: Addr::unchecked("astro_token_lp"),
-                                pair_type: astroport::factory::PairType::Xyk {  },
-                            }).into(),
+                                pair_type: astroport::factory::PairType::Xyk {},
+                            })
+                            .into(),
                         ),
-                        Simulation { .. } => SystemResult::Ok(
+                        Simulation {
+                            ..
+                        } => SystemResult::Ok(
                             to_binary(&SimulationResponse {
                                 return_amount: Uint128::from(1000000u128),
                                 commission_amount: Uint128::zero(),
                                 spread_amount: Uint128::zero(),
-                            }).into(),
+                            })
+                            .into(),
                         ),
                         _ => panic!("DO NOT ENTER HERE"),
                     }
                 } else {
-                    match from_binary(&msg).unwrap() {
+                    match from_binary(msg).unwrap() {
                         Cw20QueryMsg::TokenInfo {} => {
                             let balances: &HashMap<String, Uint128> =
                                 match self.token_querier.balances.get(contract_addr) {
                                     Some(balances) => balances,
                                     None => {
                                         return SystemResult::Err(SystemError::Unknown {});
-                                    }
+                                    },
                                 };
 
                             let mut total_supply = Uint128::zero();
@@ -186,31 +293,36 @@ impl WasmMockQuerier {
                                 })
                                 .into(),
                             )
-                        }
-                        Cw20QueryMsg::Balance { address } => {
+                        },
+                        Cw20QueryMsg::Balance {
+                            address,
+                        } => {
                             let balances: &HashMap<String, Uint128> =
                                 match self.token_querier.balances.get(contract_addr) {
                                     Some(balances) => balances,
                                     None => {
                                         return SystemResult::Err(SystemError::Unknown {});
-                                    }
+                                    },
                                 };
 
                             let balance = match balances.get(&address) {
                                 Some(v) => v,
                                 None => {
                                     return SystemResult::Err(SystemError::Unknown {});
-                                }
+                                },
                             };
 
                             SystemResult::Ok(
-                                to_binary(&BalanceResponse { balance: *balance }).into(),
+                                to_binary(&BalanceResponse {
+                                    balance: *balance,
+                                })
+                                .into(),
                             )
-                        }
+                        },
                         _ => panic!("DO NOT ENTER HERE"),
                     }
                 }
-            }
+            },
             _ => self.base.handle_query(request),
         }
     }

@@ -145,23 +145,25 @@ pub enum QueryMsg {
     Config {},
     /// Returns the deposited balances
     UserInfo {
-        staker_addr: String,
+        addr: String,
     },
     /// Returns the global state
-    State {},
+    State {
+        addr: Option<String>,
+    },
 }
 
 /// This structure holds the parameters for reward info query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct UserInfoResponse {
     /// The LP token amount bonded
-    pub bond_amount: Uint128,
+    pub user_lp_amount: Uint128,
     /// The share of total LP token bonded
-    pub bond_share: Uint128,
+    pub user_amp_lp_amount: Uint128,
     /// Total lp balance of pool
-    pub lp_balance: Uint128,
+    pub total_lp: Uint128,
     // total amount of minted amp[LP] tokens (= total shares)
-    pub total_share: Uint128,
+    pub total_amp_lp: Uint128,
 }
 
 /// This structure describes a migration message.
@@ -191,8 +193,20 @@ pub struct StateResponse {
     pub total_lp: Uint128,
     // total amount of minted amp[LP] tokens
     pub total_amp_lp: Uint128,
-    // total amount of minted amp[LP] tokens (stored in contract = total_amp_lp)
-    pub total_share: Uint128,
     /// The exchange rate between amp[LP] and LP, in terms of LP per amp[LP]
     pub exchange_rate: Decimal,
+
+    pub pair_contract: Addr,
+
+    pub locked_assets: Vec<Asset>,
+
+    pub user_info: Option<UserInfo>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct UserInfo {
+    /// The LP token amount bonded
+    pub user_lp_amount: Uint128,
+    /// The share of total LP token bonded
+    pub user_amp_lp_amount: Uint128,
 }

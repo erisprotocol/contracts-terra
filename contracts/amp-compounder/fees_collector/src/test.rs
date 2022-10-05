@@ -56,6 +56,7 @@ fn assert_error(res: Result<Response, ContractError>, expected: &str) {
     }
 }
 
+#[allow(clippy::redundant_clone)]
 fn create(
     deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>,
 ) -> Result<(), ContractError> {
@@ -99,6 +100,7 @@ fn create(
     Ok(())
 }
 
+#[allow(clippy::redundant_clone)]
 fn config(
     deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>,
 ) -> Result<(), ContractError> {
@@ -195,6 +197,7 @@ fn config(
     Ok(())
 }
 
+#[allow(clippy::redundant_clone)]
 fn owner(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Result<(), ContractError> {
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(0);
@@ -261,6 +264,7 @@ fn owner(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Result<
     Ok(())
 }
 
+#[allow(clippy::redundant_clone)]
 fn bridges(
     deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>,
 ) -> Result<(), ContractError> {
@@ -498,6 +502,7 @@ fn collect(
     Ok(())
 }
 
+#[allow(clippy::redundant_clone)]
 fn distribute_fees(
     deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>,
 ) -> Result<(), ContractError> {
@@ -543,6 +548,7 @@ fn distribute_fees(
     Ok(())
 }
 
+#[allow(clippy::redundant_clone)]
 fn distribute_fees_to_contract(
     deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>,
 ) -> Result<(), ContractError> {

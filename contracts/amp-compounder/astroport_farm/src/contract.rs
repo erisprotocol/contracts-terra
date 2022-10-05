@@ -17,13 +17,15 @@ use crate::{
 };
 
 use cw20::Cw20ReceiveMsg;
-use eris::{adapters::generator::Generator, helper::unwrap_reply};
+use eris::{
+    adapters::{compounder::Compounder, generator::Generator},
+    helper::unwrap_reply,
+};
 
 use crate::bond::unbond;
 use eris::astroport_farm::{
     CallbackMsg, Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
-use eris::compound_proxy::Compounder;
 
 /// ## Description
 /// Validates that decimal value is in the range 0 to 1
@@ -224,9 +226,11 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::UserInfo {
-            staker_addr,
-        } => to_binary(&query_user_info(deps, env, staker_addr)?),
-        QueryMsg::State {} => to_binary(&query_state(deps, env)?),
+            addr,
+        } => to_binary(&query_user_info(deps, env, addr)?),
+        QueryMsg::State {
+            addr,
+        } => to_binary(&query_state(deps, env, addr)?),
     }
 }
 /// ## Description

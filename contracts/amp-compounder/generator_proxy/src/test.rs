@@ -71,6 +71,7 @@ fn assert_error(res: Result<Response, ContractError>, expected: &str) {
     }
 }
 
+#[allow(clippy::redundant_clone)]
 fn create(
     deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>,
 ) -> Result<(), ContractError> {
@@ -119,6 +120,7 @@ fn create(
     Ok(())
 }
 
+#[allow(clippy::redundant_clone)]
 fn config(
     deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>,
 ) -> Result<(), ContractError> {
@@ -187,6 +189,7 @@ fn config(
     Ok(())
 }
 
+#[allow(clippy::redundant_clone)]
 fn deposit(
     deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>,
 ) -> Result<(), ContractError> {
@@ -371,7 +374,7 @@ fn deposit(
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
     assert_error(res, "Callbacks cannot be invoked externally");
 
-    let info = mock_info(MOCK_CONTRACT_ADDR, &vec![]);
+    let info = mock_info(MOCK_CONTRACT_ADDR, &[]);
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg);
     assert!(res.is_ok());
 
@@ -508,6 +511,7 @@ fn deposit(
     Ok(())
 }
 
+#[allow(clippy::redundant_clone)]
 fn claim_rewards(
     deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>,
 ) -> Result<(), ContractError> {
@@ -613,7 +617,7 @@ fn claim_rewards(
         },
     )?;
 
-    let info = mock_info(MOCK_CONTRACT_ADDR, &vec![]);
+    let info = mock_info(MOCK_CONTRACT_ADDR, &[]);
     let msg = ExecuteMsg::Callback(CallbackMsg::AfterBondClaimed {
         lp_token: Addr::unchecked(LP_TOKEN),
         prev_balances: vec![
@@ -747,12 +751,13 @@ fn claim_rewards(
     Ok(())
 }
 
+#[allow(clippy::redundant_clone)]
 fn withdraw(
     deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>,
 ) -> Result<(), ContractError> {
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(EPOCH_START);
-    let info = mock_info(USER1, &vec![]);
+    let info = mock_info(USER1, &[]);
 
     let msg = ExecuteMsg::Withdraw {
         lp_token: LP_TOKEN.to_string(),
@@ -793,7 +798,7 @@ fn withdraw(
         ]
     );
 
-    let info = mock_info(MOCK_CONTRACT_ADDR, &vec![]);
+    let info = mock_info(MOCK_CONTRACT_ADDR, &[]);
     let msg = ExecuteMsg::Callback(CallbackMsg::AfterBondClaimed {
         lp_token: Addr::unchecked(LP_TOKEN),
         prev_balances: vec![
@@ -913,10 +918,11 @@ fn withdraw(
     Ok(())
 }
 
+#[allow(clippy::redundant_clone)]
 fn stake(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Result<(), ContractError> {
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(EPOCH_START);
-    let info = mock_info(USER1, &vec![]);
+    let info = mock_info(USER1, &[]);
 
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
         sender: USER1.to_string(),
@@ -926,7 +932,7 @@ fn stake(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Result<
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg);
     assert_error(res, "Unauthorized");
 
-    let info = mock_info(XASTRO_TOKEN, &vec![]);
+    let info = mock_info(XASTRO_TOKEN, &[]);
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
         sender: USER1.to_string(),
         amount: Uint128::from(800u128),
@@ -1040,12 +1046,13 @@ fn stake(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Result<
     Ok(())
 }
 
+#[allow(clippy::redundant_clone)]
 fn unstake(
     deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>,
 ) -> Result<(), ContractError> {
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(EPOCH_START);
-    let info = mock_info(USER1, &vec![]);
+    let info = mock_info(USER1, &[]);
 
     let msg = ExecuteMsg::RequestUnstake {
         amount: Uint128::from(500u128),
@@ -1090,7 +1097,7 @@ fn unstake(
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg);
     assert_error(res, "Cannot Sub with 300 and 500");
 
-    let info = mock_info(XASTRO_TOKEN, &vec![]);
+    let info = mock_info(XASTRO_TOKEN, &[]);
     env.block.time = Timestamp::from_seconds(EPOCH_START + WEEK);
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
         sender: USER2.to_string(),
@@ -1139,7 +1146,7 @@ fn unstake(
         MOCK_CONTRACT_ADDR.to_string(),
         Uint128::from(92u128),
     );
-    let info = mock_info(MOCK_CONTRACT_ADDR, &vec![]);
+    let info = mock_info(MOCK_CONTRACT_ADDR, &[]);
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone())?;
     assert_eq!(
         res.messages.into_iter().map(|it| it.msg).collect::<Vec<CosmosMsg>>(),
@@ -1220,7 +1227,7 @@ fn unstake(
         }
     );
 
-    let info = mock_info(USER1, &vec![]);
+    let info = mock_info(USER1, &[]);
     let msg = ExecuteMsg::RequestUnstake {
         amount: Uint128::from(300u128),
     };
@@ -1300,12 +1307,13 @@ fn unstake(
     Ok(())
 }
 
+#[allow(clippy::redundant_clone)]
 fn claim_income(
     deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>,
 ) -> Result<(), ContractError> {
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(EPOCH_START + WEEK);
-    let info = mock_info(USER2, &vec![]);
+    let info = mock_info(USER2, &[]);
 
     let msg = QueryMsg::StakerInfo {
         user: USER2.to_string(),
@@ -1371,18 +1379,19 @@ fn claim_income(
     Ok(())
 }
 
+#[allow(clippy::redundant_clone)]
 fn send_income(
     deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>,
 ) -> Result<(), ContractError> {
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(EPOCH_START + WEEK);
-    let info = mock_info(USER2, &vec![]);
+    let info = mock_info(USER2, &[]);
 
     let msg = ExecuteMsg::SendIncome {};
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
     assert_error(res, "Unauthorized");
 
-    let info = mock_info(CONTROLLER, &vec![]);
+    let info = mock_info(CONTROLLER, &[]);
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg)?;
     assert_eq!(
         res.messages.into_iter().map(|it| it.msg).collect::<Vec<CosmosMsg>>(),

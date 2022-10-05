@@ -1,17 +1,15 @@
 use std::cmp::Ordering;
 
-use crate::{
-    contract::calculate_optimal_swap,
-    state::{Config, CONFIG, PAIR_PROXY},
-};
+use crate::{execute::calculate_optimal_swap, state::State};
 use astroport::{asset::AssetInfo, pair::StablePoolConfig, querier::query_token_precision, U256};
 
 use astroport::querier::query_supply;
-use cosmwasm_std::{from_binary, CosmosMsg, Deps, Fraction, StdError, StdResult, Uint128};
+use cosmwasm_std::{from_binary, CosmosMsg, Deps, StdError, StdResult, Uint128};
 
+use eris::adapters::factory::Factory;
 use eris::compound_proxy::CompoundSimulationResponse;
 
-use astroport::asset::{Asset, AssetInfoExt};
+use astroport::asset::Asset;
 use astroport::factory::PairType;
 use eris::adapters::pair::Pair;
 
@@ -25,29 +23,39 @@ const AMP_PRECISION: u64 = 100;
 pub fn query_compound_simulation(
     deps: Deps,
     rewards: Vec<Asset>,
+    lp_token: String,
 ) -> StdResult<CompoundSimulationResponse> {
-    let config: Config = CONFIG.load(deps.storage)?;
-    let asset_a_info = config.pair_info.asset_infos[0].clone();
-    let asset_b_info = config.pair_info.asset_infos[1].clone();
+    let state = State::default();
+    let lp_config = state.lps.load(deps.storage, lp_token)?;
+    let factory: Option<Factory> = state.config.load(deps.storage)?.factory;
+    let asset_a_info = lp_config.pair_info.asset_infos[0].clone();
+    let asset_b_info = lp_config.pair_info.asset_infos[1].clone();
     let mut asset_a_amount = Uint128::zero();
     let mut asset_b_amount = Uint128::zero();
 
     for reward in rewards {
-        let pair_proxy = PAIR_PROXY.may_load(deps.storage, reward.info.to_string())?;
-        let add_asset = if let Some(pair_proxy) = pair_proxy {
-            let simulation_response = pair_proxy.simulate(&deps.querier, &reward, None)?;
-            let pair_proxy_info = pair_proxy.query_pair_info(&deps.querier)?;
-            let return_asset_info = if reward.info.equal(&pair_proxy_info.asset_infos[0]) {
-                &pair_proxy_info.asset_infos[1]
-            } else if reward.info.equal(&pair_proxy_info.asset_infos[1]) {
-                &pair_proxy_info.asset_infos[0]
-            } else {
-                return Err(StdError::generic_err("Invalid pair proxy"));
-            };
-            return_asset_info.with_balance(simulation_response.return_amount)
+        let add_asset: Asset = if lp_config.pair_info.asset_infos.contains(&reward.info) {
+            Ok(reward)
+            // if it is already one of the target assets, let optimal swap handle it
         } else {
-            reward
-        };
+            let key = (reward.info.as_bytes(), lp_config.wanted_token.as_bytes());
+            let route_config = state.routes.load(deps.storage, key).map_err(|_| {
+                StdError::generic_err(format!(
+                    "did not find route {0}-{1}",
+                    reward.info, lp_config.wanted_token
+                ))
+            });
+
+            if let Ok(route_config) = route_config {
+                route_config.simulate(&deps.querier, &reward)
+            } else if let Some(factory) = &factory {
+                // if factory is set, allowed to query pairs from factory
+                factory.simulate(&deps.querier, &reward, &lp_config.wanted_token)
+            } else {
+                Err(StdError::generic_err("no route found"))
+            }
+        }?;
+
         if add_asset.info.equal(&asset_a_info) {
             asset_a_amount += add_asset.amount;
         } else if add_asset.info.equal(&asset_b_info) {
@@ -57,13 +65,14 @@ pub fn query_compound_simulation(
         }
     }
 
-    let pair = Pair(config.pair_info.contract_addr.clone());
-    let mut pools = config.pair_info.query_pools(&deps.querier, &config.pair_info.contract_addr)?;
+    let pair = Pair(lp_config.pair_info.contract_addr.clone());
+    let mut pools =
+        lp_config.pair_info.query_pools(&deps.querier, &lp_config.pair_info.contract_addr)?;
 
-    let total_share = query_supply(&deps.querier, &config.pair_info.liquidity_token)?;
+    let total_share = query_supply(&deps.querier, &lp_config.pair_info.liquidity_token)?;
 
     let (lp_amount, swap_asset_a_amount, swap_asset_b_amount, return_a_amount, return_b_amount) =
-        match config.pair_info.pair_type {
+        match lp_config.pair_info.pair_type {
             PairType::Xyk {} => {
                 let asset_a = Asset {
                     info: asset_a_info,
@@ -77,7 +86,7 @@ pub fn query_compound_simulation(
                 let (swap_asset_a_amount, swap_asset_b_amount, return_a_amount, return_b_amount) =
                     calculate_optimal_swap(
                         &deps.querier,
-                        &config,
+                        &lp_config,
                         asset_a,
                         asset_b,
                         None,
@@ -134,7 +143,7 @@ pub fn query_compound_simulation(
                     let liquidity_token_precision = query_token_precision(
                         &deps.querier,
                         &AssetInfo::Token {
-                            contract_addr: config.pair_info.liquidity_token,
+                            contract_addr: lp_config.pair_info.liquidity_token,
                         },
                     )?;
 
@@ -150,14 +159,15 @@ pub fn query_compound_simulation(
                         liquidity_token_precision,
                     )?
                 } else {
-                    let leverage = if let Some(params) = pair.query_config(&deps.querier)?.params {
-                        let stable_pool_config: StablePoolConfig = from_binary(&params)?;
-                        let amp = stable_pool_config.amp.numerator() * Uint128::from(AMP_PRECISION)
-                            / stable_pool_config.amp.denominator();
-                        u64::try_from(amp.u128()).unwrap_or(25u64)
-                    } else {
-                        25u64
-                    };
+                    let params = pair
+                        .query_config(&deps.querier)?
+                        .params
+                        .ok_or_else(|| StdError::generic_err("params not found"))?;
+
+                    let stable_pool_config: StablePoolConfig = from_binary(&params)?;
+                    let amp = stable_pool_config.amp * Uint128::from(AMP_PRECISION);
+                    let leverage = u64::try_from(amp.u128() * u128::from(N_COINS))
+                        .map_err(|_| StdError::generic_err("Overflow in leverage"))?;
 
                     let mut pool_amount_0 =
                         adjust_precision(pools[0].amount, token_precision_0, greater_precision)?;

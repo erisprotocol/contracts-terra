@@ -1,6 +1,6 @@
-use astroport::asset::addr_validate_to_lower;
+use astroport::asset::{addr_validate_to_lower, Asset, AssetInfoExt};
 use cosmwasm_std::{Decimal, Deps, Env, StdResult};
-use eris::astroport_farm::{ConfigResponse, StateResponse, UserInfoResponse};
+use eris::astroport_farm::{ConfigResponse, StateResponse, UserInfo, UserInfoResponse};
 
 use crate::state::{CONFIG, STATE};
 
@@ -25,7 +25,7 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
 
 /// ## Description
 /// Returns contract state
-pub fn query_state(deps: Deps, env: Env) -> StdResult<StateResponse> {
+pub fn query_state(deps: Deps, env: Env, addr: Option<String>) -> StdResult<StateResponse> {
     let state = STATE.load(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
 
@@ -33,40 +33,69 @@ pub fn query_state(deps: Deps, env: Env) -> StdResult<StateResponse> {
     let total_lp =
         config.staking_contract.query_deposit(&deps.querier, &lp_token, &env.contract.address)?;
 
-    let total_amp_lp = state.amp_lp_token.query_supply(&deps.querier)?;
-    let total_share = state.total_bond_share;
+    let total_amp_lp = state.total_bond_share;
+
+    let lp_state = config.compound_proxy.query_lp_state(&deps.querier, lp_token.to_string())?;
+
+    let asset_factor = Decimal::from_ratio(total_lp, lp_state.total_share);
+    let locked_assets: Vec<Asset> = lp_state
+        .assets
+        .into_iter()
+        .map(|asset| asset.info.with_balance(asset.amount * asset_factor))
+        .collect();
+
+    let user_info = addr
+        .and_then(|addr| {
+            let staker_addr_validated = addr_validate_to_lower(deps.api, &addr).ok()?;
+            Some(staker_addr_validated)
+        })
+        .and_then(|addr| {
+            let user_amp_lp_amount = state.amp_lp_token.query_amount(&deps.querier, addr).ok()?;
+            let user_lp_amount = state.calc_bond_amount(total_lp, user_amp_lp_amount);
+            Some(UserInfo {
+                user_amp_lp_amount,
+                user_lp_amount,
+            })
+        });
 
     Ok(StateResponse {
         total_lp,
         total_amp_lp,
-        total_share,
-        exchange_rate: Decimal::from_ratio(total_lp, total_share),
+        exchange_rate: if total_amp_lp.is_zero() {
+            Decimal::zero()
+        } else {
+            Decimal::from_ratio(total_lp, total_amp_lp)
+        },
+        pair_contract: lp_state.contract_addr,
+        locked_assets,
+        user_info,
     })
 }
 
 /// ## Description
 /// Returns reward info for the staker.
-pub fn query_user_info(deps: Deps, env: Env, staker_addr: String) -> StdResult<UserInfoResponse> {
-    let staker_addr_validated = addr_validate_to_lower(deps.api, &staker_addr)?;
+pub fn query_user_info(deps: Deps, env: Env, addr: String) -> StdResult<UserInfoResponse> {
+    let staker_addr_validated = addr_validate_to_lower(deps.api, &addr)?;
 
     let state = STATE.load(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
 
     let staking_token = config.lp_token;
 
-    let lp_balance = config.staking_contract.query_deposit(
+    let total_lp = config.staking_contract.query_deposit(
         &deps.querier,
         &staking_token,
         &env.contract.address,
     )?;
 
-    let bond_share = state.amp_lp_token.query_amount(&deps.querier, staker_addr_validated)?;
-    let bond_amount = state.calc_bond_amount(lp_balance, bond_share);
+    let user_amp_lp_amount =
+        state.amp_lp_token.query_amount(&deps.querier, staker_addr_validated)?;
+    let user_lp_amount = state.calc_bond_amount(total_lp, user_amp_lp_amount);
 
     Ok(UserInfoResponse {
-        lp_balance,
-        total_share: state.total_bond_share,
-        bond_amount,
-        bond_share,
+        total_lp,
+        total_amp_lp: state.total_bond_share,
+        user_lp_amount,
+        user_amp_lp_amount,
     })
 }

@@ -121,7 +121,7 @@ impl WasmMockQuerier {
         QuerierResult::Ok(ContractResult::from(result))
     }
 
-    fn execute_wasm_query(&self, contract_addr: &String, msg: &Binary) -> StdResult<Binary> {
+    fn execute_wasm_query(&self, contract_addr: &str, msg: &Binary) -> StdResult<Binary> {
         match from_binary(msg)? {
             // MockQueryMsg::Balance {
             //     address,
@@ -135,14 +135,14 @@ impl WasmMockQuerier {
                 lp_token,
                 ..
             } => {
-                let balance = self.get_balance(contract_addr.clone(), lp_token);
+                let balance = self.get_balance(contract_addr.to_string(), lp_token);
                 to_binary(&balance)
             },
             MockQueryMsg::PendingToken {
                 ..
             } => {
-                let pending = self.get_balance(contract_addr.clone(), ASTRO_TOKEN.to_string());
-                let reward = self.get_balance(contract_addr.clone(), REWARD_TOKEN.to_string());
+                let pending = self.get_balance(contract_addr.to_string(), ASTRO_TOKEN.to_string());
+                let reward = self.get_balance(contract_addr.to_string(), REWARD_TOKEN.to_string());
                 to_binary(&PendingTokenResponse {
                     pending,
                     pending_on_proxy: Some(vec![token_asset(

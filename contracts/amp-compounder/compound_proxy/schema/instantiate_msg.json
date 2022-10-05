@@ -4,46 +4,31 @@
   "description": "This structure describes the basic settings for creating a contract.",
   "type": "object",
   "required": [
-    "commission_bps",
-    "pair_contract",
-    "pair_proxies",
-    "slippage_tolerance"
+    "lps",
+    "owner",
+    "routes"
   ],
   "properties": {
-    "commission_bps": {
-      "description": "The swap commission",
-      "type": "integer",
-      "format": "uint64",
-      "minimum": 0.0
+    "factory": {
+      "type": [
+        "string",
+        "null"
+      ]
     },
-    "pair_contract": {
-      "description": "The pair contract address",
-      "type": "string"
-    },
-    "pair_proxies": {
-      "description": "The list of pair proxy to swap reward token to the asset in the pair",
+    "lps": {
       "type": "array",
       "items": {
-        "type": "array",
-        "items": [
-          {
-            "$ref": "#/definitions/AssetInfo"
-          },
-          {
-            "type": "string"
-          }
-        ],
-        "maxItems": 2,
-        "minItems": 2
+        "$ref": "#/definitions/LpInit"
       }
     },
-    "slippage_tolerance": {
-      "description": "The slippage tolerance when swapping",
-      "allOf": [
-        {
-          "$ref": "#/definitions/Decimal"
-        }
-      ]
+    "owner": {
+      "type": "string"
+    },
+    "routes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/RouteInit"
+      }
     }
   },
   "definitions": {
@@ -101,6 +86,117 @@
     "Decimal": {
       "description": "A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0\n\nThe greatest possible value that can be represented is 340282366920938463463.374607431768211455 (which is (2^128 - 1) / 10^18)",
       "type": "string"
+    },
+    "LpInit": {
+      "type": "object",
+      "required": [
+        "commission_bps",
+        "pair_contract",
+        "slippage_tolerance",
+        "wanted_token"
+      ],
+      "properties": {
+        "commission_bps": {
+          "description": "The swap commission",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "pair_contract": {
+          "description": "The pair info",
+          "type": "string"
+        },
+        "slippage_tolerance": {
+          "description": "The slippage tolerance when providing liquidity",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Decimal"
+            }
+          ]
+        },
+        "wanted_token": {
+          "description": "Token used for providing liquidity",
+          "allOf": [
+            {
+              "$ref": "#/definitions/AssetInfo"
+            }
+          ]
+        }
+      }
+    },
+    "RouteInit": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "path"
+          ],
+          "properties": {
+            "path": {
+              "type": "object",
+              "required": [
+                "route",
+                "router",
+                "router_type"
+              ],
+              "properties": {
+                "route": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/AssetInfo"
+                  }
+                },
+                "router": {
+                  "type": "string"
+                },
+                "router_type": {
+                  "$ref": "#/definitions/RouterType"
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "pair_proxy"
+          ],
+          "properties": {
+            "pair_proxy": {
+              "type": "object",
+              "required": [
+                "pair_contract"
+              ],
+              "properties": {
+                "pair_contract": {
+                  "type": "string"
+                },
+                "single_direction_from": {
+                  "description": "when specified, a pair can be defined as a single direction",
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/AssetInfo"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "RouterType": {
+      "type": "string",
+      "enum": [
+        "astro_swap",
+        "terra_swap",
+        "token_swap"
+      ]
     }
   }
 }

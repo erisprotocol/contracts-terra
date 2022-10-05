@@ -1,11 +1,11 @@
 use cw_storage_plus::Item;
+use eris::adapters::compounder::Compounder;
 use eris::adapters::token::Token;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{Addr, Decimal, Uint128};
 use eris::adapters::generator::Generator;
-use eris::compound_proxy::Compounder;
 use eris::helper::ScalingUint128;
 
 use crate::ownership::OwnershipProposal;

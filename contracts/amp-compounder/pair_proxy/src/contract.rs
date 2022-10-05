@@ -294,17 +294,17 @@ mod tests {
     #[test]
     fn test_minimum_receive() {
         let min_receive = compute_minimum_receive(
-            Uint128::from(1234_567u128),
-            Decimal::permille(10000_000),
+            Uint128::from(1_234_567_u128),
+            Decimal::permille(10_000_000),
             Decimal::zero(),
             3,
             5,
         );
-        assert_eq!(min_receive, Uint128::from(0_12345u128));
+        assert_eq!(min_receive, Uint128::from(12345u128));
 
         let min_receive = compute_minimum_receive(
             Uint128::from(12_34567u128),
-            Decimal::permille(0_001),
+            Decimal::permille(1),
             Decimal::zero(),
             5,
             0,

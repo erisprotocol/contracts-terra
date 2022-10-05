@@ -2,8 +2,9 @@ use std::env::current_dir;
 use std::fs::create_dir_all;
 
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
-use eris::astroport_farm::{
-    CallbackMsg, Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg, UserInfoResponse,
+use eris::compound_proxy::{
+    CallbackMsg, CompoundSimulationResponse, ExecuteMsg, InstantiateMsg, LpConfig, MigrateMsg,
+    QueryMsg, RouteResponseItem,
 };
 
 fn main() {
@@ -12,10 +13,12 @@ fn main() {
     create_dir_all(&out_dir).unwrap();
     remove_schemas(&out_dir).unwrap();
 
+    export_schema(&schema_for!(InstantiateMsg), &out_dir);
     export_schema(&schema_for!(ExecuteMsg), &out_dir);
     export_schema(&schema_for!(CallbackMsg), &out_dir);
-    export_schema(&schema_for!(Cw20HookMsg), &out_dir);
     export_schema(&schema_for!(QueryMsg), &out_dir);
-    export_schema(&schema_for!(InstantiateMsg), &out_dir);
-    export_schema(&schema_for!(UserInfoResponse), &out_dir);
+    export_schema(&schema_for!(CompoundSimulationResponse), &out_dir);
+    export_schema(&schema_for!(RouteResponseItem), &out_dir);
+    export_schema(&schema_for!(LpConfig), &out_dir);
+    export_schema(&schema_for!(MigrateMsg), &out_dir);
 }

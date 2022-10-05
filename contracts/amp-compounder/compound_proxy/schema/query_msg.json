@@ -26,14 +26,124 @@
         "compound_simulation": {
           "type": "object",
           "required": [
+            "lp_token",
             "rewards"
           ],
           "properties": {
+            "lp_token": {
+              "type": "string"
+            },
             "rewards": {
               "type": "array",
               "items": {
                 "$ref": "#/definitions/Asset"
               }
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_lp"
+      ],
+      "properties": {
+        "get_lp": {
+          "type": "object",
+          "required": [
+            "lp_addr"
+          ],
+          "properties": {
+            "lp_addr": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_lp_state"
+      ],
+      "properties": {
+        "get_lp_state": {
+          "type": "object",
+          "required": [
+            "lp_addr"
+          ],
+          "properties": {
+            "lp_addr": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_lps"
+      ],
+      "properties": {
+        "get_lps": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "start_after": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_routes"
+      ],
+      "properties": {
+        "get_routes": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "start_after": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": [
+                {
+                  "$ref": "#/definitions/AssetInfo"
+                },
+                {
+                  "$ref": "#/definitions/AssetInfo"
+                }
+              ],
+              "maxItems": 2,
+              "minItems": 2
             }
           }
         }

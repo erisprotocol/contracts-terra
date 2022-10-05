@@ -64,32 +64,6 @@
       "additionalProperties": false
     },
     {
-      "description": "Unbond LP token",
-      "type": "object",
-      "required": [
-        "unbond"
-      ],
-      "properties": {
-        "unbond": {
-          "type": "object",
-          "required": [
-            "amount"
-          ],
-          "properties": {
-            "amount": {
-              "description": "The LP amount to unbond",
-              "allOf": [
-                {
-                  "$ref": "#/definitions/Uint128"
-                }
-              ]
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
       "description": "Compound LP rewards",
       "type": "object",
       "required": [

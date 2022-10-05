@@ -11,7 +11,15 @@
       ],
       "properties": {
         "optimal_swap": {
-          "type": "object"
+          "type": "object",
+          "required": [
+            "lp_token"
+          ],
+          "properties": {
+            "lp_token": {
+              "type": "string"
+            }
+          }
         }
       },
       "additionalProperties": false
@@ -26,10 +34,14 @@
         "provide_liquidity": {
           "type": "object",
           "required": [
+            "lp_token",
             "prev_balances",
             "receiver"
           ],
           "properties": {
+            "lp_token": {
+              "type": "string"
+            },
             "prev_balances": {
               "type": "array",
               "items": {

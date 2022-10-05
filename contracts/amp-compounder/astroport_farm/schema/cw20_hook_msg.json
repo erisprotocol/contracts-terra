@@ -22,6 +22,26 @@
         }
       },
       "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "unbond"
+      ],
+      "properties": {
+        "unbond": {
+          "type": "object",
+          "properties": {
+            "receiver": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      },
+      "additionalProperties": false
     }
   ]
 }

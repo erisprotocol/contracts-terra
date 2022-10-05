@@ -1,11 +1,15 @@
-use std::collections::HashMap;
-use cosmwasm_std::{Addr, BalanceResponse, BankQuery, Binary, Coin, ContractResult, Empty, from_binary, from_slice, OwnedDeps, Querier, QuerierResult, QueryRequest, StdResult, SystemError, SystemResult, to_binary, Uint128, WasmQuery};
 use cosmwasm_std::testing::{MockApi, MockStorage};
+use cosmwasm_std::{
+    from_binary, from_slice, to_binary, Addr, BalanceResponse, BankQuery, Binary, Coin,
+    ContractResult, Empty, OwnedDeps, Querier, QuerierResult, QueryRequest, StdResult, SystemError,
+    SystemResult, Uint128, WasmQuery,
+};
+use std::collections::HashMap;
 
+use astroport::asset::{token_asset, AssetInfo, PairInfo};
+use astroport::generator::PendingTokenResponse;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use astroport::asset::{token_asset, AssetInfo, PairInfo};
-use astroport::generator::{PendingTokenResponse};
 
 pub fn mock_dependencies() -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier> {
     let custom_querier: WasmMockQuerier = WasmMockQuerier::new();
@@ -14,7 +18,7 @@ pub fn mock_dependencies() -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier> {
         storage: MockStorage::default(),
         api: MockApi::default(),
         querier: custom_querier,
-        custom_query_type: Default::default()
+        custom_query_type: Default::default(),
     }
 }
 
@@ -24,7 +28,7 @@ const REWARD_TOKEN: &str = "reward";
 pub struct WasmMockQuerier {
     balances: HashMap<(String, String), Uint128>,
     raw: HashMap<(String, Binary), Binary>,
-    pairs: HashMap<Vec<u8>, PairInfo>
+    pairs: HashMap<Vec<u8>, PairInfo>,
 }
 
 impl WasmMockQuerier {
@@ -45,19 +49,19 @@ impl WasmMockQuerier {
     }
 
     pub fn set_pair(&mut self, asset_infos: &[AssetInfo; 2], pair_info: PairInfo) {
-        self.pairs.insert(pair_key(&asset_infos), pair_info);
+        self.pairs.insert(pair_key(asset_infos), pair_info);
     }
 
     fn get_pair(&self, asset_infos: &[AssetInfo; 2]) -> Option<&PairInfo> {
-        self.pairs.get(&pair_key(&asset_infos))
+        self.pairs.get(&pair_key(asset_infos))
     }
 
     fn execute_query(&self, request: &QueryRequest<Empty>) -> QuerierResult {
         let result = match request {
             QueryRequest::Bank(BankQuery::Balance {
-                                   address,
-                                   denom,
-                               }) => {
+                address,
+                denom,
+            }) => {
                 let amount = self.get_balance(denom.clone(), address.clone());
                 to_binary(&BalanceResponse {
                     amount: Coin {
@@ -67,13 +71,13 @@ impl WasmMockQuerier {
                 })
             },
             QueryRequest::Wasm(WasmQuery::Smart {
-                                   contract_addr,
-                                   msg,
-                               }) => self.execute_wasm_query(contract_addr, msg),
+                contract_addr,
+                msg,
+            }) => self.execute_wasm_query(contract_addr, msg),
             QueryRequest::Wasm(WasmQuery::Raw {
-                                   contract_addr,
-                                   key,
-                               }) => {
+                contract_addr,
+                key,
+            }) => {
                 let value = self.raw.get(&(contract_addr.clone(), key.clone()));
                 if let Some(binary) = value {
                     Ok(binary.clone())
@@ -86,12 +90,12 @@ impl WasmMockQuerier {
         QuerierResult::Ok(ContractResult::from(result))
     }
 
-    fn execute_wasm_query(&self, contract_addr: &String, msg: &Binary) -> StdResult<Binary> {
+    fn execute_wasm_query(&self, contract_addr: &str, msg: &Binary) -> StdResult<Binary> {
         match from_binary(msg)? {
             MockQueryMsg::Balance {
                 address,
             } => {
-                let balance = self.get_balance(contract_addr.clone(), address);
+                let balance = self.get_balance(contract_addr.to_string(), address);
                 to_binary(&cw20::BalanceResponse {
                     balance,
                 })
@@ -100,32 +104,34 @@ impl WasmMockQuerier {
                 lp_token,
                 ..
             } => {
-                let balance = self.get_balance(contract_addr.clone(), lp_token);
+                let balance = self.get_balance(contract_addr.to_string(), lp_token);
                 to_binary(&balance)
             },
-            MockQueryMsg::PendingToken { .. } => {
-                let pending = self.get_balance(contract_addr.clone(), ASTRO_TOKEN.to_string());
-                let reward = self.get_balance(contract_addr.clone(), REWARD_TOKEN.to_string());
+            MockQueryMsg::PendingToken {
+                ..
+            } => {
+                let pending = self.get_balance(contract_addr.to_string(), ASTRO_TOKEN.to_string());
+                let reward = self.get_balance(contract_addr.to_string(), REWARD_TOKEN.to_string());
                 to_binary(&PendingTokenResponse {
                     pending,
-                    pending_on_proxy: Some(vec![
-                        token_asset(Addr::unchecked(REWARD_TOKEN), reward),
-                    ]),
+                    pending_on_proxy: Some(vec![token_asset(
+                        Addr::unchecked(REWARD_TOKEN),
+                        reward,
+                    )]),
                 })
             },
             MockQueryMsg::Pair {
                 asset_infos,
             } => {
-                let pair_info: PairInfo =
-                 match self.get_pair(&asset_infos) {
-                     Some(v) => v.clone(),
-                     None => {
+                let pair_info: PairInfo = match self.get_pair(&asset_infos) {
+                    Some(v) => v.clone(),
+                    None => {
                         panic!("No pair info")
-                     }
-                 };
+                    },
+                };
 
-             to_binary(&pair_info)
-             }
+                to_binary(&pair_info)
+            },
         }
     }
 }
@@ -142,11 +148,11 @@ enum MockQueryMsg {
     },
     PendingToken {
         lp_token: String,
-        user: String
+        user: String,
     },
     Pair {
         asset_infos: [AssetInfo; 2],
-    }
+    },
 }
 
 impl Querier for WasmMockQuerier {
@@ -159,7 +165,7 @@ impl Querier for WasmMockQuerier {
                     error: format!("Parsing query request: {}", e),
                     request: bin_request.into(),
                 })
-            }
+            },
         };
         self.execute_query(&request)
     }
