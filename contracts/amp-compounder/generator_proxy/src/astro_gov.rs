@@ -37,10 +37,10 @@ impl From<AstroGov> for AstroGovUnchecked {
 impl AstroGovUnchecked {
     pub fn check(&self, api: &dyn Api) -> StdResult<AstroGov> {
         Ok(AstroGov {
-            fee_distributor: deps.api.addr_validate(&self.fee_distributor)?,
-            generator_controller: deps.api.addr_validate(&self.generator_controller)?,
-            voting_escrow: deps.api.addr_validate(&self.voting_escrow)?,
-            xastro_token: deps.api.addr_validate(&self.xastro_token)?,
+            fee_distributor: api.addr_validate(&self.fee_distributor)?,
+            generator_controller: api.addr_validate(&self.generator_controller)?,
+            voting_escrow: api.addr_validate(&self.voting_escrow)?,
+            xastro_token: api.addr_validate(&self.xastro_token)?,
         })
     }
 }
