@@ -1,4 +1,4 @@
-use astroport::asset::{addr_validate_to_lower, token_asset, Asset};
+use astroport::asset::{token_asset, Asset};
 use astroport::querier::query_token_balance;
 use cosmwasm_std::{
     attr, Addr, Coin, CosmosMsg, Decimal, DepsMut, Env, MessageInfo, Response, Uint128,
@@ -104,7 +104,7 @@ pub fn bond(
     sender_addr: String,
     amount: Uint128,
 ) -> Result<Response, ContractError> {
-    let staker_addr = addr_validate_to_lower(deps.api, &sender_addr)?;
+    let staker_addr = deps.api.addr_validate(&sender_addr)?;
 
     let config = CONFIG.load(deps.storage)?;
 
@@ -161,7 +161,7 @@ pub fn unbond(
     sender_addr: String,
     amount: Uint128,
 ) -> Result<Response, ContractError> {
-    let staker_addr = addr_validate_to_lower(deps.api, &sender_addr)?;
+    let staker_addr = deps.api.addr_validate(&sender_addr)?;
     let mut state = STATE.load(deps.storage)?;
 
     // only amp LP token contract can execute this message

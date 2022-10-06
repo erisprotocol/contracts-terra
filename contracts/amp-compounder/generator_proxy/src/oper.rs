@@ -1,7 +1,7 @@
 use crate::error::ContractError;
 use crate::model::Config;
 use crate::state::{CONFIG, REWARD_INFO};
-use astroport::asset::{addr_validate_to_lower, token_asset};
+use astroport::asset::token_asset;
 use cosmwasm_std::{
     CosmosMsg, Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult, Uint128,
 };
@@ -28,7 +28,7 @@ pub fn execute_update_config(
     }
 
     if let Some(controller) = controller {
-        config.controller = addr_validate_to_lower(deps.api, &controller)?;
+        config.controller = deps.api.addr_validate(&controller)?;
     }
 
     if let Some(boost_fee) = boost_fee {

@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use astroport::{
-    asset::{addr_validate_to_lower, Asset, AssetInfo, AssetInfoExt, PairInfo},
+    asset::{Asset, AssetInfo, AssetInfoExt, PairInfo},
     common::OwnershipProposal,
 };
 use cosmwasm_std::{
@@ -134,7 +134,7 @@ impl<'a> State<'a> {
     }
 
     pub fn remove_lp(&self, deps: &mut DepsMut, lp_token: String) -> StdResult<()> {
-        let pair_contract = addr_validate_to_lower(deps.api, lp_token.as_str())?;
+        let pair_contract = deps.api.addr_validate(lp_token.as_str())?;
 
         if !self.lps.has(deps.storage, pair_contract.to_string()) {
             return Err(StdError::generic_err(format!("Lp {} not found", pair_contract)));
@@ -146,7 +146,7 @@ impl<'a> State<'a> {
     }
 
     pub fn add_lp(&self, deps: &mut DepsMut, lp_init: LpInit) -> StdResult<()> {
-        let pair_contract = addr_validate_to_lower(deps.api, lp_init.pair_contract.as_str())?;
+        let pair_contract = deps.api.addr_validate(lp_init.pair_contract.as_str())?;
         let pair_info = Pair(pair_contract).query_pair_info(&deps.querier)?;
 
         self.lps.save(
@@ -208,7 +208,7 @@ impl<'a> State<'a> {
 
                 let config = RouteType::Path {
                     route: route.clone(),
-                    router: Router(addr_validate_to_lower(deps.api, router.clone())?),
+                    router: Router(deps.api.addr_validate(&router)?),
                     router_type: router_type.clone(),
                 };
 
@@ -216,7 +216,7 @@ impl<'a> State<'a> {
 
                 let reverse_config = RouteType::Path {
                     route: route.clone().into_iter().rev().collect(),
-                    router: Router(addr_validate_to_lower(deps.api, router)?),
+                    router: Router(deps.api.addr_validate(&router)?),
                     router_type,
                 };
 
@@ -226,7 +226,7 @@ impl<'a> State<'a> {
                 single_direction_from,
                 pair_contract,
             } => {
-                let pair_contract = addr_validate_to_lower(deps.api, pair_contract.as_str())?;
+                let pair_contract = deps.api.addr_validate(&pair_contract)?;
                 let pair_info = Pair(pair_contract).query_pair_info(&deps.querier)?;
 
                 if pair_info.asset_infos.len() != 2 {

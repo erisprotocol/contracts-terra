@@ -19,7 +19,6 @@ use crate::staking::{
     execute_stake, execute_withdraw_unstaked,
 };
 use crate::state::{CONFIG, OWNERSHIP_PROPOSAL, STAKING_STATE};
-use astroport::asset::addr_validate_to_lower;
 use astroport::common::{claim_ownership, drop_ownership_proposal, propose_new_owner};
 use astroport_governance::utils::get_period;
 use cosmwasm_std::{
@@ -43,12 +42,12 @@ pub fn instantiate(
     validate_percentage(msg.boost_fee, "boost_fee")?;
 
     let config = Config {
-        generator: Generator(addr_validate_to_lower(deps.api, &msg.generator)?),
+        generator: Generator(deps.api.addr_validate(&msg.generator)?),
         astro_gov: msg.astro_gov.check(deps.api)?,
-        owner: addr_validate_to_lower(deps.api, &msg.owner)?,
-        controller: addr_validate_to_lower(deps.api, &msg.controller)?,
-        astro_token: addr_validate_to_lower(deps.api, &msg.astro_token)?,
-        fee_collector: addr_validate_to_lower(deps.api, &msg.fee_collector)?,
+        owner: deps.api.addr_validate(&msg.owner)?,
+        controller: deps.api.addr_validate(&msg.controller)?,
+        astro_token: deps.api.addr_validate(&msg.astro_token)?,
+        fee_collector: deps.api.addr_validate(&msg.fee_collector)?,
         max_quota: msg.max_quota,
         staker_rate: msg.staker_rate,
         boost_fee: msg.boost_fee,
@@ -152,7 +151,7 @@ fn receive_cw20(
     info: MessageInfo,
     cw20_msg: Cw20ReceiveMsg,
 ) -> Result<Response, ContractError> {
-    let staker_addr = addr_validate_to_lower(deps.api, &cw20_msg.sender)?;
+    let staker_addr = deps.api.addr_validate(&cw20_msg.sender)?;
     match from_binary(&cw20_msg.msg)? {
         Cw20HookMsg::Deposit {} => execute_deposit(deps, env, info, staker_addr, cw20_msg.amount),
         Cw20HookMsg::Stake {} => execute_stake(deps, env, info, staker_addr, cw20_msg.amount),

@@ -10,7 +10,7 @@ use cosmwasm_std::{
 };
 use eris::pair_proxy::{Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, MAX_ASSETS};
 
-use astroport::asset::{addr_validate_to_lower, Asset, AssetInfo, PairInfo};
+use astroport::asset::{Asset, AssetInfo, PairInfo};
 use astroport::querier::query_token_precision;
 use cw20::Cw20ReceiveMsg;
 use eris::adapters::router::Router;
@@ -64,7 +64,7 @@ pub fn instantiate(
             pair_type: PairType::Custom("pair_proxy".to_string()),
         },
         asset_infos: msg.asset_infos,
-        router: Router(addr_validate_to_lower(deps.api, msg.router.as_str())?),
+        router: Router(deps.api.addr_validate(msg.router.as_str())?),
         router_type: msg.router_type,
         offer_precision,
         ask_precision,
@@ -98,7 +98,7 @@ pub fn execute(
             }
 
             let to_addr = if let Some(to_addr) = to {
-                Some(addr_validate_to_lower(deps.api, &to_addr)?)
+                Some(deps.api.addr_validate(&to_addr)?)
             } else {
                 None
             };
@@ -134,7 +134,7 @@ pub fn receive_cw20(
             to,
         }) => {
             let to_addr = if let Some(to_addr) = to {
-                Some(addr_validate_to_lower(deps.api, to_addr.as_str())?)
+                Some(deps.api.addr_validate(to_addr.as_str())?)
             } else {
                 None
             };

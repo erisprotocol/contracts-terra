@@ -22,8 +22,8 @@ crate-type = ["cdylib", "rlib"]
 backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
-astroport = { git = "https://github.com/astroport-fi/astroport-core.git", branch = "main", default-features = false }
-astroport-governance = { git = "https://github.com/astroport-fi/astroport-governance.git", branch = "main", default-features = false }
+astroport = { git = "https://github.com/astroport-fi/astroport-core.git", default-features = false, rev = "bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62" }
+astroport-governance = { git = "https://github.com/astroport-fi/astroport-governance.git", default-features = false, rev = "6cb3becc39c9d0c29eff66bbf7dd751a882fea7d" }
 eris = { path = "../../../packages/eris" }
 cw20 = { version = "0.13.2" }
 cosmwasm-std = "1.0"

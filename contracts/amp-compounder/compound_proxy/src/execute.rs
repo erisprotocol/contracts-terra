@@ -1,4 +1,4 @@
-use crate::constants::COMMISSION_DENOM;
+use crate::constants::{COMMISSION_DENOM, MAX_SPREAD};
 use crate::error::ContractError;
 use crate::state::State;
 use std::collections::HashMap;
@@ -13,7 +13,7 @@ use cw20::Expiration;
 use eris::adapters::factory::Factory;
 use eris::compound_proxy::{CallbackMsg, ExecuteMsg, LpConfig};
 
-use astroport::asset::{addr_validate_to_lower, Asset, AssetInfo, AssetInfoExt};
+use astroport::asset::{Asset, AssetInfo, AssetInfoExt};
 use eris::adapters::asset::AssetEx;
 use eris::adapters::pair::Pair;
 
@@ -58,7 +58,7 @@ pub fn compound(
             });
 
             if let Ok(route_config) = route_config {
-                messages.push(route_config.create_swap(&reward, Decimal::percent(50u64))?);
+                messages.push(route_config.create_swap(&reward, Decimal::percent(MAX_SPREAD))?);
             } else if let Some(factory) = &factory {
                 // if factory is set, allowed to query pairs from factory
                 messages.push(factory.create_swap(
@@ -164,15 +164,7 @@ fn optimal_swap(
             let asset_a = assets[0].clone();
             let asset_b = assets[1].clone();
             if !asset_a.amount.is_zero() || !asset_b.amount.is_zero() {
-                calculate_optimal_swap(
-                    &deps.querier,
-                    &lp_config,
-                    asset_a,
-                    asset_b,
-                    None,
-                    None,
-                    &mut messages,
-                )?;
+                calculate_optimal_swap(&deps.querier, &lp_config, asset_a, asset_b, &mut messages)?;
             }
         },
     }
@@ -188,8 +180,6 @@ pub fn calculate_optimal_swap(
     lp_config: &LpConfig,
     asset_a: Asset,
     asset_b: Asset,
-    belief_price: Option<Decimal>,
-    max_spread: Option<Decimal>,
     messages: &mut Vec<CosmosMsg>,
 ) -> StdResult<(Uint128, Uint128, Uint128, Uint128)> {
     let mut swap_asset_a_amount = Uint128::zero();
@@ -230,8 +220,8 @@ pub fn calculate_optimal_swap(
                 swap_asset_a_amount = swap_asset.amount;
                 messages.push(Pair(pair_contract).swap_msg(
                     &swap_asset,
-                    belief_price,
-                    max_spread,
+                    None,
+                    Some(Decimal::percent(MAX_SPREAD)),
                     None,
                 )?);
             }
@@ -259,8 +249,8 @@ pub fn calculate_optimal_swap(
                 swap_asset_b_amount = swap_asset.amount;
                 messages.push(Pair(pair_contract).swap_msg(
                     &swap_asset,
-                    belief_price,
-                    max_spread,
+                    None,
+                    Some(Decimal::percent(MAX_SPREAD)),
                     None,
                 )?);
             }
@@ -393,7 +383,7 @@ pub fn update_config(
             state.assert_owner(deps.storage, &info.sender)?;
 
             if let Some(factory) = factory {
-                let factory = Some(Factory(addr_validate_to_lower(deps.api, &factory)?));
+                let factory = Some(Factory(deps.api.addr_validate(&factory)?));
                 state.config.update::<_, StdError>(deps.storage, |mut config| {
                     config.factory = factory;
                     Ok(config)

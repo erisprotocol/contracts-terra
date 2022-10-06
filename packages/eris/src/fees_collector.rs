@@ -1,4 +1,4 @@
-use astroport::asset::{addr_validate_to_lower, Asset, AssetInfo};
+use astroport::asset::{Asset, AssetInfo};
 use cosmwasm_std::{Addr, Api, Binary, Decimal, StdResult, Uint128};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -137,7 +137,7 @@ impl TargetConfigUnchecked {
 
     pub fn check(&self, api: &dyn Api) -> StdResult<TargetConfigChecked> {
         Ok(TargetConfigChecked {
-            addr: addr_validate_to_lower(api, &self.addr)?,
+            addr: api.addr_validate(&self.addr)?,
             weight: self.weight,
             msg: self.msg.clone(),
         })

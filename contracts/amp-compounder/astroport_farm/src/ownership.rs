@@ -1,4 +1,3 @@
-use astroport::asset::addr_validate_to_lower;
 use cosmwasm_std::{attr, Addr, DepsMut, Env, MessageInfo, Response, StdError, StdResult};
 use cw_storage_plus::Item;
 use schemars::JsonSchema;
@@ -46,7 +45,7 @@ pub fn propose_new_owner(
         return Err(StdError::generic_err("Unauthorized"));
     }
 
-    let new_owner = addr_validate_to_lower(deps.api, new_owner.as_str())?;
+    let new_owner = deps.api.addr_validate(new_owner.as_str())?;
 
     // check that owner is not the same
     if new_owner == owner {
@@ -61,10 +60,8 @@ pub fn propose_new_owner(
         },
     )?;
 
-    Ok(Response::new().add_attributes(vec![
-        attr("action", "propose_new_owner"),
-        attr("new_owner", new_owner),
-    ]))
+    Ok(Response::new()
+        .add_attributes(vec![attr("action", "propose_new_owner"), attr("new_owner", new_owner)]))
 }
 
 /// ## Description
@@ -134,8 +131,6 @@ pub fn claim_ownership(
     // run callback
     cb(deps, p.owner.clone())?;
 
-    Ok(Response::new().add_attributes(vec![
-        attr("action", "claim_ownership"),
-        attr("new_owner", p.owner),
-    ]))
+    Ok(Response::new()
+        .add_attributes(vec![attr("action", "claim_ownership"), attr("new_owner", p.owner)]))
 }

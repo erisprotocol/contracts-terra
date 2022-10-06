@@ -2,7 +2,7 @@ use crate::astro_generator::GeneratorEx;
 use crate::error::ContractError;
 use crate::model::{CallbackMsg, Config, PoolInfo, RewardInfo, UserInfo};
 use crate::state::{CONFIG, POOL_INFO, REWARD_INFO, USER_INFO};
-use astroport::asset::{addr_validate_to_lower, token_asset, Asset};
+use astroport::asset::{token_asset, Asset};
 use astroport::generator::{PendingTokenResponse, UserInfoV2};
 use astroport::querier::query_token_balance;
 use astroport::restricted_vector::RestrictedVector;
@@ -59,7 +59,7 @@ pub fn execute_withdraw(
     lp_token: String,
     amount: Uint128,
 ) -> Result<Response, ContractError> {
-    let lp_token = addr_validate_to_lower(deps.api, &lp_token)?;
+    let lp_token = deps.api.addr_validate(&lp_token)?;
     let config = CONFIG.load(deps.storage)?;
     let astro_user_info = config
         .generator
@@ -101,7 +101,7 @@ pub fn execute_claim_rewards(
     for lp_token in lp_tokens {
         messages.push(config.generator.withdraw_msg(lp_token.to_string(), Uint128::zero())?);
 
-        let lp_token = addr_validate_to_lower(deps.api, &lp_token)?;
+        let lp_token = deps.api.addr_validate(&lp_token)?;
         let astro_user_info = config
             .generator
             .query_user_info(&deps.querier, &lp_token, &env.contract.address)?
@@ -477,8 +477,8 @@ pub fn query_pending_token(
     user: String,
 ) -> Result<PendingTokenResponse, ContractError> {
     // load
-    let lp_token = addr_validate_to_lower(deps.api, &lp_token)?;
-    let user = addr_validate_to_lower(deps.api, &user)?;
+    let lp_token = deps.api.addr_validate(&lp_token)?;
+    let user = deps.api.addr_validate(&user)?;
     let config = CONFIG.load(deps.storage)?;
     let astro_user_info =
         match config.generator.query_user_info(&deps.querier, &lp_token, &env.contract.address)? {
@@ -567,8 +567,8 @@ pub fn query_deposit(
     user: String,
 ) -> Result<Uint128, ContractError> {
     // load
-    let lp_token = addr_validate_to_lower(deps.api, &lp_token)?;
-    let user = addr_validate_to_lower(deps.api, &user)?;
+    let lp_token = deps.api.addr_validate(&lp_token)?;
+    let user = deps.api.addr_validate(&user)?;
     let config = CONFIG.load(deps.storage)?;
     let pool_info = POOL_INFO.may_load(deps.storage, &lp_token)?.unwrap_or_default();
     let user_info = USER_INFO

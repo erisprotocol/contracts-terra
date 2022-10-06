@@ -5,9 +5,7 @@ use crate::utils::{
     build_swap_bridge_msg, try_build_swap_msg, validate_bridge, BRIDGES_EXECUTION_MAX_DEPTH,
     BRIDGES_INITIAL_DEPTH,
 };
-use astroport::asset::{
-    addr_validate_to_lower, native_asset_info, Asset, AssetInfo, AssetInfoExt, ULUNA_DENOM,
-};
+use astroport::asset::{native_asset_info, Asset, AssetInfo, AssetInfoExt, ULUNA_DENOM};
 
 use astroport::common::{claim_ownership, drop_ownership_proposal, propose_new_owner};
 use cosmwasm_std::{
@@ -46,9 +44,9 @@ pub fn instantiate(
     msg.stablecoin.check(deps.api)?;
 
     let config = Config {
-        owner: addr_validate_to_lower(deps.api, &msg.owner)?,
-        operator: addr_validate_to_lower(deps.api, &msg.operator)?,
-        factory_contract: addr_validate_to_lower(deps.api, &msg.factory_contract)?,
+        owner: deps.api.addr_validate(&msg.owner)?,
+        operator: deps.api.addr_validate(&msg.operator)?,
+        factory_contract: deps.api.addr_validate(&msg.factory_contract)?,
         stablecoin: msg.stablecoin,
         target_list: msg
             .target_list
@@ -378,11 +376,11 @@ pub fn update_config(
     }
 
     if let Some(operator) = operator {
-        config.operator = addr_validate_to_lower(deps.api, &operator)?;
+        config.operator = deps.api.addr_validate(&operator)?;
     }
 
     if let Some(factory_contract) = factory_contract {
-        config.factory_contract = addr_validate_to_lower(deps.api, &factory_contract)?;
+        config.factory_contract = deps.api.addr_validate(&factory_contract)?;
     }
 
     if let Some(max_spread) = max_spread {
@@ -442,7 +440,7 @@ fn update_bridges(
         .collect::<StdResult<Vec<(String, AssetInfo)>>>()?;
 
     for (asset_label, bridge) in bridges {
-        let asset = match addr_validate_to_lower(deps.api, &asset_label) {
+        let asset = match deps.api.addr_validate(&asset_label) {
             Ok(contract_addr) => AssetInfo::Token {
                 contract_addr,
             },

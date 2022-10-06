@@ -14,7 +14,7 @@ cw20 = "0.13.2"
 cw20-base = { version = "0.13.2", features = ["library"] }
 schemars = "0.8.1"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
-astroport = { git = "https://github.com/astroport-fi/astroport-core.git", branch = "main", default-features = false }
+astroport = { git = "https://github.com/astroport-fi/astroport-core.git", default-features = false, rev = "bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62" }
 
 [dev-dependencies]
 cosmwasm-schema = "1.0.0"

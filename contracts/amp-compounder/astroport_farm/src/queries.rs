@@ -1,4 +1,4 @@
-use astroport::asset::{addr_validate_to_lower, Asset, AssetInfoExt};
+use astroport::asset::{Asset, AssetInfoExt};
 use cosmwasm_std::{Decimal, Deps, Env, StdResult};
 use eris::astroport_farm::{ConfigResponse, StateResponse, UserInfo, UserInfoResponse};
 
@@ -46,7 +46,7 @@ pub fn query_state(deps: Deps, env: Env, addr: Option<String>) -> StdResult<Stat
 
     let user_info = addr
         .and_then(|addr| {
-            let staker_addr_validated = addr_validate_to_lower(deps.api, &addr).ok()?;
+            let staker_addr_validated = deps.api.addr_validate(&addr).ok()?;
             Some(staker_addr_validated)
         })
         .and_then(|addr| {
@@ -75,7 +75,7 @@ pub fn query_state(deps: Deps, env: Env, addr: Option<String>) -> StdResult<Stat
 /// ## Description
 /// Returns reward info for the staker.
 pub fn query_user_info(deps: Deps, env: Env, addr: String) -> StdResult<UserInfoResponse> {
-    let staker_addr_validated = addr_validate_to_lower(deps.api, &addr)?;
+    let staker_addr_validated = deps.api.addr_validate(&addr)?;
 
     let state = STATE.load(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;

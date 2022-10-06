@@ -11,8 +11,6 @@ use cosmwasm_std::{
 use eris::adapters::factory::Factory;
 use eris::compound_proxy::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 
-use astroport::asset::addr_validate_to_lower;
-
 /// ## Description
 /// Creates a new contract with the specified parameters in the [`InstantiateMsg`].
 /// Returns the [`Response`] with the specified attributes if the operation was successful, or a [`ContractError`] if the contract was not created.
@@ -26,7 +24,7 @@ pub fn instantiate(
     let state = State::default();
 
     let factory = if let Some(factory) = msg.factory {
-        Some(Factory(addr_validate_to_lower(deps.api, &factory)?))
+        Some(Factory(deps.api.addr_validate(&factory)?))
     } else {
         None
     };
@@ -35,7 +33,7 @@ pub fn instantiate(
         deps.storage,
         &Config {
             factory,
-            owner: addr_validate_to_lower(deps.api, msg.owner)?,
+            owner: deps.api.addr_validate(&msg.owner)?,
         },
     )?;
 
@@ -69,7 +67,7 @@ pub fn execute(
             lp_token,
         } => {
             let receiver_addr = if let Some(receiver) = receiver {
-                Some(addr_validate_to_lower(deps.api, &receiver)?)
+                Some(deps.api.addr_validate(&receiver)?)
             } else {
                 None
             };
@@ -153,7 +151,7 @@ pub fn execute(
 //             info,
 //             token_asset(info.sender, cw20_msg.amount),
 //             into,
-//             addr_validate_to_lower(deps.api, &receiver.unwrap_or(cw20_msg.sender))?,
+//             deps.api.addr_validate( &receiver.unwrap_or(cw20_msg.sender))?,
 //             slippage_tolerance,
 //         ),
 //     }

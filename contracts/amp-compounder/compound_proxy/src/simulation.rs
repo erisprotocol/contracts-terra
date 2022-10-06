@@ -89,8 +89,6 @@ pub fn query_compound_simulation(
                         &lp_config,
                         asset_a,
                         asset_b,
-                        None,
-                        None,
                         &mut _messages,
                     )?;
 
