@@ -8,9 +8,9 @@ use cosmwasm_std::{
 };
 use cw20::{Cw20ExecuteMsg, MinterResponse};
 use cw20_base::msg::InstantiateMsg as Cw20InstantiateMsg;
-use eris_staking::DecimalCheckedOps;
+use eris::DecimalCheckedOps;
 
-use eris_staking::hub::{
+use eris::hub::{
     Batch, CallbackMsg, ConfigResponse, ExecuteMsg, FeeConfig, InstantiateMsg, PendingBatch,
     QueryMsg, ReceiveMsg, StateResponse, UnbondRequest, UnbondRequestsByBatchResponseItem,
     UnbondRequestsByUserResponseItem, UnbondRequestsByUserResponseItemDetails,
@@ -1184,7 +1184,7 @@ fn withdrawing_unbonded() {
     assert_eq!(
         err,
         StdError::NotFound {
-            kind: "eris_staking::hub::Batch".to_string()
+            kind: "eris::hub::Batch".to_string()
         }
     );
 
@@ -1201,13 +1201,13 @@ fn withdrawing_unbonded() {
     assert_eq!(
         err1,
         StdError::NotFound {
-            kind: "eris_staking::hub::UnbondRequest".to_string()
+            kind: "eris::hub::UnbondRequest".to_string()
         }
     );
     assert_eq!(
         err2,
         StdError::NotFound {
-            kind: "eris_staking::hub::UnbondRequest".to_string()
+            kind: "eris::hub::UnbondRequest".to_string()
         }
     );
 
@@ -1241,7 +1241,7 @@ fn withdrawing_unbonded() {
     assert_eq!(
         err,
         StdError::NotFound {
-            kind: "eris_staking::hub::Batch".to_string()
+            kind: "eris::hub::Batch".to_string()
         }
     );
 
@@ -1253,7 +1253,7 @@ fn withdrawing_unbonded() {
     assert_eq!(
         err,
         StdError::NotFound {
-            kind: "eris_staking::hub::UnbondRequest".to_string()
+            kind: "eris::hub::UnbondRequest".to_string()
         }
     );
 }

@@ -1,16 +1,9 @@
 use std::{collections::HashSet, str::FromStr};
 
-use cosmwasm_std::{
-    Addr, Api, Coin, QuerierWrapper, Reply, Response, StdError, StdResult, SubMsgResponse, Uint128,
-};
+use cosmwasm_std::{Addr, Api, Coin, QuerierWrapper, StdError, StdResult, Uint128};
 use cw20::{Cw20QueryMsg, TokenInfoResponse};
 
 use crate::types::Delegation;
-
-/// Unwrap a `Reply` object to extract the response
-pub(crate) fn unwrap_reply(reply: Reply) -> StdResult<SubMsgResponse> {
-    reply.result.into_result().map_err(StdError::generic_err)
-}
 
 /// Query the total supply of a CW20 token
 pub(crate) fn query_cw20_total_supply(

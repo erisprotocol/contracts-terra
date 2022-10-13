@@ -1,0 +1,35 @@
+[package]
+name = "eris-astroport-farm"
+version = "1.0.0"
+authors = ["Spectrum", "Eris"]
+edition = "2021"
+description = "Contract to stake LP token and auto collect rewards"
+
+exclude = [
+  # Those files are rust-optimizer artifacts. You might want to commit them for convenience but they should not be part of the source code publication.
+  "contract.wasm",
+  "hash.txt",
+]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# for quicker tests, cargo test --lib
+# for more explicit tests, cargo test --features=backtraces
+backtraces = ["cosmwasm-std/backtraces"]
+
+[dependencies]
+cw20 = "0.13.2"
+cosmwasm-std = "1.0"
+cw-storage-plus = "0.13.2"
+eris = { path = "../../../packages/eris" }
+schemars = "0.8.1"
+serde = { version = "1.0.137", default-features = false, features = ["derive"] }
+thiserror = { version = "1.0.31" }
+astroport = { git = "https://github.com/astroport-fi/astroport-core.git", default-features = false, rev = "bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62" }
+
+[dev-dependencies]
+cosmwasm-schema = "1.0.0"

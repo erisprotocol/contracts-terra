@@ -1,7 +1,7 @@
 use cosmwasm_std::{Addr, Coin, StdError, StdResult, Storage};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, MultiIndex};
 
-use eris_staking::hub::{Batch, FeeConfig, PendingBatch, UnbondRequest};
+use eris::hub::{Batch, FeeConfig, PendingBatch, UnbondRequest};
 
 use crate::types::BooleanKey;
 

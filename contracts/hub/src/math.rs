@@ -2,7 +2,7 @@ use std::{cmp, cmp::Ordering};
 
 use cosmwasm_std::Uint128;
 
-use eris_staking::hub::Batch;
+use eris::hub::Batch;
 
 use crate::types::{Delegation, Redelegation, Undelegation};
 

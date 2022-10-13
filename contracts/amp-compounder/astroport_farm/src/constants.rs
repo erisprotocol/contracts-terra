@@ -1,0 +1,1 @@
+pub const TOKEN_INSTANTIATE_REPLY: u64 = 1u64;

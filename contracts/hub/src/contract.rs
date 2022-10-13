@@ -5,12 +5,11 @@ use cosmwasm_std::{
 use cw2::set_contract_version;
 use cw20::Cw20ReceiveMsg;
 
-use eris_staking::hub::{
-    CallbackMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, ReceiveMsg,
-};
+use eris::helper::unwrap_reply;
+use eris::hub::{CallbackMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, ReceiveMsg};
 
 use crate::constants::{CONTRACT_NAME, CONTRACT_VERSION};
-use crate::helpers::{parse_received_fund, unwrap_reply};
+use crate::helpers::parse_received_fund;
 use crate::state::State;
 use crate::{execute, queries};
 
