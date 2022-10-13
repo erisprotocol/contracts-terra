@@ -395,6 +395,7 @@ fn deposit(
                 Addr::unchecked(REWARD_TOKEN),
                 Uint128::from(20u128)
             ),]),
+            last_reconcile: 12345,
         }
     );
 
@@ -505,6 +506,7 @@ fn deposit(
             ]),
             prev_reward_user_index: Decimal::permille(125),
             prev_reward_debt_proxy: RestrictedVector::default(),
+            last_reconcile: 12345,
         }
     );
 
@@ -517,6 +519,7 @@ fn claim_rewards(
 ) -> Result<(), ContractError> {
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(EPOCH_START);
+    env.block.height = 12346;
 
     deps.querier.set_balance(GENERATOR.to_string(), ASTRO_TOKEN.to_string(), Uint128::from(32u128));
     deps.querier.set_balance(
@@ -645,6 +648,7 @@ fn claim_rewards(
                 Addr::unchecked(REWARD_TOKEN),
                 Uint128::from(16u128)
             ),]),
+            last_reconcile: 12346,
         }
     );
 
@@ -757,6 +761,7 @@ fn withdraw(
 ) -> Result<(), ContractError> {
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(EPOCH_START);
+    env.block.height = 12347;
     let info = mock_info(USER1, &[]);
 
     let msg = ExecuteMsg::Withdraw {
@@ -891,6 +896,7 @@ fn withdraw(
             ]),
             prev_reward_user_index: Decimal::permille(325),
             prev_reward_debt_proxy: RestrictedVector::default(),
+            last_reconcile: 12347,
         }
     );
 

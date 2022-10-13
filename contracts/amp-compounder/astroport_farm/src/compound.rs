@@ -62,9 +62,7 @@ pub fn compound(
 
     let mut compound_funds: Vec<Coin> = vec![];
     for asset in rewards {
-        let reward_amount =
-            query_token_balance(&deps.querier, asset.info.to_string(), &env.contract.address)?
-                + asset.amount;
+        let reward_amount = asset.amount;
         if !reward_amount.is_zero() && !lp_balance.is_zero() {
             let commission_amount = reward_amount * total_fee;
             let compound_amount = reward_amount.checked_sub(commission_amount)?;

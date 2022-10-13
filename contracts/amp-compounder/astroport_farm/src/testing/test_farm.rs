@@ -1,7 +1,7 @@
 use crate::contract::{execute, instantiate, query, reply};
 use crate::error::ContractError;
 use crate::state::Config;
-use astroport::asset::{Asset, AssetInfo};
+use astroport::asset::{native_asset, token_asset, Asset, AssetInfo};
 use astroport::generator::{
     Cw20HookMsg as GeneratorCw20HookMsg, ExecuteMsg as GeneratorExecuteMsg,
 };
@@ -44,6 +44,7 @@ const IBC_TOKEN: &str = "ibc/stablecoin";
 #[test]
 fn test() -> Result<(), ContractError> {
     let mut deps = mock_dependencies();
+
     create(&mut deps)?;
     config(&mut deps)?;
     owner(&mut deps)?;
@@ -442,7 +443,10 @@ fn bond(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Result<(
             total_amp_lp: Uint128::from(150000u128),
             user_info: None,
             exchange_rate: Decimal::one(),
-            locked_assets: vec![],
+            locked_assets: vec![
+                native_asset("asset1".to_string(), Uint128::new(15000)),
+                token_asset(Addr::unchecked("asset2"), Uint128::new(30000))
+            ],
             pair_contract: Addr::unchecked("pair")
         }
     );
@@ -809,7 +813,10 @@ fn bond(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Result<(
             total_lp: Uint128::from(70000u128),
             total_amp_lp: Uint128::from(58333u128),
             exchange_rate: Decimal::from_ratio(70000u128, 58333u128),
-            locked_assets: vec![],
+            locked_assets: vec![
+                native_asset("asset1".to_string(), Uint128::new(7000)),
+                token_asset(Addr::unchecked("asset2"), Uint128::new(14000))
+            ],
             pair_contract: Addr::unchecked("pair"),
             user_info: None
         }
@@ -1016,8 +1023,8 @@ fn compound(
     deps.querier.set_cw20_balance(LP_TOKEN, MOCK_CONTRACT_ADDR, 1);
 
     // set pending tokens
-    deps.querier.set_cw20_balance(ASTRO_TOKEN, MOCK_CONTRACT_ADDR, 10000);
-    deps.querier.set_cw20_balance(REWARD_TOKEN, MOCK_CONTRACT_ADDR, 50000);
+    deps.querier.set_generator_pending(ASTRO_TOKEN, GENERATOR_PROXY, 10000);
+    deps.querier.set_generator_pending(REWARD_TOKEN, GENERATOR_PROXY, 50000);
 
     // set block height
     env.block.height = 700;

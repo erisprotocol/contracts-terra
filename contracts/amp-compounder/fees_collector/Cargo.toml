@@ -1,6 +1,6 @@
 [package]
 name = "eris-fees-collector"
-version = "1.0.0"
+version = "1.2.0"
 authors = ["Spectrum", "Eris"]
 edition = "2021"
 description = "Contract to collect fees from farms"

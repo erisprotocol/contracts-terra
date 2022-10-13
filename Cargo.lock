@@ -433,7 +433,7 @@ dependencies = [
 
 [[package]]
 name = "eris-astroport-farm"
-version = "1.0.0"
+version = "1.2.0"
 dependencies = [
  "astroport 2.0.0 (git+https://github.com/astroport-fi/astroport-core.git?rev=bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62)",
  "cosmwasm-schema",
@@ -448,7 +448,7 @@ dependencies = [
 
 [[package]]
 name = "eris-compound-proxy"
-version = "1.0.0"
+version = "1.2.0"
 dependencies = [
  "astroport 2.0.0 (git+https://github.com/astroport-fi/astroport-core.git?rev=bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62)",
  "cosmwasm-schema",
@@ -466,7 +466,7 @@ dependencies = [
 
 [[package]]
 name = "eris-fees-collector"
-version = "1.0.0"
+version = "1.2.0"
 dependencies = [
  "astroport 2.0.0 (git+https://github.com/astroport-fi/astroport-core.git?rev=bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62)",
  "cosmwasm-schema",
@@ -482,7 +482,7 @@ dependencies = [
 
 [[package]]
 name = "eris-generator-proxy"
-version = "1.0.0"
+version = "1.2.0"
 dependencies = [
  "astroport 2.0.0 (git+https://github.com/astroport-fi/astroport-core.git?rev=bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62)",
  "astroport-governance",
@@ -498,7 +498,7 @@ dependencies = [
 
 [[package]]
 name = "eris-pair-proxy"
-version = "1.0.0"
+version = "1.2.0"
 dependencies = [
  "astroport 2.0.0 (git+https://github.com/astroport-fi/astroport-core.git?rev=bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62)",
  "cosmwasm-schema",

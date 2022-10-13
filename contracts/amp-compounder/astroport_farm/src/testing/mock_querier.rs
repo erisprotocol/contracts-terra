@@ -5,9 +5,11 @@ use cosmwasm_std::{
     SystemResult, Uint128, WasmQuery,
 };
 use cw20::Cw20QueryMsg;
+use eris::compound_proxy::LpStateResponse;
 use std::collections::HashMap;
+use std::vec;
 
-use astroport::asset::token_asset;
+use astroport::asset::{native_asset, token_asset};
 use astroport::generator::PendingTokenResponse;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -74,6 +76,11 @@ impl WasmMockQuerier {
 
     pub fn set_balance(&mut self, token: &str, addr: &str, amount: u128) {
         self.balances.insert((token.to_string(), addr.to_string()), amount.into());
+    }
+
+    pub fn set_generator_pending(&mut self, token: &str, addr: &str, amount: u128) {
+        // generator pending tokens are stored reversed in the balances
+        self.balances.insert((addr.to_string(), token.to_string()), amount.into());
     }
 
     fn get_balance(&self, token: String, addr: String) -> Uint128 {
@@ -151,6 +158,17 @@ impl WasmMockQuerier {
                     )]),
                 })
             },
+            MockQueryMsg::GetLpState {
+                lp_addr,
+            } => to_binary(&LpStateResponse {
+                contract_addr: Addr::unchecked("pair"),
+                liquidity_token: Addr::unchecked(lp_addr),
+                assets: vec![
+                    native_asset("asset1".to_string(), Uint128::new(1000000u128)),
+                    token_asset(Addr::unchecked("asset2"), Uint128::new(2000000u128)),
+                ],
+                total_share: Uint128::new(10_000000u128),
+            }),
         }
     }
 }
@@ -174,6 +192,9 @@ enum MockQueryMsg {
     PendingToken {
         lp_token: String,
         user: String,
+    },
+    GetLpState {
+        lp_addr: String,
     },
 }
 

@@ -43,6 +43,8 @@ pub struct PoolInfo {
     pub reward_indexes: RestrictedVector<Addr, Decimal>,
     pub prev_reward_user_index: Decimal,
     pub prev_reward_debt_proxy: RestrictedVector<Addr, Uint128>,
+    #[serde(default)]
+    pub last_reconcile: u64,
 }
 
 impl PoolInfo {
