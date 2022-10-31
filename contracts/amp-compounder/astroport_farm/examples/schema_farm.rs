@@ -1,24 +1,12 @@
-use std::env::current_dir;
-use std::fs::create_dir_all;
+use cosmwasm_schema::write_api;
 
-use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
-use eris::astroport_farm::{
-    CallbackMsg, ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg, StateResponse,
-    UserInfoResponse,
-};
+use eris::astroport_farm::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 
 fn main() {
-    let mut out_dir = current_dir().unwrap();
-    out_dir.push("schema");
-    create_dir_all(&out_dir).unwrap();
-    remove_schemas(&out_dir).unwrap();
-
-    export_schema(&schema_for!(ExecuteMsg), &out_dir);
-    export_schema(&schema_for!(CallbackMsg), &out_dir);
-    export_schema(&schema_for!(Cw20HookMsg), &out_dir);
-    export_schema(&schema_for!(QueryMsg), &out_dir);
-    export_schema(&schema_for!(InstantiateMsg), &out_dir);
-    export_schema(&schema_for!(UserInfoResponse), &out_dir);
-    export_schema(&schema_for!(ConfigResponse), &out_dir);
-    export_schema(&schema_for!(StateResponse), &out_dir);
+    write_api! {
+        instantiate: InstantiateMsg,
+        query: QueryMsg,
+        execute: ExecuteMsg,
+        migrate: MigrateMsg
+    }
 }

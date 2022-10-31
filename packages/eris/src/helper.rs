@@ -1,4 +1,4 @@
-use cosmwasm_std::{Reply, StdError, StdResult, SubMsgResponse, Uint128, Uint256};
+use cosmwasm_std::{Addr, Api, Reply, StdError, StdResult, SubMsgResponse, Uint128, Uint256};
 use std::convert::TryInto;
 
 // pub fn compute_deposit_time(
@@ -21,6 +21,24 @@ pub fn unwrap_reply(reply: Reply) -> StdResult<SubMsgResponse> {
 
 pub trait ScalingUint128 {
     fn multiply_ratio_and_ceil(&self, numerator: Uint128, denominator: Uint128) -> Uint128;
+}
+
+/// Returns a lowercased, validated address upon success. Otherwise returns [`Err`]
+/// ## Params
+/// * **api** is an object of type [`Api`]
+///
+/// * **addr** is an object of type [`Addr`]
+pub fn addr_validate_to_lower(api: &dyn Api, addr: impl Into<String>) -> StdResult<Addr> {
+    let addr = addr.into();
+    if addr.to_lowercase() != addr {
+        return Err(StdError::generic_err(format!("Address {} should be lowercase", addr)));
+    }
+    api.addr_validate(&addr)
+}
+
+/// Returns a lowercased, validated address upon success if present.
+pub fn addr_opt_validate(api: &dyn Api, addr: &Option<String>) -> StdResult<Option<Addr>> {
+    addr.as_ref().map(|addr| addr_validate_to_lower(api, addr)).transpose()
 }
 
 impl ScalingUint128 for Uint128 {

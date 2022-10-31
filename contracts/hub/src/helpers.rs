@@ -106,15 +106,3 @@ pub fn dedupe_check_received_addrs(validators: &mut Vec<String>, api: &dyn Api) 
 
     Ok(())
 }
-
-/// Returns a lowercased, validated address upon success. Otherwise returns [`Err`]
-/// ## Params
-/// * **api** is an object of type [`Api`]
-///
-/// * **addr** is an object of type [`Addr`]
-pub fn addr_validate_to_lower(api: &dyn Api, addr: &str) -> StdResult<Addr> {
-    if addr.to_lowercase() != addr {
-        return Err(StdError::generic_err(format!("Address {} should be lowercase", addr)));
-    }
-    api.addr_validate(addr)
-}

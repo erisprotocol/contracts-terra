@@ -9,14 +9,14 @@ use cw20::{Cw20ExecuteMsg, MinterResponse};
 use cw20_base::msg::InstantiateMsg as Cw20InstantiateMsg;
 use eris::DecimalCheckedOps;
 
+use eris::helper::addr_validate_to_lower;
 use eris::hub::{
     Batch, CallbackMsg, ExecuteMsg, FeeConfig, InstantiateMsg, PendingBatch, UnbondRequest,
 };
 
 use crate::constants::{get_reward_fee_cap, CONTRACT_NAME, CONTRACT_VERSION};
 use crate::helpers::{
-    addr_validate_to_lower, dedupe_check_received_addrs, query_cw20_total_supply, query_delegation,
-    query_delegations,
+    dedupe_check_received_addrs, query_cw20_total_supply, query_delegation, query_delegations,
 };
 use crate::math::{
     compute_mint_amount, compute_redelegations_for_rebalancing, compute_redelegations_for_removal,
