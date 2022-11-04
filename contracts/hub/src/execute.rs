@@ -1,17 +1,25 @@
+use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::str::FromStr;
 
 use cosmwasm_std::{
     to_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, DepsMut, DistributionMsg, Env, Event,
     Order, Response, StdError, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
 };
+use eris::helpers::bps::BasicPoints;
+use itertools::Itertools;
+
 use cw2::set_contract_version;
 use cw20::{Cw20ExecuteMsg, MinterResponse};
 use cw20_base::msg::InstantiateMsg as Cw20InstantiateMsg;
 use eris::DecimalCheckedOps;
 
+use eris::amp_gauges::get_amp_tune_info;
+use eris::emp_gauges::get_emp_tune_info;
 use eris::helper::addr_validate_to_lower;
 use eris::hub::{
-    Batch, CallbackMsg, ExecuteMsg, FeeConfig, InstantiateMsg, PendingBatch, UnbondRequest,
+    Batch, CallbackMsg, DelegationStrategy, ExecuteMsg, FeeConfig, InstantiateMsg, PendingBatch,
+    UnbondRequest,
 };
 
 use crate::constants::{get_reward_fee_cap, CONTRACT_NAME, CONTRACT_VERSION};
@@ -96,10 +104,12 @@ pub fn register_stake_token(deps: DepsMut, response: SubMsgResponse) -> StdResul
         .find(|event| event.ty == "instantiate")
         .ok_or_else(|| StdError::generic_err("cannot find `instantiate` event"))?;
 
+    println!("{:?}", event);
+
     let contract_addr_str = &event
         .attributes
         .iter()
-        .find(|attr| attr.key == "_contract_address")
+        .find(|attr| attr.key == "_contract_address" || attr.key == "_contract_addr")
         .ok_or_else(|| StdError::generic_err("cannot find `_contract_address` attribute"))?
         .value;
 
@@ -599,6 +609,82 @@ pub fn withdraw_unbonded(
         .add_attribute("action", "erishub/withdraw_unbonded"))
 }
 
+pub fn tune_delegations(deps: DepsMut, _env: Env, _sender: Addr) -> StdResult<Response> {
+    let state = State::default();
+    let delegation_strategy = state.delegation_strategy.load(deps.storage)?;
+
+    match delegation_strategy {
+        DelegationStrategy::Uniform {} => {
+            state.delegation_distribution.remove(deps.storage);
+        },
+        DelegationStrategy::Gauges {
+            amp_gauges,
+            emp_gauges,
+            amp_factor_bps,
+            min_delegation_bps,
+            max_delegation_bps,
+            validator_count,
+        } => {
+            let vamp_info = get_amp_tune_info(&deps.querier, amp_gauges)?;
+            let emp_info = get_emp_tune_info(&deps.querier, emp_gauges)?;
+
+            let amp_factor = BasicPoints::try_from(amp_factor_bps)?.decimal();
+            let emp_factor = Decimal::one().checked_sub(amp_factor)?;
+            let min_delegation = BasicPoints::try_from(min_delegation_bps)?.decimal();
+            let max_delegation = BasicPoints::try_from(max_delegation_bps)?.decimal();
+
+            let sum_vamp: Uint128 = vamp_info.vamp_points.iter().map(|a| a.1).sum();
+            let sum_emps: Uint128 = emp_info.emp_points.iter().map(|a| a.1).sum();
+
+            let vamp_points: HashMap<_, _> =
+                vamp_info.vamp_points.into_iter().map(|v| (v.0.to_string(), v.1)).collect();
+
+            let emp_points: HashMap<_, _> =
+                emp_info.emp_points.into_iter().map(|v| (v.0.to_string(), v.1)).collect();
+
+            let validators: Vec<_> = state
+                .validators
+                .load(deps.storage)?
+                .into_iter()
+                .map(|val| -> StdResult<(String, Decimal, Decimal)> {
+                    let vamp = vamp_points.get(&val).copied().unwrap_or(Uint128::zero());
+                    let emp = emp_points.get(&val).copied().unwrap_or(Uint128::zero());
+
+                    let vamp_score = amp_factor.checked_mul(Decimal::from_ratio(vamp, sum_vamp))?;
+                    let emp_score = emp_factor.checked_mul(Decimal::from_ratio(emp, sum_emps))?;
+
+                    let total_score = vamp_score.checked_add(emp_score)?;
+                    let score = Decimal::max(total_score, max_delegation);
+
+                    Ok((val, score, total_score))
+                })
+                .collect::<StdResult<Vec<_>>>()?
+                .into_iter()
+                .filter(|(_, amount, _)| *amount > min_delegation)
+                .sorted_by(|(_, _, a), (_, _, b)| b.cmp(a)) // Sort in descending order
+                .take(validator_count.into())
+                .collect();
+
+            // normalize missing percentage over all validators
+            let total: Decimal = validators.iter().map(|a| a.1).sum();
+            let validators: Vec<_> = validators
+                .into_iter()
+                .map(|v| -> StdResult<(String, Decimal)> {
+                    let normalized =
+                        v.1.checked_div(total)
+                            .map_err(|_| StdError::generic_err("Could not divide by total"))?;
+
+                    Ok((v.0, normalized))
+                })
+                .collect::<StdResult<Vec<_>>>()?;
+
+            state.delegation_distribution.save(deps.storage, &validators)?;
+        },
+    };
+
+    Ok(Response::new().add_attribute("action", "erishub/tune_delegations"))
+}
+
 //--------------------------------------------------------------------------------------------------
 // Ownership and management logics
 //--------------------------------------------------------------------------------------------------
@@ -714,25 +800,52 @@ pub fn update_config(
     sender: Addr,
     protocol_fee_contract: Option<String>,
     protocol_reward_fee: Option<Decimal>,
+    delegation_strategy: Option<DelegationStrategy>,
 ) -> StdResult<Response> {
     let state = State::default();
 
     state.assert_owner(deps.storage, &sender)?;
 
-    let mut fee_config = state.fee_config.load(deps.storage)?;
+    if protocol_fee_contract.is_some() || protocol_reward_fee.is_some() {
+        let mut fee_config = state.fee_config.load(deps.storage)?;
 
-    if let Some(protocol_fee_contract) = protocol_fee_contract {
-        fee_config.protocol_fee_contract = deps.api.addr_validate(&protocol_fee_contract)?;
-    }
-
-    if let Some(protocol_reward_fee) = protocol_reward_fee {
-        if protocol_reward_fee.gt(&get_reward_fee_cap()) {
-            return Err(StdError::generic_err("'protocol_reward_fee' greater than max"));
+        if let Some(protocol_fee_contract) = protocol_fee_contract {
+            fee_config.protocol_fee_contract = deps.api.addr_validate(&protocol_fee_contract)?;
         }
-        fee_config.protocol_reward_fee = protocol_reward_fee;
+
+        if let Some(protocol_reward_fee) = protocol_reward_fee {
+            if protocol_reward_fee.gt(&get_reward_fee_cap()) {
+                return Err(StdError::generic_err("'protocol_reward_fee' greater than max"));
+            }
+            fee_config.protocol_reward_fee = protocol_reward_fee;
+        }
+
+        state.fee_config.save(deps.storage, &fee_config)?;
     }
 
-    state.fee_config.save(deps.storage, &fee_config)?;
+    if let Some(delegation_strategy) = delegation_strategy {
+        state.delegation_strategy.save(
+            deps.storage,
+            &match delegation_strategy {
+                DelegationStrategy::Uniform {} => DelegationStrategy::Uniform {},
+                DelegationStrategy::Gauges {
+                    amp_gauges,
+                    emp_gauges,
+                    amp_factor_bps: amp_factor,
+                    min_delegation_bps,
+                    validator_count,
+                    max_delegation_bps,
+                } => DelegationStrategy::Gauges {
+                    amp_gauges: addr_validate_to_lower(deps.api, amp_gauges)?,
+                    emp_gauges: addr_validate_to_lower(deps.api, emp_gauges)?,
+                    amp_factor_bps: amp_factor,
+                    min_delegation_bps,
+                    validator_count,
+                    max_delegation_bps,
+                },
+            },
+        )?;
+    }
 
     Ok(Response::new().add_attribute("action", "erishub/update_config"))
 }

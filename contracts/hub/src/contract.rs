@@ -59,6 +59,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
         } => execute::transfer_ownership(deps, info.sender, new_owner),
         ExecuteMsg::AcceptOwnership {} => execute::accept_ownership(deps, info.sender),
         ExecuteMsg::Harvest {} => execute::harvest(deps, env),
+        ExecuteMsg::TuneDelegations {} => execute::tune_delegations(deps, env, info.sender),
         ExecuteMsg::Rebalance {} => execute::rebalance(deps, env),
         ExecuteMsg::Reconcile {} => execute::reconcile(deps, env),
         ExecuteMsg::SubmitBatch {} => execute::submit_batch(deps, env),
@@ -66,7 +67,14 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
         ExecuteMsg::UpdateConfig {
             protocol_fee_contract,
             protocol_reward_fee,
-        } => execute::update_config(deps, info.sender, protocol_fee_contract, protocol_reward_fee),
+            delegation_strategy,
+        } => execute::update_config(
+            deps,
+            info.sender,
+            protocol_fee_contract,
+            protocol_reward_fee,
+            delegation_strategy,
+        ),
     }
 }
 

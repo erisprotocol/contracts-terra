@@ -1,9 +1,32 @@
 use cosmwasm_std::{
-    to_binary, Addr, Coin, CosmosMsg, Decimal, Empty, StdResult, Timestamp, Uint128, WasmMsg,
+    to_binary, Addr, Coin, CosmosMsg, Decimal, Empty, QuerierWrapper, StdResult, Timestamp,
+    Uint128, WasmMsg,
 };
 use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum DelegationStrategy<T = String> {
+    /// all validators receive the same delegation.
+    Uniform {},
+    /// validators receive delegations based on community voting + merit points
+    Gauges {
+        /// gauges based on vAmp voting
+        amp_gauges: T,
+        /// gauges based on eris merit points
+        emp_gauges: T,
+        /// weight between amp and emp gauges between 0 and 1
+        amp_factor_bps: u16,
+        /// min amount of delegation needed
+        min_delegation_bps: u16,
+        /// max amount of delegation needed
+        max_delegation_bps: u16,
+        /// count of validators that should receive delegations
+        validator_count: u8,
+    },
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InstantiateMsg {
@@ -61,6 +84,8 @@ pub enum ExecuteMsg {
     AcceptOwnership {},
     /// Claim staking rewards, swap all for Luna, and restake
     Harvest {},
+
+    TuneDelegations {},
     /// Use redelegations to balance the amounts of Luna delegated to validators
     Rebalance {},
     /// Update Luna amounts in unbonding batches to reflect any slashing or rounding errors
@@ -76,6 +101,9 @@ pub enum ExecuteMsg {
         protocol_fee_contract: Option<String>,
         /// Fees that are being applied during reinvest of staking rewards
         protocol_reward_fee: Option<Decimal>, // "1 is 100%, 0.05 is 5%"
+
+        /// Strategy how delegations should be handled
+        delegation_strategy: Option<DelegationStrategy>,
     },
 }
 
@@ -307,3 +335,11 @@ pub struct UnbondRequestsByUserResponseItemDetails {
 }
 
 pub type MigrateMsg = Empty;
+
+pub fn get_hub_validators(
+    querier: &QuerierWrapper,
+    hub_addr: impl Into<String>,
+) -> StdResult<Vec<String>> {
+    let config: ConfigResponse = querier.query_wasm_smart(hub_addr.into(), &QueryMsg::Config {})?;
+    Ok(config.validators)
+}

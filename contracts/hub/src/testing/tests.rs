@@ -1451,6 +1451,7 @@ fn update_fee() {
         ExecuteMsg::UpdateConfig {
             protocol_fee_contract: None,
             protocol_reward_fee: Some(Decimal::from_ratio(11u128, 100u128)),
+            delegation_strategy: None,
         },
     )
     .unwrap_err();
@@ -1463,6 +1464,7 @@ fn update_fee() {
         ExecuteMsg::UpdateConfig {
             protocol_fee_contract: None,
             protocol_reward_fee: Some(Decimal::from_ratio(11u128, 100u128)),
+            delegation_strategy: None,
         },
     )
     .unwrap_err();
@@ -1475,6 +1477,7 @@ fn update_fee() {
         ExecuteMsg::UpdateConfig {
             protocol_fee_contract: Some("fee-new".to_string()),
             protocol_reward_fee: Some(Decimal::from_ratio(10u128, 100u128)),
+            delegation_strategy: None,
         },
     )
     .unwrap();

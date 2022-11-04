@@ -1,11 +1,16 @@
 pub mod adapters;
 pub mod amp_extractor;
+pub mod amp_gauges;
 pub mod astroport_farm;
 pub mod compound_proxy;
+pub mod emp_gauges;
 pub mod fees_collector;
+pub mod governance_helper;
 pub mod helper;
+pub mod helpers;
 pub mod hub;
 pub mod pair_proxy;
+pub mod voting_escrow;
 
 mod decimal_checked_ops {
     use cosmwasm_std::{Decimal, Decimal256, Fraction, OverflowError, StdError, Uint128, Uint256};

@@ -41,6 +41,12 @@ pub fn addr_opt_validate(api: &dyn Api, addr: &Option<String>) -> StdResult<Opti
     addr.as_ref().map(|addr| addr_validate_to_lower(api, addr)).transpose()
 }
 
+/// Bulk validation and conversion between [`String`] -> [`Addr`] for an array of addresses.
+/// If any address is invalid, the function returns [`StdError`].
+pub fn validate_addresses(api: &dyn Api, admins: &[String]) -> StdResult<Vec<Addr>> {
+    admins.iter().map(|addr| addr_validate_to_lower(api, addr)).collect()
+}
+
 impl ScalingUint128 for Uint128 {
     /// Multiply Uint128 by Decimal, rounding up to the nearest integer.
     fn multiply_ratio_and_ceil(

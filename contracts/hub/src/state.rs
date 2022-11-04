@@ -1,7 +1,9 @@
-use cosmwasm_std::{Addr, Coin, StdError, StdResult, Storage};
+use std::ops::Add;
+
+use cosmwasm_std::{Addr, Coin, Decimal, DelegationResponse, StdError, StdResult, Storage};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, MultiIndex};
 
-use eris::hub::{Batch, FeeConfig, PendingBatch, UnbondRequest};
+use eris::hub::{Batch, DelegationStrategy, FeeConfig, PendingBatch, UnbondRequest};
 
 use crate::types::BooleanKey;
 
@@ -28,6 +30,10 @@ pub(crate) struct State<'a> {
     pub unbond_requests: IndexedMap<'a, (u64, &'a Addr), UnbondRequest, UnbondRequestsIndexes<'a>>,
     /// Fee Config
     pub fee_config: Item<'a, FeeConfig>,
+    /// Delegation Strategy
+    pub delegation_strategy: Item<'a, DelegationStrategy<Addr>>,
+    /// Delegation Distribution
+    pub delegation_distribution: Item<'a, Vec<(String, Decimal)>>,
 }
 
 impl Default for State<'static> {
@@ -58,6 +64,8 @@ impl Default for State<'static> {
             previous_batches: IndexedMap::new("previous_batches", pb_indexes),
             unbond_requests: IndexedMap::new("unbond_requests", ubr_indexes),
             fee_config: Item::new("fee_config"),
+            delegation_strategy: Item::new("delegation_strategy"),
+            delegation_distribution: Item::new("delegation_distribution"),
         }
     }
 }
