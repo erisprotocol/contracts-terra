@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use cosmwasm_schema::cw_serde;
 
 use cosmwasm_std::{attr, Addr, Decimal, StdResult, Uint128};
@@ -25,7 +23,7 @@ impl ContractInfoWrapper {
         self.contract.clone().unwrap().address.to_string()
     }
     pub fn get_address(&self) -> Addr {
-        self.contract.clone().unwrap().address.clone()
+        self.contract.clone().unwrap().address
     }
 }
 
@@ -71,7 +69,7 @@ impl BaseErisTestPackage {
         base_pack.init_emp_registry(router, msg.owner.clone());
         base_pack.init_amp_gauges(router, msg.owner.clone());
 
-        base_pack.init_hub_delegation_strategy(router, msg.owner.clone());
+        base_pack.init_hub_delegation_strategy(router, msg.owner);
 
         base_pack
     }
@@ -259,6 +257,7 @@ impl BaseErisTestPackage {
                 self.voting_escrow.get_address(),
                 &eris::voting_escrow::ExecuteMsg::UpdateConfig {
                     new_guardian: None,
+                    push_update_contracts: Some(vec![self.amp_gauges.get_address_string()]),
                 },
                 &[],
             )

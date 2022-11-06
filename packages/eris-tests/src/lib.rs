@@ -1,16 +1,10 @@
 pub mod base;
-use std::borrow::BorrowMut;
 use std::str::FromStr;
 
 use anyhow::{Error, Ok, Result};
 use cosmwasm_std::testing::{mock_env, MockApi, MockStorage};
-use cosmwasm_std::{
-    Attribute, BlockInfo, Decimal, Empty, StdError, StdResult, Timestamp, Validator,
-};
-use cw_multi_test::{
-    App, AppResponse, BankKeeper, BasicAppBuilder, DistributionKeeper, FailingModule, Router,
-    StakeKeeper, WasmKeeper,
-};
+use cosmwasm_std::{Attribute, BlockInfo, Decimal, Timestamp, Validator};
+use cw_multi_test::{App, AppResponse, BankKeeper, BasicAppBuilder, StakeKeeper};
 use eris::governance_helper::{get_period, EPOCH_START, WEEK};
 
 #[allow(clippy::all)]

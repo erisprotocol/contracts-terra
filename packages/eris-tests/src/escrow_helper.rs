@@ -1,7 +1,8 @@
-use anyhow::{Ok, Result};
-use cosmwasm_std::{to_binary, Addr, StdResult, Uint128};
-use cw20::Cw20ReceiveMsg;
+use anyhow::Result;
+use cosmwasm_std::{attr, to_binary, Addr, StdResult, Uint128};
+use cw20::Cw20ExecuteMsg;
 use cw_multi_test::{App, AppResponse, Executor};
+use eris::governance_helper::WEEK;
 
 use crate::base::{BaseErisTestInitMessage, BaseErisTestPackage};
 
@@ -204,6 +205,19 @@ impl EscrowHelper {
         )
     }
 
+    pub fn mint_amp_lp(&self, router: &mut App, to: String, amount: u128) {
+        let msg = cw20::Cw20ExecuteMsg::Mint {
+            recipient: to.clone(),
+            amount: Uint128::from(amount),
+        };
+        let res = router
+            .execute_contract(self.owner.clone(), self.base.amp_lp.get_address(), &msg, &[])
+            .unwrap();
+        assert_eq!(res.events[1].attributes[1], attr("action", "mint"));
+        assert_eq!(res.events[1].attributes[2], attr("to", to));
+        assert_eq!(res.events[1].attributes[3], attr("amount", Uint128::from(amount)));
+    }
+
     pub fn ve_lock(
         &self,
         router: &mut App,
@@ -211,16 +225,92 @@ impl EscrowHelper {
         amount: u128,
         lock_time: u64,
     ) -> Result<AppResponse> {
+        let sender: String = sender.into();
+        self.mint_amp_lp(router, sender.clone(), amount);
+
+        let cw20msg = Cw20ExecuteMsg::Send {
+            contract: self.base.voting_escrow.get_address_string(),
+            amount: Uint128::from(amount),
+            msg: to_binary(&eris::voting_escrow::Cw20HookMsg::CreateLock {
+                time: lock_time,
+            })
+            .unwrap(),
+        };
+        router.execute_contract(
+            Addr::unchecked(sender),
+            self.base.amp_lp.get_address(),
+            &cw20msg,
+            &[],
+        )
+    }
+
+    pub fn ve_add_funds_lock(
+        &self,
+        router: &mut App,
+        sender: impl Into<String>,
+        amount: u128,
+    ) -> Result<AppResponse> {
+        let sender: String = sender.into();
+        self.mint_amp_lp(router, sender.clone(), amount);
+
+        let cw20msg = Cw20ExecuteMsg::Send {
+            contract: self.base.voting_escrow.get_address_string(),
+            amount: Uint128::from(amount),
+            msg: to_binary(&eris::voting_escrow::Cw20HookMsg::ExtendLockAmount {}).unwrap(),
+        };
+        router.execute_contract(
+            Addr::unchecked(sender),
+            self.base.amp_lp.get_address(),
+            &cw20msg,
+            &[],
+        )
+    }
+    pub fn ve_add_funds_lock_for_user(
+        &self,
+        router: &mut App,
+        sender: impl Into<String>,
+        user: impl Into<String>,
+        amount: u128,
+    ) -> Result<AppResponse> {
+        let sender: String = sender.into();
+        self.mint_amp_lp(router, sender.clone(), amount);
+
+        let cw20msg = Cw20ExecuteMsg::Send {
+            contract: self.base.voting_escrow.get_address_string(),
+            amount: Uint128::from(amount),
+            msg: to_binary(&eris::voting_escrow::Cw20HookMsg::DepositFor {
+                user: user.into(),
+            })
+            .unwrap(),
+        };
+        router.execute_contract(
+            Addr::unchecked(sender),
+            self.base.amp_lp.get_address(),
+            &cw20msg,
+            &[],
+        )
+    }
+
+    pub fn ve_extend_lock_time(
+        &self,
+        router: &mut App,
+        sender: impl Into<String>,
+        periods: u64,
+    ) -> Result<AppResponse> {
         self.ve_execute_sender(
             router,
-            eris::voting_escrow::ExecuteMsg::Receive(Cw20ReceiveMsg {
-                sender: sender.into(),
-                amount: Uint128::new(amount),
-                msg: to_binary(&eris::voting_escrow::Cw20HookMsg::CreateLock {
-                    time: lock_time,
-                })?,
-            }),
-            self.base.amp_lp.get_address(),
+            eris::voting_escrow::ExecuteMsg::ExtendLockTime {
+                time: periods * WEEK,
+            },
+            Addr::unchecked(sender),
+        )
+    }
+
+    pub fn ve_withdraw(&self, router: &mut App, sender: impl Into<String>) -> Result<AppResponse> {
+        self.ve_execute_sender(
+            router,
+            eris::voting_escrow::ExecuteMsg::Withdraw {},
+            Addr::unchecked(sender),
         )
     }
 

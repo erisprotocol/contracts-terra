@@ -6,10 +6,10 @@ use astroport::common::{claim_ownership, drop_ownership_proposal, propose_new_ow
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     attr, to_binary, Attribute, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response, StdError,
-    StdResult, Uint128,
+    StdResult,
 };
 use cw2::set_contract_version;
-use eris::helpers::sloap::adjust_vp_and_slope;
+use eris::helpers::slope::adjust_vp_and_slope;
 use eris::hub::get_hub_validators;
 use itertools::Itertools;
 
@@ -18,7 +18,7 @@ use crate::state::{
     Config, TuneInfo, VotedValidatorInfo, CONFIG, OWNERSHIP_PROPOSAL, TUNE_INFO, VALIDATORS,
 };
 use crate::utils::{
-    add_fixed_emp, fetch_current_validator_fixed_emps_value, filter_validators, get_validator_info,
+    add_fixed_emp, fetch_last_validator_fixed_emps_value, filter_validators, get_validator_info,
     update_validator_info, vote_for_validator,
 };
 use eris::emp_gauges::{
@@ -90,7 +90,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> E
         ExecuteMsg::AddEmps {
             emps,
         } => handle_vote(deps, env, info, emps),
-        ExecuteMsg::TuneEmps {} => tune_pools(deps, env, info),
+        ExecuteMsg::TuneEmps {} => tune_emps(deps, env, info),
         ExecuteMsg::UpdateConfig {
             validators_limit,
         } => update_config(deps, info, validators_limit),
@@ -180,7 +180,7 @@ fn handle_vote(
 
                 let end = block_period + dt;
                 let mut add_voting_power = emp.umerit_points;
-                let slope = adjust_vp_and_slope(&mut add_voting_power, dt, Uint128::zero())?;
+                let slope = adjust_vp_and_slope(&mut add_voting_power, dt)?; // Uint128::zero()
 
                 vote_for_validator(
                     deps.storage,
@@ -208,7 +208,7 @@ fn handle_vote(
 /// are not eligible to receive allocation points,
 /// takes top X pools by voting power, where X is 'config.pools_limit', calculates allocation points
 /// for these pools and applies allocation points in generator contract.
-fn tune_pools(deps: DepsMut, env: Env, info: MessageInfo) -> ExecuteResult {
+fn tune_emps(deps: DepsMut, env: Env, info: MessageInfo) -> ExecuteResult {
     let config = CONFIG.load(deps.storage)?;
     config.assert_owner_or_self(&info.sender, &env.contract.address)?;
 
@@ -225,12 +225,9 @@ fn tune_pools(deps: DepsMut, env: Env, info: MessageInfo) -> ExecuteResult {
             let mut validator_info =
                 update_validator_info(deps.storage, block_period, &validator_addr, None)?;
 
-            validator_info.emp_amount =
-                validator_info.emp_amount.checked_add(fetch_current_validator_fixed_emps_value(
-                    deps.storage,
-                    block_period,
-                    &validator_addr,
-                )?)?;
+            validator_info.emp_amount = validator_info.emp_amount.checked_add(
+                fetch_last_validator_fixed_emps_value(deps.storage, block_period, &validator_addr)?,
+            )?;
             // Remove pools with zero voting power so we won't iterate over them in future
             if validator_info.emp_amount.is_zero() {
                 VALIDATORS.remove(deps.storage, &validator_addr)

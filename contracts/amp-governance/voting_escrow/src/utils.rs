@@ -1,5 +1,5 @@
 use crate::error::ContractError;
-use eris::governance_helper::{MAX_LOCK_TIME, WEEK};
+use eris::governance_helper::{MAX_LOCK_TIME, MIN_LOCK_PERIODS, WEEK};
 
 use cosmwasm_std::{Addr, Order, StdResult, Storage, Uint128};
 use cw_storage_plus::Bound;
@@ -7,7 +7,7 @@ use cw_storage_plus::Bound;
 use crate::state::{Point, BLACKLIST, CONFIG, HISTORY, LAST_SLOPE_CHANGE, SLOPE_CHANGES};
 
 /// Checks that a timestamp is within limits.
-pub(crate) fn time_limits_check(time: u64) -> Result<(), ContractError> {
+pub(crate) fn assert_time_limits(time: u64) -> Result<(), ContractError> {
     if !(WEEK..=MAX_LOCK_TIME).contains(&time) {
         Err(ContractError::LockTimeLimitsError {})
     } else {
@@ -15,8 +15,16 @@ pub(crate) fn time_limits_check(time: u64) -> Result<(), ContractError> {
     }
 }
 
+pub(crate) fn assert_periods_remaining(periods: u64) -> Result<(), ContractError> {
+    if periods < MIN_LOCK_PERIODS {
+        Err(ContractError::LockPeriodsError {})
+    } else {
+        Ok(())
+    }
+}
+
 /// Checks that the sender is the xASTRO token.
-pub(crate) fn xastro_token_check(storage: &dyn Storage, sender: Addr) -> Result<(), ContractError> {
+pub(crate) fn assert_token(storage: &dyn Storage, sender: Addr) -> Result<(), ContractError> {
     let config = CONFIG.load(storage)?;
     if sender != config.deposit_token_addr {
         Err(ContractError::Unauthorized {})
@@ -26,7 +34,7 @@ pub(crate) fn xastro_token_check(storage: &dyn Storage, sender: Addr) -> Result<
 }
 
 /// Checks if the blacklist contains a specific address.
-pub(crate) fn blacklist_check(storage: &dyn Storage, addr: &Addr) -> Result<(), ContractError> {
+pub(crate) fn assert_blacklist(storage: &dyn Storage, addr: &Addr) -> Result<(), ContractError> {
     let blacklist = BLACKLIST.load(storage)?;
     if blacklist.contains(addr) {
         Err(ContractError::AddressBlacklisted(addr.to_string()))

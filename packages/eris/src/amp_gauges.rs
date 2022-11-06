@@ -1,7 +1,7 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, QuerierWrapper, StdError, StdResult, Uint128};
 
-use crate::voting_escrow::LockInfoVPResponse;
+use crate::voting_escrow::LockInfoResponse;
 
 /// The maximum amount of voters that can be kicked at once from
 pub const VOTERS_MAX_LIMIT: u32 = 30;
@@ -32,7 +32,7 @@ pub enum ExecuteMsg {
     /// Updates the vote for a specified user. Only can be called from the escrow_addr
     UpdateVote {
         user: String,
-        lock_info: LockInfoVPResponse,
+        lock_info: LockInfoResponse,
     },
 
     /// TunePools transforms the latest vote distribution into alloc_points which are then applied to ASTRO generators

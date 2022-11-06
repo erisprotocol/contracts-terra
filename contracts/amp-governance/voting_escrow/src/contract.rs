@@ -19,10 +19,10 @@ use cw20_base::contract::{
 use cw20_base::state::{MinterData, TokenInfo, LOGO, MARKETING_INFO, TOKEN_INFO};
 
 use eris::governance_helper::{get_period, get_periods_count, EPOCH_START, WEEK};
-use eris::helpers::sloap::{adjust_vp_and_slope, calc_coefficient};
+use eris::helpers::slope::{adjust_vp_and_slope, calc_coefficient};
 use eris::voting_escrow::{
     BlacklistedVotersResponse, ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg,
-    LockInfoResponse, LockInfoVPResponse, MigrateMsg, QueryMsg, VotingPowerResponse, DEFAULT_LIMIT,
+    LockInfoResponse, MigrateMsg, PushExecuteMsg, QueryMsg, VotingPowerResponse, DEFAULT_LIMIT,
     MAX_LIMIT,
 };
 
@@ -32,8 +32,9 @@ use crate::state::{
     Config, Lock, Point, BLACKLIST, CONFIG, HISTORY, LAST_SLOPE_CHANGE, LOCKED, OWNERSHIP_PROPOSAL,
 };
 use crate::utils::{
-    blacklist_check, calc_voting_power, cancel_scheduled_slope, fetch_last_checkpoint,
-    fetch_slope_changes, schedule_slope_change, time_limits_check, xastro_token_check,
+    assert_blacklist, assert_periods_remaining, assert_time_limits, assert_token,
+    calc_voting_power, cancel_scheduled_slope, fetch_last_checkpoint, fetch_slope_changes,
+    schedule_slope_change,
 };
 
 /// Contract name that is used for migration.
@@ -60,6 +61,8 @@ pub fn instantiate(
         guardian_addr,
         deposit_token_addr,
         logo_urls_whitelist: msg.logo_urls_whitelist.clone(),
+        // makes no sense to set during init, as other contracts might not be deployed yet.
+        push_update_contracts: vec![],
     };
     CONFIG.save(deps.storage, &config)?;
 
@@ -69,6 +72,7 @@ pub fn instantiate(
         start: cur_period,
         end: 0,
         slope: Default::default(),
+        fixed: Uint128::zero(),
     };
     HISTORY.save(deps.storage, (env.contract.address.clone(), cur_period), &point)?;
     BLACKLIST.save(deps.storage, &vec![])?;
@@ -216,7 +220,8 @@ pub fn execute(
         },
         ExecuteMsg::UpdateConfig {
             new_guardian,
-        } => execute_update_config(deps, info, new_guardian),
+            push_update_contracts,
+        } => execute_update_config(deps, info, new_guardian, push_update_contracts),
     }
 }
 
@@ -231,11 +236,14 @@ pub fn execute(
 /// * **old_slope** old slope applied to the total voting power (vxASTRO supply).
 ///
 /// * **new_slope** new slope to be applied to the total voting power (vxASTRO supply).
+#[allow(clippy::too_many_arguments)]
 fn checkpoint_total(
     storage: &mut dyn Storage,
     env: Env,
     add_voting_power: Option<Uint128>,
+    add_amount: Option<Uint128>,
     reduce_power: Option<Uint128>,
+    reduce_amount: Option<Uint128>,
     old_slope: Uint128,
     new_slope: Uint128,
 ) -> StdResult<()> {
@@ -243,6 +251,7 @@ fn checkpoint_total(
     let cur_period_key = cur_period;
     let contract_addr = env.contract.address;
     let add_voting_power = add_voting_power.unwrap_or_default();
+    let add_amount = add_amount.unwrap_or_default();
 
     // Get last checkpoint
     let last_checkpoint = fetch_last_checkpoint(storage, &contract_addr, cur_period_key)?;
@@ -272,6 +281,9 @@ fn checkpoint_total(
             power: new_power,
             slope: point.slope - old_slope + new_slope,
             start: cur_period,
+            fixed: (point.fixed + add_amount)
+                .checked_sub(reduce_amount.unwrap_or_default())
+                .unwrap_or_default(),
             ..point
         }
     } else {
@@ -280,6 +292,7 @@ fn checkpoint_total(
             slope: new_slope,
             start: cur_period,
             end: 0, // we don't use 'end' in total voting power calculations
+            fixed: add_amount,
         }
     };
     HISTORY.save(storage, (contract_addr, cur_period_key), &new_point)
@@ -298,7 +311,7 @@ fn checkpoint_total(
 ///
 /// * **new_end** new lock time for the staker's vxASTRO position.
 fn checkpoint(
-    deps: DepsMut,
+    store: &mut dyn Storage,
     env: Env,
     addr: Addr,
     add_amount: Option<Uint128>,
@@ -311,31 +324,28 @@ fn checkpoint(
     let mut add_voting_power = Uint128::zero();
 
     // Get the last user checkpoint
-    let last_checkpoint = fetch_last_checkpoint(deps.storage, &addr, cur_period_key)?;
+    let last_checkpoint = fetch_last_checkpoint(store, &addr, cur_period_key)?;
     let new_point = if let Some((_, point)) = last_checkpoint {
         let end = new_end.unwrap_or(point.end);
         let dt = end.saturating_sub(cur_period);
         let current_power = calc_voting_power(&point, cur_period);
 
-        let end_vp: Uint128 =
-            current_power.checked_sub(Uint128::new(dt.into()).checked_mul(point.slope)?)?;
-
         let new_slope = if dt != 0 {
             if end > point.end && add_amount.is_zero() {
                 // This is extend_lock_time. Recalculating user's voting power
-                let mut lock = LOCKED.load(deps.storage, addr.clone())?;
+                let mut lock = LOCKED.load(store, addr.clone())?;
                 let mut new_voting_power = calc_coefficient(dt).checked_mul_uint(lock.amount)?;
-                let slope = adjust_vp_and_slope(&mut new_voting_power, dt, end_vp)?;
-                // new_voting_power should always be >= current_power. saturating_sub is used for extra safety
+                let slope = adjust_vp_and_slope(&mut new_voting_power, dt)?; // end_vp
+                                                                             // new_voting_power should always be >= current_power. saturating_sub is used for extra safety
                 add_voting_power = new_voting_power.saturating_sub(current_power);
                 lock.last_extend_lock_period = cur_period;
-                LOCKED.save(deps.storage, addr.clone(), &lock, env.block.height)?;
+                LOCKED.save(store, addr.clone(), &lock, env.block.height)?;
                 slope
             } else {
                 // This is an increase in the user's lock amount
                 let raw_add_voting_power = calc_coefficient(dt).checked_mul_uint(add_amount)?;
                 let mut new_voting_power = current_power.checked_add(raw_add_voting_power)?;
-                let slope = adjust_vp_and_slope(&mut new_voting_power, dt, end_vp)?;
+                let slope = adjust_vp_and_slope(&mut new_voting_power, dt)?;
                 // new_voting_power should always be >= current_power. saturating_sub is used for extra safety
                 add_voting_power = new_voting_power.saturating_sub(current_power);
                 slope
@@ -345,7 +355,7 @@ fn checkpoint(
         };
 
         // Cancel the previously scheduled slope change
-        cancel_scheduled_slope(deps.storage, point.slope, point.end)?;
+        cancel_scheduled_slope(store, point.slope, point.end)?;
 
         // We need to subtract the slope point from the total voting power slope
         old_slope = point.slope;
@@ -355,6 +365,7 @@ fn checkpoint(
             slope: new_slope,
             start: cur_period,
             end,
+            fixed: point.fixed + add_amount,
         }
     } else {
         // This error can't happen since this if-branch is intended for checkpoint creation
@@ -362,20 +373,31 @@ fn checkpoint(
             new_end.ok_or_else(|| StdError::generic_err("Checkpoint initialization error"))?;
         let dt = end - cur_period;
         add_voting_power = calc_coefficient(dt).checked_mul_uint(add_amount)?;
-        let slope = adjust_vp_and_slope(&mut add_voting_power, dt, add_amount)?;
+        let slope = adjust_vp_and_slope(&mut add_voting_power, dt)?; //add_amount
         Point {
             power: add_voting_power,
             slope,
             start: cur_period,
             end,
+            fixed: add_amount,
         }
     };
 
     // Schedule a slope change
-    schedule_slope_change(deps.storage, new_point.slope, new_point.end)?;
+    schedule_slope_change(store, new_point.slope, new_point.end)?;
 
-    HISTORY.save(deps.storage, (addr, cur_period_key), &new_point)?;
-    checkpoint_total(deps.storage, env, Some(add_voting_power), None, old_slope, new_point.slope)
+    HISTORY.save(store, (addr, cur_period_key), &new_point)?;
+
+    checkpoint_total(
+        store,
+        env,
+        Some(add_voting_power),
+        Some(add_amount),
+        None,
+        None,
+        old_slope,
+        new_point.slope,
+    )
 }
 
 /// Receives a message of type [`Cw20ReceiveMsg`] and processes it depending on the received template.
@@ -387,9 +409,9 @@ fn receive_cw20(
     info: MessageInfo,
     cw20_msg: Cw20ReceiveMsg,
 ) -> Result<Response, ContractError> {
-    xastro_token_check(deps.storage, info.sender)?;
+    assert_token(deps.storage, info.sender)?;
     let sender = addr_validate_to_lower(deps.api, &cw20_msg.sender)?;
-    blacklist_check(deps.storage, &sender)?;
+    assert_blacklist(deps.storage, &sender)?;
 
     match from_binary(&cw20_msg.msg)? {
         Cw20HookMsg::CreateLock {
@@ -400,7 +422,7 @@ fn receive_cw20(
             user,
         } => {
             let addr = addr_validate_to_lower(deps.api, &user)?;
-            blacklist_check(deps.storage, &addr)?;
+            assert_blacklist(deps.storage, &addr)?;
             deposit_for(deps, env, cw20_msg.amount, addr)
         },
     }
@@ -424,10 +446,13 @@ fn create_lock(
     amount: Uint128,
     time: u64,
 ) -> Result<Response, ContractError> {
-    time_limits_check(time)?;
+    assert_time_limits(time)?;
 
     let block_period = get_period(env.block.time.seconds())?;
-    let end = block_period + get_periods_count(time);
+    let periods = get_periods_count(time);
+    let end = block_period + periods;
+
+    assert_periods_remaining(periods)?;
 
     LOCKED.update(deps.storage, user.clone(), env.block.height, |lock_opt| {
         if lock_opt.is_some() && !lock_opt.unwrap().amount.is_zero() {
@@ -441,9 +466,13 @@ fn create_lock(
         })
     })?;
 
-    checkpoint(deps, env, user, Some(amount), Some(end))?;
+    checkpoint(deps.storage, env.clone(), user.clone(), Some(amount), Some(end))?;
 
-    Ok(Response::default().add_attribute("action", "create_lock"))
+    let config = CONFIG.load(deps.storage)?;
+
+    Ok(Response::default()
+        .add_attribute("action", "create_lock")
+        .add_messages(get_push_update_msgs(deps.as_ref(), env, config, user)?))
 }
 
 /// Deposits an 'amount' of xASTRO tokens into 'user''s lock.
@@ -471,9 +500,13 @@ fn deposit_for(
         },
         _ => Err(ContractError::LockDoesNotExist {}),
     })?;
-    checkpoint(deps, env, user, Some(amount), None)?;
+    checkpoint(deps.storage, env.clone(), user.clone(), Some(amount), None)?;
 
-    Ok(Response::default().add_attribute("action", "deposit_for"))
+    let config = CONFIG.load(deps.storage)?;
+
+    Ok(Response::default()
+        .add_attribute("action", "deposit_for")
+        .add_messages(get_push_update_msgs(deps.as_ref(), env, config, user)?))
 }
 
 /// Withdraws the whole amount of locked xASTRO from a specific user lock.
@@ -499,22 +532,87 @@ fn withdraw(deps: DepsMut, env: Env, info: MessageInfo) -> Result<Response, Cont
             })?,
             funds: vec![],
         });
+        let amount = lock.amount;
         lock.amount = Uint128::zero();
         LOCKED.save(deps.storage, sender.clone(), &lock, env.block.height)?;
 
         // We need to checkpoint and eliminate the slope influence on a future lock
         HISTORY.save(
             deps.storage,
-            (sender, cur_period),
+            (sender.clone(), cur_period),
             &Point {
                 power: Uint128::zero(),
                 start: cur_period,
                 end: cur_period,
                 slope: Default::default(),
+                fixed: Uint128::zero(),
             },
         )?;
 
-        Ok(Response::default().add_message(transfer_msg).add_attribute("action", "withdraw"))
+        // removing funds needs to remove from total checkpoint aswell.
+        checkpoint_total(
+            deps.storage,
+            env.clone(),
+            None,
+            None,
+            None,
+            Some(amount),
+            Default::default(),
+            Default::default(),
+        )?;
+
+        let msgs = get_push_update_msgs(deps.as_ref(), env, config, sender)?;
+
+        Ok(Response::default()
+            .add_message(transfer_msg)
+            .add_messages(msgs)
+            .add_attribute("action", "withdraw"))
+    }
+}
+
+fn get_push_update_msgs_multi(
+    deps: Deps,
+    env: Env,
+    config: Config,
+    sender: Vec<Addr>,
+) -> StdResult<Vec<CosmosMsg>> {
+    let results: Vec<CosmosMsg> = sender
+        .into_iter()
+        .map(|sender| get_push_update_msgs(deps, env.clone(), config.clone(), sender))
+        .collect::<StdResult<Vec<_>>>()?
+        .into_iter()
+        .flatten()
+        .collect();
+
+    Ok(results)
+}
+
+fn get_push_update_msgs(
+    deps: Deps,
+    env: Env,
+    config: Config,
+    sender: Addr,
+) -> StdResult<Vec<CosmosMsg>> {
+    let lock_info = get_user_lock_info(deps, env, sender.to_string());
+
+    // only send update if lock info is available. LOCK info is never removed for any user that locked anything.
+    if let Ok(lock_info) = lock_info {
+        config
+            .push_update_contracts
+            .into_iter()
+            .map(|contract| {
+                Ok(CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: contract.to_string(),
+                    msg: to_binary(&PushExecuteMsg::UpdateVote {
+                        user: sender.to_string(),
+                        lock_info: lock_info.clone(),
+                    })?,
+                    funds: vec![],
+                }))
+            })
+            .collect::<StdResult<Vec<_>>>()
+    } else {
+        Ok(vec![])
     }
 }
 
@@ -536,27 +634,36 @@ fn extend_lock_time(
     time: u64,
 ) -> Result<Response, ContractError> {
     let user = info.sender;
-    blacklist_check(deps.storage, &user)?;
+    assert_blacklist(deps.storage, &user)?;
     let mut lock = LOCKED
         .may_load(deps.storage, user.clone())?
         .filter(|lock| !lock.amount.is_zero())
         .ok_or(ContractError::LockDoesNotExist {})?;
 
     // Disable the ability to extend the lock time by less than a week
-    time_limits_check(time)?;
+    assert_time_limits(time)?;
 
-    if lock.end <= get_period(env.block.time.seconds())? {
+    let block_period = get_period(env.block.time.seconds())?;
+    if lock.end <= block_period {
         return Err(ContractError::LockExpired {});
     };
 
     // Should not exceed MAX_LOCK_TIME
-    time_limits_check(EPOCH_START + lock.end * WEEK + time - env.block.time.seconds())?;
+    assert_time_limits(EPOCH_START + lock.end * WEEK + time - env.block.time.seconds())?;
     lock.end += get_periods_count(time);
+
+    let periods = lock.end - block_period;
+    assert_periods_remaining(periods)?;
+
     LOCKED.save(deps.storage, user.clone(), &lock, env.block.height)?;
 
-    checkpoint(deps, env, user, None, Some(lock.end))?;
+    checkpoint(deps.storage, env.clone(), user.clone(), None, Some(lock.end))?;
 
-    Ok(Response::default().add_attribute("action", "extend_lock_time"))
+    let config = CONFIG.load(deps.storage)?;
+
+    Ok(Response::default()
+        .add_attribute("action", "extend_lock_time")
+        .add_messages(get_push_update_msgs(deps.as_ref(), env, config, user)?))
 }
 
 /// Update the staker blacklist. Whitelists addresses specified in 'remove_addrs'
@@ -567,7 +674,7 @@ fn extend_lock_time(
 ///
 /// * **remove_addrs** array of addresses to whitelist.
 fn update_blacklist(
-    mut deps: DepsMut,
+    deps: DepsMut,
     env: Env,
     info: MessageInfo,
     append_addrs: Option<Vec<String>>,
@@ -598,6 +705,7 @@ fn update_blacklist(
     let cur_period_key = cur_period;
     let mut reduce_total_vp = Uint128::zero(); // accumulator for decreasing total voting power
     let mut old_slopes = Uint128::zero(); // accumulator for old slopes
+    let mut old_amount = Uint128::zero(); // accumulator for old slopes
 
     for addr in append.iter() {
         let last_checkpoint = fetch_last_checkpoint(deps.storage, addr, cur_period_key)?;
@@ -611,6 +719,7 @@ fn update_blacklist(
                     slope: Default::default(),
                     start: cur_period,
                     end: cur_period,
+                    fixed: Uint128::zero(),
                 },
             )?;
 
@@ -623,6 +732,7 @@ fn update_blacklist(
             // User's contribution in the total voting power calculation
             reduce_total_vp += cur_power;
             old_slopes += point.slope;
+            old_amount += point.fixed;
             cancel_scheduled_slope(deps.storage, point.slope, point.end)?;
         }
     }
@@ -633,7 +743,9 @@ fn update_blacklist(
             deps.storage,
             env.clone(),
             None,
+            None,
             Some(reduce_total_vp),
+            Some(old_amount),
             old_slopes,
             Default::default(),
         )?;
@@ -647,14 +759,14 @@ fn update_blacklist(
             ..
         }) = lock_opt
         {
-            checkpoint(deps.branch(), env.clone(), addr.clone(), Some(amount), Some(end))?;
+            checkpoint(deps.storage, env.clone(), addr.clone(), Some(amount), Some(end))?;
         }
     }
 
     BLACKLIST.update(deps.storage, |blacklist| -> StdResult<Vec<Addr>> {
         let mut updated_blacklist: Vec<_> =
             blacklist.into_iter().filter(|addr| !remove.contains(addr)).collect();
-        updated_blacklist.extend(append);
+        updated_blacklist.extend(append.clone());
         Ok(updated_blacklist)
     })?;
 
@@ -666,7 +778,15 @@ fn update_blacklist(
         attrs.push(attr("removed_addresses", remove_addrs.join(",")))
     }
 
-    Ok(Response::default().add_attributes(attrs))
+    Ok(Response::default()
+        .add_attributes(attrs)
+        .add_messages(get_push_update_msgs_multi(
+            deps.as_ref(),
+            env.clone(),
+            config.clone(),
+            append,
+        )?)
+        .add_messages(get_push_update_msgs_multi(deps.as_ref(), env, config, remove)?))
 }
 
 /// Updates contracts' guardian address.
@@ -674,6 +794,7 @@ fn execute_update_config(
     deps: DepsMut,
     info: MessageInfo,
     new_guardian: Option<String>,
+    push_update_contracts: Option<Vec<String>>,
 ) -> Result<Response, ContractError> {
     let mut cfg = CONFIG.load(deps.storage)?;
 
@@ -683,6 +804,13 @@ fn execute_update_config(
 
     if let Some(new_guardian) = new_guardian {
         cfg.guardian_addr = Some(addr_validate_to_lower(deps.api, &new_guardian)?);
+    }
+
+    if let Some(push_update_contracts) = push_update_contracts {
+        cfg.push_update_contracts = push_update_contracts
+            .iter()
+            .map(|c| addr_validate_to_lower(deps.api, c))
+            .collect::<StdResult<Vec<_>>>()?;
     }
 
     CONFIG.save(deps.storage, &cfg)?;
@@ -733,9 +861,6 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::LockInfo {
             user,
         } => to_binary(&get_user_lock_info(deps, env, user)?),
-        QueryMsg::LockInfoWithVp {
-            user,
-        } => to_binary(&get_user_lock_info_vp(deps, env, user)?),
         QueryMsg::UserDepositAtHeight {
             user,
             height,
@@ -820,52 +945,31 @@ fn get_user_lock_info(deps: Deps, env: Env, user: String) -> StdResult<LockInfoR
     let addr = addr_validate_to_lower(deps.api, &user)?;
     if let Some(lock) = LOCKED.may_load(deps.storage, addr.clone())? {
         let cur_period = get_period(env.block.time.seconds())?;
-        let slope = fetch_last_checkpoint(deps.storage, &addr, cur_period)?
-            .map(|(_, point)| point.slope)
-            .unwrap_or_default();
+
+        let last_checkpoint = fetch_last_checkpoint(deps.storage, &addr, cur_period)?;
+        // The voting power point at the specified `time` was found
+        let (voting_power, slope, fixed_amount) =
+            if let Some(point) = last_checkpoint.map(|(_, point)| point) {
+                if point.start == cur_period {
+                    (point.power, point.slope, point.fixed)
+                } else {
+                    // The point before the intended period was found, thus we can calculate the user's voting power for the period we want
+                    (calc_voting_power(&point, cur_period), point.slope, point.fixed)
+                }
+            } else {
+                (Uint128::zero(), Uint128::zero(), Uint128::zero())
+            };
+
+        let coefficient = calc_coefficient(lock.end - lock.last_extend_lock_period);
+
         let resp = LockInfoResponse {
             amount: lock.amount,
-            coefficient: calc_coefficient(lock.end - lock.last_extend_lock_period),
+            coefficient,
             start: lock.start,
             end: lock.end,
-            slope,
-        };
-        Ok(resp)
-    } else {
-        Err(StdError::generic_err("User is not found"))
-    }
-}
-
-/// Return a user's lock information.
-///
-/// * **user** user for which we return lock information.
-fn get_user_lock_info_vp(deps: Deps, env: Env, user: String) -> StdResult<LockInfoVPResponse> {
-    let addr = addr_validate_to_lower(deps.api, &user)?;
-    if let Some(lock) = LOCKED.may_load(deps.storage, addr.clone())? {
-        let cur_period = get_period(env.block.time.seconds())?;
-        let last_checkpoint = fetch_last_checkpoint(deps.storage, &addr, cur_period)?;
-
-        // The voting power point at the specified `time` was found
-        let (voting_power, slope) = if let Some(point) = last_checkpoint.map(|(_, point)| point) {
-            if point.start == cur_period {
-                (point.power, point.slope)
-            } else {
-                // The point before the intended period was found, thus we can calculate the user's voting power for the period we want
-                (calc_voting_power(&point, cur_period), point.slope)
-            }
-        } else {
-            (Uint128::zero(), Uint128::zero())
-        };
-
-        let resp = LockInfoVPResponse {
-            lock: LockInfoResponse {
-                amount: lock.amount,
-                coefficient: calc_coefficient(lock.end - lock.last_extend_lock_period),
-                start: lock.start,
-                end: lock.end,
-                slope,
-            },
             voting_power,
+            fixed_amount,
+            slope,
         };
         Ok(resp)
     } else {
@@ -920,10 +1024,13 @@ fn get_user_voting_power_at_period(
     if let Some(point) = last_checkpoint.map(|(_, point)| point) {
         // The voting power point at the specified `time` was found
         let voting_power = if point.start == period {
-            point.power
+            point.power + point.fixed
+        } else if point.end <= period {
+            // the current period is after the voting end -> get default end power.
+            point.fixed
         } else {
             // The point before the intended period was found, thus we can calculate the user's voting power for the period we want
-            calc_voting_power(&point, period)
+            calc_voting_power(&point, period) + point.fixed
         };
         Ok(VotingPowerResponse {
             voting_power,
@@ -975,12 +1082,13 @@ fn get_total_voting_power_at_period(
             start: period,
             end: period,
             slope: Default::default(),
+            fixed: Uint128::zero(),
         },
         |(_, point)| point,
     );
 
     let voting_power = if point.start == period {
-        point.power
+        point.power + point.fixed
     } else {
         let scheduled_slope_changes = fetch_slope_changes(deps.storage, point.start, period)?;
         let mut init_point = point;
@@ -989,10 +1097,11 @@ fn get_total_voting_power_at_period(
                 power: calc_voting_power(&init_point, recalc_period),
                 start: recalc_period,
                 slope: init_point.slope - scheduled_change,
+                fixed: init_point.fixed,
                 ..init_point
             }
         }
-        calc_voting_power(&init_point, period)
+        calc_voting_power(&init_point, period) + init_point.fixed
     };
 
     Ok(VotingPowerResponse {

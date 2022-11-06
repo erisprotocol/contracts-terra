@@ -514,9 +514,6 @@ fn deposit_extract_withdraw() {
         _ => panic!("DO NOT ENTER HERE"),
     }
 
-    println!("{:}",received);
-    println!("{:}",extracted);
-
     let stake_balance = 100_000000 + 50_000000 - received.u128();
     let total_extracted = Decimal::from_ratio(150u128, 50u128)* extracted;
     let stake_available = stake_balance - total_extracted.u128();

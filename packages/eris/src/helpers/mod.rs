@@ -1,2 +1,2 @@
 pub mod bps;
-pub mod sloap;
+pub mod slope;

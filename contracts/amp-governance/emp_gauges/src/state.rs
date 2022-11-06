@@ -32,7 +32,6 @@ pub const VALIDATOR_PERIODS: Map<(&Addr, u64), ()> = Map::new("validator_periods
 /// Slope changes for a specific pool address by key ( pool_addr -> period ).
 pub const VALIDATOR_SLOPE_CHANGES: Map<(&Addr, u64), Uint128> = Map::new("validator_slope_changes");
 
-/// HashSet based on [`Map`]. It contains all pool addresses whose voting power > 0.
 pub const VALIDATOR_FIXED_EMPS: Map<(&Addr, u64), Uint128> = Map::new("validator_fixed_emps");
 
 // pub const EMP_ID: Item<u64> = Item::new("emp_id");

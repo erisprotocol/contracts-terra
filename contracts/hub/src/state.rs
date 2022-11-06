@@ -1,6 +1,4 @@
-use std::ops::Add;
-
-use cosmwasm_std::{Addr, Coin, Decimal, DelegationResponse, StdError, StdResult, Storage};
+use cosmwasm_std::{Addr, Coin, Decimal, StdError, StdResult, Storage};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, MultiIndex};
 
 use eris::hub::{Batch, DelegationStrategy, FeeConfig, PendingBatch, UnbondRequest};

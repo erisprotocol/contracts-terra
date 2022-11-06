@@ -1,4 +1,3 @@
-use amp_gauges::state::VotedValidatorInfo;
 use anyhow::{Ok, Result};
 use cosmwasm_std::{attr, Addr, Uint128};
 use eris::governance_helper::WEEK;
@@ -6,14 +5,14 @@ use eris_tests::escrow_helper::EscrowHelper;
 use eris_tests::{mock_app, EventChecker, TerraAppExtension};
 use std::vec;
 
-use eris::amp_gauges::{ConfigResponse, ExecuteMsg, GaugeInfoResponse};
+use eris::amp_gauges::{ConfigResponse, ExecuteMsg};
 
 #[test]
-fn update_configs() {
+fn update_configs() -> Result<()> {
     let mut router = mock_app();
     let helper = EscrowHelper::init(&mut router);
 
-    let config = helper.amp_query_config(&mut router).unwrap();
+    let config = helper.amp_query_config(&mut router)?;
     assert_eq!(config.validators_limit, 30);
 
     let result = helper
@@ -28,17 +27,17 @@ fn update_configs() {
 
     assert_eq!("Generic error: unauthorized", result.root_cause().to_string());
 
-    helper
-        .amp_execute(
-            &mut router,
-            ExecuteMsg::UpdateConfig {
-                validators_limit: Some(40),
-            },
-        )
-        .unwrap();
+    helper.amp_execute(
+        &mut router,
+        ExecuteMsg::UpdateConfig {
+            validators_limit: Some(40),
+        },
+    )?;
 
-    let config = helper.amp_query_config(&mut router).unwrap();
+    let config = helper.amp_query_config(&mut router)?;
     assert_eq!(config.validators_limit, 40);
+
+    Ok(())
 }
 
 #[test]
@@ -46,358 +45,290 @@ fn vote() -> Result<()> {
     let mut router = mock_app();
     let helper = EscrowHelper::init(&mut router);
 
-    helper.ve_lock(&mut router, "user1", 100, 2 * WEEK)?;
-    helper.ve_lock(&mut router, "user2", 50, 100 * WEEK)?;
+    helper.ve_lock(&mut router, "user1", 100000, 3 * WEEK).unwrap();
+    helper.ve_lock(&mut router, "user2", 50000, 104 * WEEK).unwrap();
 
     let vote = helper.amp_vote(&mut router, "user1", vec![("val1".to_string(), 10000)])?;
-    vote.assert_attribute("wasm", attr("vAMP", "102"))?;
+    vote.assert_attribute("wasm", attr("vAMP", "223075"))?;
+
+    router.next_period(1);
+    helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {})?;
+    let info = helper.amp_query_tune_info(&mut router)?;
+    assert_eq!(info.vamp_points, vec![(Addr::unchecked("val1"), Uint128::new(223075))]);
+
+    router.next_period(1);
+    helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {})?;
+    let info = helper.amp_query_tune_info(&mut router)?;
+    assert_eq!(info.vamp_points, vec![(Addr::unchecked("val1"), Uint128::new(182050))]);
+
+    router.next_period(1);
+    helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {})?;
+    let info = helper.amp_query_tune_info(&mut router)?;
+    assert_eq!(info.vamp_points, vec![(Addr::unchecked("val1"), Uint128::new(141025))]);
+
+    router.next_period(1);
+    helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {})?;
+    let info = helper.amp_query_tune_info(&mut router)?;
+    assert_eq!(info.vamp_points, vec![(Addr::unchecked("val1"), Uint128::new(100000))]);
+
+    router.next_period(1);
+    helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {})?;
+    let info = helper.amp_query_tune_info(&mut router)?;
+    assert_eq!(info.vamp_points, vec![(Addr::unchecked("val1"), Uint128::new(100000))]);
+
+    let vote = helper.amp_vote(
+        &mut router,
+        "user2",
+        vec![("val1".to_string(), 3000), ("val2".to_string(), 7000)],
+    )?;
+    vote.assert_attribute("wasm", attr("vAMP", "478274"))?;
+
+    // vote is only applied in the next period
+    helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {})?;
+    let info = helper.amp_query_tune_info(&mut router)?;
+    assert_eq!(info.vamp_points, vec![(Addr::unchecked("val1"), Uint128::new(100000)),]);
 
     router.next_period(1);
     helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {})?;
     let info = helper.amp_query_tune_info(&mut router)?;
     assert_eq!(
-        info,
-        GaugeInfoResponse {
-            tune_ts: 1667779200,
-            vamp_points: vec![(Addr::unchecked("val1"), Uint128::new(102))]
-        }
+        info.vamp_points,
+        vec![
+            (Addr::unchecked("val2"), Uint128::new(334791)), // ~ 446 * 0.7
+            (Addr::unchecked("val1"), Uint128::new(243482))
+        ]
     );
-
-    println!("---");
 
     router.next_period(1);
-    let err = helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {}).unwrap();
-
-    println!("{:?}", err);
-
-    let info = helper.amp_query_tune_info(&mut router).unwrap();
+    helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {})?;
+    let info = helper.amp_query_tune_info(&mut router)?;
     assert_eq!(
-        info,
-        GaugeInfoResponse {
-            tune_ts: 1667779200,
-            vamp_points: vec![(Addr::unchecked("val1"), Uint128::new(101))]
-        }
+        info.vamp_points,
+        vec![
+            (Addr::unchecked("val2"), Uint128::new(331763)), // ~ 446 * 0.7 - decaying
+            (Addr::unchecked("val1"), Uint128::new(242185))  //
+        ]
     );
 
-    // let vote = helper
-    //     .amp_vote(
-    //         &mut router,
-    //         "user2",
-    //         vec![("val1".to_string(), 3000), ("val2".to_string(), 7000)],
-    //     )
-    //     ?;
-    // vote.assert_attribute("wasm", attr("vAMP", "122"))?;
+    router.next_period(105);
+    helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {})?;
+    let info = helper.amp_query_tune_info(&mut router)?;
+    assert_eq!(
+        info.vamp_points,
+        vec![
+            (Addr::unchecked("val1"), Uint128::new(115079)), // rounding difference
+            (Addr::unchecked("val2"), Uint128::new(35019))   // rounding difference
+        ]
+    );
 
-    // router.next_period(1);
-    // helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {}).unwrap();
-    // let info = helper.amp_query_tune_info(&mut router).unwrap();
-    // assert_eq!(
-    //     info,
-    //     GaugeInfoResponse {
-    //         tune_ts: 1667779200,
-    //         vamp_points: vec![
-    //             (Addr::unchecked("val1"), Uint128::new(49)),
-    //             (Addr::unchecked("val2"), Uint128::new(49))
-    //         ]
-    //     }
-    // );
+    let result = helper.ve_withdraw(&mut router, "user1")?;
+    result.assert_attribute("wasm", attr("action", "update_vote_removed"))?;
+
+    helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {})?;
+    let info = helper.amp_query_tune_info(&mut router)?;
+    assert_eq!(
+        info.vamp_points,
+        vec![
+            (Addr::unchecked("val1"), Uint128::new(115079)), // rounding difference
+            (Addr::unchecked("val2"), Uint128::new(35019))   // rounding difference
+        ]
+    );
+    router.next_period(1);
+    helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {})?;
+    let info = helper.amp_query_tune_info(&mut router)?;
+    assert_eq!(
+        info.vamp_points,
+        vec![
+            (Addr::unchecked("val2"), Uint128::new(35019)), // rounding difference
+            (Addr::unchecked("val1"), Uint128::new(15079))  // rounding difference
+        ]
+    );
+    Ok(())
+}
+
+#[test]
+fn update_vote_extend_locktime() -> Result<()> {
+    let mut router = mock_app();
+    let helper = EscrowHelper::init(&mut router);
+
+    helper.ve_lock(&mut router, "user1", 100000, 3 * WEEK)?;
+
+    let vote = helper.amp_vote(
+        &mut router,
+        "user1",
+        vec![("val1".to_string(), 4000), ("val2".to_string(), 4000), ("val3".to_string(), 2000)],
+    )?;
+    vote.assert_attribute("wasm", attr("vAMP", "223075"))?;
+
+    let err = helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {}).unwrap_err();
+    assert_eq!(err.root_cause().to_string(), "There are no validators to tune");
+    let info = helper.amp_query_tune_info(&mut router)?;
+    assert_eq!(info.vamp_points, vec![]);
+
+    router.next_period(1);
+    helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {})?;
+    let info = helper.amp_query_tune_info(&mut router)?;
+    assert_eq!(
+        info.vamp_points,
+        vec![
+            (Addr::unchecked("val1"), Uint128::new(89230)),
+            (Addr::unchecked("val2"), Uint128::new(89230)),
+            (Addr::unchecked("val3"), Uint128::new(44615))
+        ]
+    );
+
+    helper.ve_extend_lock_time(&mut router, "user1", 10)?;
+    helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {})?;
+    let info = helper.amp_query_tune_info(&mut router)?;
+    assert_eq!(
+        info.vamp_points,
+        vec![
+            (Addr::unchecked("val1"), Uint128::new(89230)),
+            (Addr::unchecked("val2"), Uint128::new(89230)),
+            (Addr::unchecked("val3"), Uint128::new(44615))
+        ]
+    );
+
+    router.next_period(1);
+    helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {})?;
+    let info = helper.amp_query_tune_info(&mut router)?;
+    assert_eq!(
+        info.vamp_points,
+        vec![
+            (Addr::unchecked("val1"), Uint128::new(116920)),
+            (Addr::unchecked("val2"), Uint128::new(116920)),
+            (Addr::unchecked("val3"), Uint128::new(58460))
+        ]
+    );
 
     Ok(())
 }
 
-// #[test]
-// fn add_points() -> Result<()> {
-//     let mut router = mock_app();
-//     let helper = EscrowHelper::init(&mut router);
+#[test]
+fn update_vote_extend_amount() -> Result<()> {
+    let mut router = mock_app();
+    let helper = EscrowHelper::init(&mut router);
 
-//     let result = helper
-//         .emp_execute(
-//             &mut router,
-//             ExecuteMsg::AddEmps {
-//                 emps: vec![(
-//                     "unknown-validator".to_string(),
-//                     vec![EmpInfo {
-//                         decaying_period: Some(3),
-//                         umerit_points: Uint128::new(1000000),
-//                     }],
-//                 )],
-//             },
-//         )
-//         .unwrap_err();
+    helper.ve_lock(&mut router, "user1", 100000, 3 * WEEK)?;
 
-//     assert_eq!("Invalid validator address: unknown-validator", result.root_cause().to_string());
+    let vote = helper.amp_vote(
+        &mut router,
+        "user1",
+        vec![("val1".to_string(), 4000), ("val2".to_string(), 4000), ("val3".to_string(), 2000)],
+    )?;
+    vote.assert_attribute("wasm", attr("vAMP", "223075"))?;
 
-//     let result = helper.emp_execute(
-//         &mut router,
-//         ExecuteMsg::AddEmps {
-//             emps: vec![
-//                 (
-//                     "val1".to_string(),
-//                     vec![
-//                         EmpInfo {
-//                             decaying_period: Some(2 * 4), // 2 months
-//                             umerit_points: Uint128::new(2000000),
-//                         },
-//                         EmpInfo {
-//                             decaying_period: None,
-//                             umerit_points: Uint128::new(1000000),
-//                         },
-//                     ],
-//                 ),
-//                 (
-//                     "val2".to_string(),
-//                     vec![
-//                         EmpInfo {
-//                             decaying_period: Some(2 * 4), // 2 months
-//                             umerit_points: Uint128::new(1000000),
-//                         },
-//                         EmpInfo {
-//                             decaying_period: None,
-//                             umerit_points: Uint128::new(2000000),
-//                         },
-//                     ],
-//                 ),
-//             ],
-//         },
-//     )?;
-//     result.assert_attribute("wasm", attr("emps", "val1=3000000"))?;
-//     result.assert_attribute("wasm", attr("emps", "val2=3000000"))?;
+    router.next_period(1);
+    helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {})?;
+    let info = helper.amp_query_tune_info(&mut router)?;
+    assert_eq!(
+        info.vamp_points,
+        vec![
+            (Addr::unchecked("val1"), Uint128::new(89230)),
+            (Addr::unchecked("val2"), Uint128::new(89230)),
+            (Addr::unchecked("val3"), Uint128::new(44615))
+        ]
+    );
 
-//     let old_period = router.block_period();
-//     router.next_period(4);
-//     let current_period = router.block_period();
-//     assert_eq!(old_period + 4, current_period);
+    helper.ve_add_funds_lock(&mut router, "user1", 1000000)?;
+    helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {})?;
+    let info = helper.amp_query_tune_info(&mut router)?;
+    assert_eq!(
+        info.vamp_points,
+        vec![
+            (Addr::unchecked("val1"), Uint128::new(89230)),
+            (Addr::unchecked("val2"), Uint128::new(89230)),
+            (Addr::unchecked("val3"), Uint128::new(44615))
+        ]
+    );
 
-//     let result = helper.emp_execute(&mut router, ExecuteMsg::TuneEmps {}).unwrap();
-//     result.assert_attribute("wasm", attr("emps", "val1=2000000"))?;
-//     result.assert_attribute("wasm", attr("emps", "val2=2500000"))?;
+    // cant withdraw before lock is up
+    helper.ve_withdraw(&mut router, "user1").unwrap_err();
 
-//     let result = helper.emp_execute(
-//         &mut router,
-//         ExecuteMsg::AddEmps {
-//             emps: vec![
-//                 (
-//                     "val3".to_string(),
-//                     vec![EmpInfo {
-//                         decaying_period: Some(4), // 1 months
-//                         umerit_points: Uint128::new(1000000),
-//                     }],
-//                 ),
-//                 (
-//                     "val2".to_string(),
-//                     vec![EmpInfo {
-//                         decaying_period: Some(4), // 1 months
-//                         umerit_points: Uint128::new(1000000),
-//                     }],
-//                 ),
-//                 (
-//                     "val4".to_string(),
-//                     vec![EmpInfo {
-//                         decaying_period: None,
-//                         umerit_points: Uint128::new(500000),
-//                     }],
-//                 ),
-//             ],
-//         },
-//     )?;
-//     result.assert_attribute("wasm", attr("emps", "val1=2000000"))?;
-//     result.assert_attribute("wasm", attr("emps", "val2=3500000"))?;
-//     result.assert_attribute("wasm", attr("emps", "val3=1000000"))?;
-//     result.assert_attribute("wasm", attr("emps", "val4=500000"))?;
+    router.next_period(1);
+    helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {})?;
+    let info = helper.amp_query_tune_info(&mut router)?;
+    assert_eq!(
+        info.vamp_points,
+        vec![
+            (Addr::unchecked("val1"), Uint128::new(934358)),
+            (Addr::unchecked("val2"), Uint128::new(934358)),
+            (Addr::unchecked("val3"), Uint128::new(467179))
+        ]
+    );
 
-//     let result = helper.emp_query_tune_info(&mut router)?;
-//     assert_eq!(
-//         result,
-//         GaugeInfoResponse {
-//             tune_ts: 1669593600,
-//             emp_points: vec![
-//                 (Addr::unchecked("val2"), Uint128::new(3500000)),
-//                 (Addr::unchecked("val1"), Uint128::new(2000000)),
-//                 (Addr::unchecked("val3"), Uint128::new(1000000)),
-//                 (Addr::unchecked("val4"), Uint128::new(500000)),
-//             ]
-//         }
-//     );
+    router.next_period(1);
+    helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {})?;
+    let info = helper.amp_query_tune_info(&mut router)?;
+    assert_eq!(
+        info.vamp_points,
+        vec![
+            (Addr::unchecked("val1"), Uint128::new(687179)),
+            (Addr::unchecked("val2"), Uint128::new(687179)),
+            (Addr::unchecked("val3"), Uint128::new(343590))
+        ]
+    );
 
-//     router.next_period(2);
-//     let result = helper.emp_execute(&mut router, ExecuteMsg::TuneEmps {}).unwrap();
-//     result.assert_attribute("wasm", attr("emps", "val1=1500000"))?;
-//     result.assert_attribute("wasm", attr("emps", "val2=2750000"))?;
-//     result.assert_attribute("wasm", attr("emps", "val3=500000"))?;
-//     result.assert_attribute("wasm", attr("emps", "val4=500000"))?;
-//     let result = helper.emp_execute(&mut router, ExecuteMsg::TuneEmps {}).unwrap();
-//     result.assert_attribute("wasm", attr("emps", "val1=1500000"))?;
-//     result.assert_attribute("wasm", attr("emps", "val2=2750000"))?;
-//     result.assert_attribute("wasm", attr("emps", "val3=500000"))?;
-//     result.assert_attribute("wasm", attr("emps", "val4=500000"))?;
+    helper.ve_withdraw(&mut router, "user1")?;
+    helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {})?;
+    let info = helper.amp_query_tune_info(&mut router)?;
+    assert_eq!(
+        info.vamp_points,
+        vec![
+            (Addr::unchecked("val1"), Uint128::new(687179)),
+            (Addr::unchecked("val2"), Uint128::new(687179)),
+            (Addr::unchecked("val3"), Uint128::new(343590))
+        ]
+    );
 
-//     router.next_period(2);
-//     let result = helper.emp_execute(&mut router, ExecuteMsg::TuneEmps {}).unwrap();
-//     result.assert_attribute("wasm", attr("emps", "val1=1000000"))?;
-//     result.assert_attribute("wasm", attr("emps", "val2=2000000"))?;
-//     result.assert_attribute("wasm", attr("emps", "val4=500000"))?;
+    router.next_period(1);
 
-//     router.next_period(4);
-//     let result = helper.emp_execute(&mut router, ExecuteMsg::TuneEmps {}).unwrap();
-//     result.assert_attribute("wasm", attr("emps", "val1=1000000"))?;
-//     result.assert_attribute("wasm", attr("emps", "val2=2000000"))?;
-//     result.assert_attribute("wasm", attr("emps", "val4=500000"))?;
+    helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {})?;
+    let info = helper.amp_query_tune_info(&mut router)?;
+    assert_eq!(info.vamp_points, vec![(Addr::unchecked("val3"), Uint128::new(1)),]);
+    Ok(())
+}
 
-//     let result = helper.emp_execute(&mut router, ExecuteMsg::TuneEmps {}).unwrap();
-//     result.assert_attribute("wasm", attr("emps", "val1=1000000"))?;
-//     result.assert_attribute("wasm", attr("emps", "val2=2000000"))?;
-//     result.assert_attribute("wasm", attr("emps", "val4=500000"))?;
+#[test]
+fn check_update_owner() -> Result<()> {
+    let mut router = mock_app();
+    let helper = EscrowHelper::init(&mut router);
 
-//     let result = helper.emp_query_validator_history(&mut router, "val1", 0)?;
-//     assert_eq!(
-//         result,
-//         VotedValidatorInfo {
-//             emp_amount: Uint128::new(3000000),
-//             slope: Uint128::new(250000)
-//         }
-//     );
+    let new_owner = String::from("new_owner");
 
-//     let result = helper.emp_query_validator_history(&mut router, "val1", 1)?;
-//     assert_eq!(
-//         result,
-//         VotedValidatorInfo {
-//             emp_amount: Uint128::new(2750000),
-//             slope: Uint128::new(250000)
-//         }
-//     );
+    // New owner
+    let msg = ExecuteMsg::ProposeNewOwner {
+        new_owner: new_owner.clone(),
+        expires_in: 100, // seconds
+    };
 
-//     let result = helper.emp_query_validator_history(&mut router, "val4", 0)?;
-//     assert_eq!(
-//         result,
-//         VotedValidatorInfo {
-//             emp_amount: Uint128::zero(),
-//             slope: Uint128::zero()
-//         }
-//     );
+    // Unauthed check
+    let err = helper.amp_execute_sender(&mut router, msg.clone(), "not_owner").unwrap_err();
 
-//     let result = helper.emp_query_validator_history(&mut router, "val4", 2)?;
-//     assert_eq!(
-//         result,
-//         VotedValidatorInfo {
-//             emp_amount: Uint128::zero(),
-//             slope: Uint128::zero()
-//         }
-//     );
+    assert_eq!(err.root_cause().to_string(), "Generic error: Unauthorized");
 
-//     let result = helper.emp_query_validator_history(&mut router, "val4", 4)?;
-//     assert_eq!(
-//         result,
-//         VotedValidatorInfo {
-//             emp_amount: Uint128::new(500000),
-//             slope: Uint128::zero()
-//         }
-//     );
+    // Claim before proposal
+    let err = helper
+        .amp_execute_sender(&mut router, ExecuteMsg::ClaimOwnership {}, new_owner.clone())
+        .unwrap_err();
+    assert_eq!(err.root_cause().to_string(), "Generic error: Ownership proposal not found");
 
-//     let result = helper.emp_query_validator_history(&mut router, "val4", 5)?;
-//     assert_eq!(
-//         result,
-//         VotedValidatorInfo {
-//             emp_amount: Uint128::new(500000),
-//             slope: Uint128::zero()
-//         }
-//     );
+    // Propose new owner
+    helper.amp_execute_sender(&mut router, msg, "owner")?;
 
-//     Ok(())
-// }
+    // Claim from invalid addr
+    let err = helper
+        .amp_execute_sender(&mut router, ExecuteMsg::ClaimOwnership {}, "invalid_addr")
+        .unwrap_err();
 
-// #[test]
-// fn check_kick_holders_works() -> Result<()> {
-//     let mut router = mock_app();
-//     let helper = EscrowHelper::init(&mut router);
+    assert_eq!(err.root_cause().to_string(), "Generic error: Unauthorized");
 
-//     let result = helper.emp_execute(
-//         &mut router,
-//         ExecuteMsg::AddEmps {
-//             emps: vec![
-//                 (
-//                     "val1".to_string(),
-//                     vec![
-//                         EmpInfo {
-//                             decaying_period: Some(2 * 4), // 2 months
-//                             umerit_points: Uint128::new(2000000),
-//                         },
-//                         EmpInfo {
-//                             decaying_period: None,
-//                             umerit_points: Uint128::new(1000000),
-//                         },
-//                     ],
-//                 ),
-//                 (
-//                     "val2".to_string(),
-//                     vec![
-//                         EmpInfo {
-//                             decaying_period: Some(2 * 4), // 2 months
-//                             umerit_points: Uint128::new(1000000),
-//                         },
-//                         EmpInfo {
-//                             decaying_period: None,
-//                             umerit_points: Uint128::new(2000000),
-//                         },
-//                     ],
-//                 ),
-//             ],
-//         },
-//     )?;
+    // Claim ownership
+    helper.amp_execute_sender(&mut router, ExecuteMsg::ClaimOwnership {}, new_owner.clone())?;
 
-//     result.assert_attribute("wasm", attr("emps", "val1=3000000"))?;
-//     result.assert_attribute("wasm", attr("emps", "val2=3000000"))?;
+    // Let's query the contract state
+    let res: ConfigResponse = helper.amp_query_config(&mut router)?;
 
-//     helper.hub_remove_validator(&mut router, "val2")?;
-
-//     let result = helper.emp_execute(&mut router, ExecuteMsg::TuneEmps {}).unwrap();
-//     result.assert_attribute("wasm", attr("emps", "val1=3000000"))?;
-//     let err = result.assert_attribute("wasm", attr("emps", "val2=3000000")).unwrap_err();
-//     assert_eq!(err.to_string(), "Could not find key: emps value: val2=3000000");
-
-//     Ok(())
-// }
-
-// #[test]
-// fn check_update_owner() {
-//     let mut router = mock_app();
-//     let helper = EscrowHelper::init(&mut router);
-
-//     let new_owner = String::from("new_owner");
-
-//     // New owner
-//     let msg = ExecuteMsg::ProposeNewOwner {
-//         new_owner: new_owner.clone(),
-//         expires_in: 100, // seconds
-//     };
-
-//     // Unauthed check
-//     let err = helper.emp_execute_sender(&mut router, msg.clone(), "not_owner").unwrap_err();
-
-//     assert_eq!(err.root_cause().to_string(), "Generic error: Unauthorized");
-
-//     // Claim before proposal
-//     let err = helper
-//         .emp_execute_sender(&mut router, ExecuteMsg::ClaimOwnership {}, new_owner.clone())
-//         .unwrap_err();
-//     assert_eq!(err.root_cause().to_string(), "Generic error: Ownership proposal not found");
-
-//     // Propose new owner
-//     helper.emp_execute_sender(&mut router, msg, "owner").unwrap();
-
-//     // Claim from invalid addr
-//     let err = helper
-//         .emp_execute_sender(&mut router, ExecuteMsg::ClaimOwnership {}, "invalid_addr")
-//         .unwrap_err();
-
-//     assert_eq!(err.root_cause().to_string(), "Generic error: Unauthorized");
-
-//     // Claim ownership
-//     helper
-//         .emp_execute_sender(&mut router, ExecuteMsg::ClaimOwnership {}, new_owner.clone())
-//         .unwrap();
-
-//     // Let's query the contract state
-//     let res: ConfigResponse = helper.emp_query_config(&mut router).unwrap();
-
-//     assert_eq!(res.owner, new_owner)
-// }
+    assert_eq!(res.owner, new_owner);
+    Ok(())
+}

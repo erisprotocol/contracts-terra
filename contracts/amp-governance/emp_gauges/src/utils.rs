@@ -14,21 +14,21 @@ use crate::state::{
 #[derive(Debug)]
 pub(crate) enum Operation {
     Add,
-    Sub,
+    // Sub,
 }
 
 impl Operation {
     pub fn calc_slope(&self, cur_slope: Uint128, slope: Uint128, bps: BasicPoints) -> Uint128 {
         match self {
             Operation::Add => cur_slope + bps * slope,
-            Operation::Sub => cur_slope - bps * slope,
+            // Operation::Sub => cur_slope - bps * slope,
         }
     }
 
     pub fn calc_voting_power(&self, cur_vp: Uint128, vp: Uint128, bps: BasicPoints) -> Uint128 {
         match self {
             Operation::Add => cur_vp + bps * vp,
-            Operation::Sub => cur_vp.saturating_sub(bps * vp),
+            // Operation::Sub => cur_vp.saturating_sub(bps * vp),
         }
     }
 }
@@ -67,41 +67,41 @@ pub(crate) fn filter_validators(
     Ok(validators)
 }
 
-/// Cancels user changes using old voting parameters for a given pool.  
-/// Firstly, it removes slope change scheduled for previous lockup end period.  
-/// Secondly, it updates voting parameters for the given period, but without user's vote.
-pub(crate) fn cancel_user_changes(
-    storage: &mut dyn Storage,
-    period: u64,
-    validator_addr: &Addr,
-    old_bps: BasicPoints,
-    old_vp: Uint128,
-    old_slope: Uint128,
-    old_lock_end: u64,
-) -> StdResult<()> {
-    // Cancel scheduled slope changes
-    let last_validator_period =
-        fetch_last_validator_period(storage, period, validator_addr)?.unwrap_or(period);
-    if last_validator_period < old_lock_end + 1 {
-        let end_period_key = old_lock_end + 1;
-        let old_scheduled_change =
-            VALIDATOR_SLOPE_CHANGES.load(storage, (validator_addr, end_period_key))?;
-        let new_slope = old_scheduled_change - old_bps * old_slope;
-        if !new_slope.is_zero() {
-            VALIDATOR_SLOPE_CHANGES.save(storage, (validator_addr, end_period_key), &new_slope)?
-        } else {
-            VALIDATOR_SLOPE_CHANGES.remove(storage, (validator_addr, end_period_key))
-        }
-    }
+// /// Cancels user changes using old voting parameters for a given pool.
+// /// Firstly, it removes slope change scheduled for previous lockup end period.
+// /// Secondly, it updates voting parameters for the given period, but without user's vote.
+// pub(crate) fn cancel_user_changes(
+//     storage: &mut dyn Storage,
+//     period: u64,
+//     validator_addr: &Addr,
+//     old_bps: BasicPoints,
+//     old_vp: Uint128,
+//     old_slope: Uint128,
+//     old_lock_end: u64,
+// ) -> StdResult<()> {
+//     // Cancel scheduled slope changes
+//     let last_validator_period =
+//         fetch_last_validator_period(storage, period, validator_addr)?.unwrap_or(period);
+//     if last_validator_period < old_lock_end + 1 {
+//         let end_period_key = old_lock_end + 1;
+//         let old_scheduled_change =
+//             VALIDATOR_SLOPE_CHANGES.load(storage, (validator_addr, end_period_key))?;
+//         let new_slope = old_scheduled_change - old_bps * old_slope;
+//         if !new_slope.is_zero() {
+//             VALIDATOR_SLOPE_CHANGES.save(storage, (validator_addr, end_period_key), &new_slope)?
+//         } else {
+//             VALIDATOR_SLOPE_CHANGES.remove(storage, (validator_addr, end_period_key))
+//         }
+//     }
 
-    update_validator_info(
-        storage,
-        period,
-        validator_addr,
-        Some((old_bps, old_vp, old_slope, Operation::Sub)),
-    )
-    .map(|_| ())
-}
+//     update_validator_info(
+//         storage,
+//         period,
+//         validator_addr,
+//         Some((old_bps, old_vp, old_slope, Operation::Sub)),
+//     )
+//     .map(|_| ())
+// }
 
 /// Applies user's vote for a given pool.   
 /// Firstly, it schedules slope change for lockup end period.  
@@ -143,15 +143,28 @@ pub(crate) fn add_fixed_emp(
 ) -> StdResult<()> {
     add_validator_to_active(storage, validator_addr)?;
 
-    // println!("{0} period: {1} emps: {2}", validator_addr, period, uemps);
-
-    VALIDATOR_FIXED_EMPS.update(storage, (validator_addr, period), |v| -> StdResult<_> {
-        let v = v.unwrap_or(Uint128::zero()).checked_add(uemps)?;
-        Ok(v)
-    })?;
+    let last = fetch_last_validator_fixed_emps_value(storage, period, validator_addr)?;
+    let new = last.checked_add(uemps)?;
+    VALIDATOR_FIXED_EMPS.save(storage, (validator_addr, period), &new)?;
 
     Ok(())
 }
+
+// pub(crate) fn remove_fixed_emp(
+//     storage: &mut dyn Storage,
+//     period: u64,
+//     validator_addr: &Addr,
+//     uemps: Uint128,
+// ) -> StdResult<()> {
+//     add_validator_to_active(storage, validator_addr)?;
+
+//     VALIDATOR_FIXED_EMPS.update(storage, (validator_addr, period), |v| -> StdResult<_> {
+//         let v = v.unwrap_or(Uint128::zero()).checked_sub(uemps).unwrap_or_default();
+//         Ok(v)
+//     })?;
+
+//     Ok(())
+// }
 
 /// Fetches voting parameters for a given pool at specific period, applies new changes, saves it in storage
 /// and returns new voting parameters in [`VotedPoolInfo`] object.
@@ -265,8 +278,7 @@ pub(crate) fn get_validator_info(
     period: u64,
     validator_addr: &Addr,
 ) -> StdResult<VotedValidatorInfo> {
-    let fixed_amount = fetch_current_validator_fixed_emps_value(storage, period, validator_addr)?;
-    // println!("fixed {0} {1}", fixed_amount, period);
+    let fixed_amount = fetch_last_validator_fixed_emps_value(storage, period, validator_addr)?;
 
     let validator_info = if let Some(validator_info) =
         VALIDATOR_VOTES.may_load(storage, (period, validator_addr))?
@@ -332,16 +344,16 @@ pub(crate) fn fetch_last_validator_period(
     Ok(period_opt)
 }
 
-pub(crate) fn fetch_current_validator_fixed_emps_value(
+pub(crate) fn fetch_last_validator_fixed_emps_value(
     storage: &dyn Storage,
     period: u64,
     validator_addr: &Addr,
 ) -> StdResult<Uint128> {
-    let result = fetch_current_validator_fixed_emps(storage, period, validator_addr)?;
+    let result = fetch_last_validator_fixed_emps(storage, period, validator_addr)?;
     Ok(result.unwrap_or_default())
 }
 
-pub(crate) fn fetch_current_validator_fixed_emps(
+pub(crate) fn fetch_last_validator_fixed_emps(
     storage: &dyn Storage,
     period: u64,
     validator_addr: &Addr,

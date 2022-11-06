@@ -1,6 +1,5 @@
 use crate::voting_escrow::QueryMsg::{
-    LockInfo, LockInfoWithVp, TotalVotingPower, TotalVotingPowerAt, UserVotingPower,
-    UserVotingPowerAt,
+    LockInfo, TotalVotingPower, TotalVotingPowerAt, UserVotingPower, UserVotingPowerAt,
 };
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Binary, Decimal, QuerierWrapper, StdResult, Uint128};
@@ -87,10 +86,19 @@ pub enum ExecuteMsg {
     /// Update config
     UpdateConfig {
         new_guardian: Option<String>,
+        push_update_contracts: Option<Vec<String>>,
     },
     /// Set whitelisted logo urls
     SetLogoUrlsWhitelist {
         whitelist: Vec<String>,
+    },
+}
+
+#[cw_serde]
+pub enum PushExecuteMsg {
+    UpdateVote {
+        user: String,
+        lock_info: LockInfoResponse,
     },
 }
 
@@ -197,11 +205,6 @@ pub enum QueryMsg {
     LockInfo {
         user: String,
     },
-    /// Return information about a user's lock position
-    #[returns(LockInfoVPResponse)]
-    LockInfoWithVp {
-        user: String,
-    },
     /// Return user's locked xASTRO balance at the given block height
     #[returns(Uint128)]
     UserDepositAtHeight {
@@ -233,15 +236,10 @@ pub struct LockInfoResponse {
     pub end: u64,
     /// Slope at which a staker's vxASTRO balance decreases over time
     pub slope: Uint128,
-}
 
-/// This structure is used to return the lock information for a vxASTRO position.
-#[cw_serde]
-pub struct LockInfoVPResponse {
-    /// contains all
-    pub lock: LockInfoResponse,
-
-    /// The vAMP balance
+    /// fixed sockel
+    pub fixed_amount: Uint128,
+    /// also includes fixed part
     pub voting_power: Uint128,
 }
 
@@ -342,23 +340,6 @@ pub fn get_lock_info(
     let lock_info: LockInfoResponse = querier.query_wasm_smart(
         escrow_addr,
         &LockInfo {
-            user: user.into(),
-        },
-    )?;
-    Ok(lock_info)
-}
-
-/// Queries user's lockup information from the voting escrow contract.
-///
-/// * **user** staker for which we return lock position information.
-pub fn get_lock_info_vp(
-    querier: &QuerierWrapper,
-    escrow_addr: impl Into<String>,
-    user: impl Into<String>,
-) -> StdResult<LockInfoVPResponse> {
-    let lock_info: LockInfoVPResponse = querier.query_wasm_smart(
-        escrow_addr,
-        &LockInfoWithVp {
             user: user.into(),
         },
     )?;

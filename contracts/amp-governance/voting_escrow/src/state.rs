@@ -14,6 +14,8 @@ pub struct Config {
     pub deposit_token_addr: Addr,
     /// The list of whitelisted logo urls prefixes
     pub logo_urls_whitelist: Vec<String>,
+    /// The list of whitelisted logo urls prefixes
+    pub push_update_contracts: Vec<Addr>,
 }
 
 /// This structure stores points along the checkpoint history for every vxASTRO staker.
@@ -27,6 +29,9 @@ pub struct Point {
     pub end: u64,
     /// Weekly voting power decay
     pub slope: Uint128,
+
+    /// fixed amount
+    pub fixed: Uint128,
 }
 
 /// This structure stores data about the lockup position for a specific vxASTRO staker.

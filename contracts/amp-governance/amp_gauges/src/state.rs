@@ -24,6 +24,7 @@ pub struct UserInfo {
     pub slope: Uint128,
     pub lock_end: u64,
     pub votes: Vec<(Addr, BasicPoints)>,
+    pub fixed_amount: Uint128,
 }
 
 impl UserInfo {
@@ -60,6 +61,8 @@ pub const VALIDATOR_PERIODS: Map<(&Addr, u64), ()> = Map::new("validator_periods
 
 /// Slope changes for a specific validator address by key ( validator_addr -> period ).
 pub const VALIDATOR_SLOPE_CHANGES: Map<(&Addr, u64), Uint128> = Map::new("validator_slope_changes");
+
+pub const VALIDATOR_FIXED_VAMP: Map<(&Addr, u64), Uint128> = Map::new("validator_fixed_vamp");
 
 /// User's voting information.
 pub const USER_INFO: Map<&Addr, UserInfo> = Map::new("user_info");

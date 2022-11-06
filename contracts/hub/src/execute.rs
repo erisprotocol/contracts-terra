@@ -104,8 +104,6 @@ pub fn register_stake_token(deps: DepsMut, response: SubMsgResponse) -> StdResul
         .find(|event| event.ty == "instantiate")
         .ok_or_else(|| StdError::generic_err("cannot find `instantiate` event"))?;
 
-    println!("{:?}", event);
-
     let contract_addr_str = &event
         .attributes
         .iter()

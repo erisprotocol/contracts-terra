@@ -23,6 +23,9 @@ pub enum ContractError {
     #[error("Lock time must be within limits (week <= lock time < 2 years)")]
     LockTimeLimitsError {},
 
+    #[error("Lock period must be 3 or more weeks")]
+    LockPeriodsError {},
+
     #[error("The lock time has not yet expired")]
     LockHasNotExpired {},
 

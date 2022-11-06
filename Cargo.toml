@@ -4,6 +4,7 @@ members = [
     "contracts/hub",
     "contracts/token",
     "contracts/amp-compounder/*",
+    "contracts/amp-governance/*",
     "packages/*",
 ]
 

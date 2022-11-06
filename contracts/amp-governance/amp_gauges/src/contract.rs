@@ -16,7 +16,7 @@ use itertools::Itertools;
 use eris::amp_gauges::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, UserInfoResponse};
 use eris::governance_helper::{calc_voting_power, get_period};
 use eris::helpers::bps::BasicPoints;
-use eris::voting_escrow::{get_lock_info, get_voting_power, LockInfoResponse, LockInfoVPResponse};
+use eris::voting_escrow::{get_lock_info, LockInfoResponse};
 
 use crate::error::ContractError;
 use crate::state::{
@@ -24,8 +24,9 @@ use crate::state::{
     USER_INFO, VALIDATORS,
 };
 use crate::utils::{
-    cancel_user_changes, filter_pools, get_validator_info, update_validator_info,
-    validate_validators_limit, vote_for_pool,
+    add_fixed_vamp, cancel_user_changes, fetch_last_validator_fixed_vamp_value, filter_validators,
+    get_validator_info, remove_fixed_vamp, update_validator_info, validate_validators_limit,
+    vote_for_validator,
 };
 
 /// Contract name that is used for migration.
@@ -142,75 +143,6 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> E
     }
 }
 
-// /// This function removes all votes applied by blacklisted voters.
-// ///
-// /// * **holders** list with blacklisted holders whose votes will be removed.
-// fn kick_blacklisted_voters(deps: DepsMut, env: Env, voters: Vec<String>) -> ExecuteResult {
-//     let block_period = get_period(env.block.time.seconds())?;
-//     let config = CONFIG.load(deps.storage)?;
-
-//     if voters.len() > config.blacklisted_voters_limit.unwrap_or(VOTERS_MAX_LIMIT) as usize {
-//         return Err(ContractError::KickVotersLimitExceeded {});
-//     }
-
-//     // Check duplicated voters
-//     let addrs_set = voters.iter().collect::<HashSet<_>>();
-//     if voters.len() != addrs_set.len() {
-//         return Err(ContractError::DuplicatedVoters {});
-//     }
-
-//     // Check if voters are blacklisted
-//     let res: BlacklistedVotersResponse = deps.querier.query_wasm_smart(
-//         config.escrow_addr,
-//         &CheckVotersAreBlacklisted {
-//             voters: voters.clone(),
-//         },
-//     )?;
-
-//     if !res.eq(&BlacklistedVotersResponse::VotersBlacklisted {}) {
-//         return Err(ContractError::Std(StdError::generic_err(res.to_string())));
-//     }
-
-//     for voter in voters {
-//         let voter_addr = addr_validate_to_lower(deps.api, &voter)?;
-//         if let Some(user_info) = USER_INFO.may_load(deps.storage, &voter_addr)? {
-//             if user_info.lock_end > block_period {
-//                 let user_last_vote_period = get_period(user_info.vote_ts)?;
-//                 // Calculate voting power before changes
-//                 let old_vp_at_period = calc_voting_power(
-//                     user_info.slope,
-//                     user_info.voting_power,
-//                     user_last_vote_period,
-//                     block_period,
-//                 );
-
-//                 // Cancel changes applied by previous votes
-//                 user_info.votes.iter().try_for_each(|(pool_addr, bps)| {
-//                     cancel_user_changes(
-//                         deps.storage,
-//                         block_period + 1,
-//                         pool_addr,
-//                         *bps,
-//                         old_vp_at_period,
-//                         user_info.slope,
-//                         user_info.lock_end,
-//                     )
-//                 })?;
-
-//                 let user_info = UserInfo {
-//                     vote_ts: env.block.time.seconds(),
-//                     lock_end: block_period,
-//                     ..Default::default()
-//                 };
-
-//                 USER_INFO.save(deps.storage, &voter_addr, &user_info)?;
-//             }
-//         }
-//     }
-
-//     Ok(Response::new().add_attribute("action", "kick_holders"))
-// }
-
 /// The function checks that:
 /// * the user voting power is > 0,
 /// * all pool addresses are valid LP token addresses,
@@ -234,9 +166,10 @@ fn handle_vote(
     let user = info.sender;
     let block_period = get_period(env.block.time.seconds())?;
     let config = CONFIG.load(deps.storage)?;
-    let user_vp = get_voting_power(&deps.querier, &config.escrow_addr, &user)?;
 
-    if user_vp.is_zero() {
+    let ve_lock_info = get_lock_info(&deps.querier, &config.escrow_addr, &user)?;
+    let vamp = ve_lock_info.voting_power + ve_lock_info.fixed_amount;
+    if vamp.is_zero() {
         return Err(ContractError::ZeroVotingPower {});
     }
 
@@ -268,13 +201,17 @@ fn handle_vote(
 
     remove_votes_of_user(&user_info, block_period, deps.storage)?;
 
-    let ve_lock_info = get_lock_info(&deps.querier, &config.escrow_addr, &user)?;
-    let vp = ve_lock_info.amount;
-    let coefficient = ve_lock_info.coefficient;
+    apply_votest_of_user(
+        votes,
+        deps,
+        block_period,
+        ve_lock_info.voting_power,
+        ve_lock_info,
+        env,
+        user,
+    )?;
 
-    apply_votest_of_user(votes, deps, block_period, user_vp, ve_lock_info, env, user)?;
-
-    Ok(Response::new().add_attribute("action", "vote").add_attribute("vAMP", vp * coefficient))
+    Ok(Response::new().add_attribute("action", "vote").add_attribute("vAMP", vamp))
 }
 
 fn apply_votest_of_user(
@@ -287,7 +224,13 @@ fn apply_votest_of_user(
     user: Addr,
 ) -> Result<(), ContractError> {
     votes.iter().try_for_each(|(validator_addr, bps)| {
-        vote_for_pool(
+        add_fixed_vamp(
+            deps.storage,
+            block_period,
+            validator_addr,
+            *bps * ve_lock_info.fixed_amount,
+        )?;
+        vote_for_validator(
             deps.storage,
             block_period + 1,
             validator_addr,
@@ -302,6 +245,7 @@ fn apply_votest_of_user(
         voting_power: user_vp,
         slope: ve_lock_info.slope,
         lock_end: ve_lock_info.end,
+        fixed_amount: ve_lock_info.fixed_amount,
         votes,
     };
     USER_INFO.save(deps.storage, &user, &user_info)?;
@@ -324,16 +268,27 @@ fn remove_votes_of_user(
         );
 
         // Cancel changes applied by previous votes
-        user_info.votes.iter().try_for_each(|(pool_addr, bps)| {
+        user_info.votes.iter().try_for_each(|(validator_addr, bps)| {
+            remove_fixed_vamp(
+                storage,
+                block_period,
+                validator_addr,
+                *bps * user_info.fixed_amount,
+            )?;
             cancel_user_changes(
                 storage,
                 block_period + 1,
-                pool_addr,
+                validator_addr,
                 *bps,
                 old_vp_at_period,
                 user_info.slope,
                 user_info.lock_end,
             )
+        })?;
+    } else {
+        // still need to remove fixed vamp on remove
+        user_info.votes.iter().try_for_each(|(validator_addr, bps)| {
+            remove_fixed_vamp(storage, block_period, validator_addr, *bps * user_info.fixed_amount)
         })?;
     };
     Ok(())
@@ -344,7 +299,7 @@ fn update_vote(
     env: Env,
     info: MessageInfo,
     user: String,
-    lock: LockInfoVPResponse,
+    lock: LockInfoResponse,
 ) -> ExecuteResult {
     let block_period = get_period(env.block.time.seconds())?;
     let config = CONFIG.load(deps.storage)?;
@@ -363,19 +318,20 @@ fn update_vote(
             return Ok(Response::new().add_attribute("action", "update_vote_removed"));
         }
 
+        let vamp = lock.voting_power + lock.fixed_amount;
         apply_votest_of_user(
             user_info.votes,
             deps,
             block_period,
             lock.voting_power,
-            lock.lock,
+            lock,
             env,
             user,
         )?;
 
         return Ok(Response::new()
             .add_attribute("action", "update_vote_changed")
-            .add_attribute("vAMP", lock.voting_power));
+            .add_attribute("vAMP", vamp));
     }
 
     Ok(Response::new().add_attribute("action", "update_vote_noop"))
@@ -400,13 +356,23 @@ fn tune_vamp(deps: DepsMut, env: Env, info: MessageInfo) -> ExecuteResult {
         .map(|validator_addr| {
             let validator_addr = validator_addr?;
 
-            let validator_info =
+            let mut validator_info =
                 update_validator_info(deps.storage, block_period, &validator_addr, None)?;
 
-            println!("{:?}", validator_info);
+            validator_info.vamp_amount = validator_info.vamp_amount.checked_add(
+                fetch_last_validator_fixed_vamp_value(deps.storage, block_period, &validator_addr)?,
+            )?;
 
             // Remove pools with zero voting power so we won't iterate over them in future
-            if validator_info.vamp_amount.is_zero() {
+            if validator_info.vamp_amount.is_zero()
+            // and the next period is also unset
+                && fetch_last_validator_fixed_vamp_value(
+                    deps.storage,
+                    block_period + 1,
+                    &validator_addr,
+                )?
+                .is_zero()
+            {
                 VALIDATORS.remove(deps.storage, &validator_addr)
             }
             Ok((validator_addr, validator_info.vamp_amount))
@@ -417,9 +383,7 @@ fn tune_vamp(deps: DepsMut, env: Env, info: MessageInfo) -> ExecuteResult {
         .sorted_by(|(_, a), (_, b)| b.cmp(a)) // Sort in descending order
         .collect();
 
-    println!("{:?}", validator_votes);
-
-    tune_info.vamp_points = filter_pools(
+    tune_info.vamp_points = filter_validators(
         &deps.querier,
         &config.hub_addr,
         validator_votes,

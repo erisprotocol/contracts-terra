@@ -8,11 +8,8 @@ pub const WEEK: u64 = 7 * 86400; // lock period is rounded down by week
 /// Seconds in 2 years which is the maximum lock period.
 pub const MAX_LOCK_TIME: u64 = 2 * 365 * 86400; // 2 years (104 weeks)
 
-/// The constant describes the maximum number of accounts for which to claim accrued staking rewards in a single transaction.
-pub const CLAIM_LIMIT: u64 = 10;
-
-/// The constant describes the minimum number of accounts for claim.
-pub const MIN_CLAIM_LIMIT: u64 = 2;
+/// Funds need to be at least locked for 3 weeks.
+pub const MIN_LOCK_PERIODS: u64 = 3;
 
 /// Monday, October 31, 2022 12:00:00 AM
 pub const EPOCH_START: u64 = 1667174400;

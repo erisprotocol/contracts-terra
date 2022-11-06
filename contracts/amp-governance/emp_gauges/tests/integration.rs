@@ -293,6 +293,58 @@ fn check_kick_holders_works() -> Result<()> {
 }
 
 #[test]
+fn add_points_later() -> Result<()> {
+    let mut router = mock_app();
+    let helper = EscrowHelper::init(&mut router);
+
+    let result = helper.emp_execute(
+        &mut router,
+        ExecuteMsg::AddEmps {
+            emps: vec![(
+                "val2".to_string(),
+                vec![EmpInfo {
+                    decaying_period: None,
+                    umerit_points: Uint128::new(1000000),
+                }],
+            )],
+        },
+    )?;
+    result.assert_attribute("wasm", attr("emps", "val2=1000000"))?;
+
+    router.next_period(4);
+
+    let result = helper.emp_execute(
+        &mut router,
+        ExecuteMsg::AddEmps {
+            emps: vec![(
+                "val2".to_string(),
+                vec![EmpInfo {
+                    decaying_period: None,
+                    umerit_points: Uint128::new(2000000),
+                }],
+            )],
+        },
+    )?;
+    result.assert_attribute("wasm", attr("emps", "val2=3000000"))?;
+
+    let result = helper.emp_execute(
+        &mut router,
+        ExecuteMsg::AddEmps {
+            emps: vec![(
+                "val2".to_string(),
+                vec![EmpInfo {
+                    decaying_period: None,
+                    umerit_points: Uint128::new(2000000),
+                }],
+            )],
+        },
+    )?;
+    result.assert_attribute("wasm", attr("emps", "val2=5000000"))?;
+
+    Ok(())
+}
+
+#[test]
 fn check_update_owner() {
     let mut router = mock_app();
     let helper = EscrowHelper::init(&mut router);
