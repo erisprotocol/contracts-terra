@@ -389,12 +389,3 @@ pub(crate) fn fetch_slope_changes(
         )
         .collect()
 }
-
-/// Input validation for pools limit.
-pub(crate) fn validate_validators_limit(number: u64) -> Result<u64, ContractError> {
-    if !VALIDATOR_NUMBER_LIMIT.contains(&number) {
-        Err(ContractError::InvalidPoolNumber(number))
-    } else {
-        Ok(number)
-    }
-}

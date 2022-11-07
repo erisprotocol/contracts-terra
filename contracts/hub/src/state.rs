@@ -1,7 +1,9 @@
-use cosmwasm_std::{Addr, Coin, Decimal, StdError, StdResult, Storage};
+use cosmwasm_std::{Addr, Coin, StdError, StdResult, Storage};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, MultiIndex};
 
-use eris::hub::{Batch, DelegationStrategy, FeeConfig, PendingBatch, UnbondRequest};
+use eris::hub::{
+    Batch, DelegationStrategy, FeeConfig, PendingBatch, UnbondRequest, WantedDelegationsShare,
+};
 
 use crate::types::BooleanKey;
 
@@ -31,7 +33,7 @@ pub(crate) struct State<'a> {
     /// Delegation Strategy
     pub delegation_strategy: Item<'a, DelegationStrategy<Addr>>,
     /// Delegation Distribution
-    pub delegation_distribution: Item<'a, Vec<(String, Decimal)>>,
+    pub delegation_goal: Item<'a, WantedDelegationsShare>,
 }
 
 impl Default for State<'static> {
@@ -63,7 +65,7 @@ impl Default for State<'static> {
             unbond_requests: IndexedMap::new("unbond_requests", ubr_indexes),
             fee_config: Item::new("fee_config"),
             delegation_strategy: Item::new("delegation_strategy"),
-            delegation_distribution: Item::new("delegation_distribution"),
+            delegation_goal: Item::new("delegation_goal"),
         }
     }
 }

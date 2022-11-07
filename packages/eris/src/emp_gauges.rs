@@ -79,10 +79,7 @@ pub enum QueryMsg {
 /// This structure describes a migration message.
 /// We currently take no arguments for migrations.
 #[cw_serde]
-pub struct MigrateMsg {
-    /// Max number of blacklisted voters can be removed
-    pub blacklisted_voters_limit: Option<u32>,
-}
+pub struct MigrateMsg {}
 
 /// This structure describes the parameters returned when querying for the contract configuration.
 #[cw_serde]

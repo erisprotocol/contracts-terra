@@ -4,9 +4,12 @@ use cw_storage_plus::Bound;
 use eris::hub::{
     Batch, ConfigResponse, PendingBatch, StateResponse, UnbondRequestsByBatchResponseItem,
     UnbondRequestsByUserResponseItem, UnbondRequestsByUserResponseItemDetails,
+    WantedDelegationsResponse,
 };
+use itertools::Itertools;
 
 use crate::helpers::{query_cw20_total_supply, query_delegations};
+use crate::math::get_uluna_per_validator_prepared;
 use crate::state::State;
 
 const MAX_LIMIT: u32 = 30;
@@ -23,6 +26,28 @@ pub fn config(deps: Deps) -> StdResult<ConfigResponse> {
         unbond_period: state.unbond_period.load(deps.storage)?,
         validators: state.validators.load(deps.storage)?,
         fee_config: state.fee_config.load(deps.storage)?,
+        delegation_strategy: match state
+            .delegation_strategy
+            .may_load(deps.storage)?
+            .unwrap_or(eris::hub::DelegationStrategy::Uniform)
+        {
+            eris::hub::DelegationStrategy::Uniform => eris::hub::DelegationStrategy::Uniform,
+            eris::hub::DelegationStrategy::Gauges {
+                amp_gauges,
+                emp_gauges,
+                amp_factor_bps,
+                min_delegation_bps,
+                max_delegation_bps,
+                validator_count,
+            } => eris::hub::DelegationStrategy::Gauges {
+                amp_gauges: amp_gauges.to_string(),
+                emp_gauges: emp_gauges.to_string(),
+                amp_factor_bps,
+                min_delegation_bps,
+                max_delegation_bps,
+                validator_count,
+            },
+        },
     })
 }
 
@@ -69,6 +94,22 @@ pub fn state(deps: Deps, env: Env) -> StdResult<StateResponse> {
         tvl_uluna: Uint128::from(total_uluna)
             .checked_add(Uint128::from(unbonding))?
             .checked_add(available)?,
+    })
+}
+
+pub fn wanted_delegations(deps: Deps, env: Env) -> StdResult<WantedDelegationsResponse> {
+    let state = State::default();
+
+    let (delegations, _, _, share) = get_uluna_per_validator_prepared(
+        &state,
+        deps.storage,
+        &deps.querier,
+        &env.contract.address,
+    )?;
+
+    Ok(WantedDelegationsResponse {
+        delegations: delegations.into_iter().sorted_by(|(_, a), (_, b)| b.cmp(a)).collect(), // Sort in descending order
+        tune_time_period: share.map(|s| (s.tune_time, s.tune_period)),
     })
 }
 

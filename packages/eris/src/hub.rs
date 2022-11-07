@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "snake_case")]
 pub enum DelegationStrategy<T = String> {
     /// all validators receive the same delegation.
-    Uniform {},
+    Uniform,
     /// validators receive delegations based on community voting + merit points
     Gauges {
         /// gauges based on vAmp voting
@@ -143,6 +143,8 @@ pub enum QueryMsg {
     Config {},
     /// The contract's current state. Response: `StateResponse`
     State {},
+    /// The contract's current delegation distribution goal. Response: `WantedDelegationsResponse`
+    WantedDelegations {},
     /// The current batch on unbonding requests pending submission. Response: `PendingBatch`
     PendingBatch {},
     /// Query an individual batch that has previously been submitted for unbonding but have not yet
@@ -191,6 +193,9 @@ pub struct ConfigResponse {
 
     /// Information about applied fees
     pub fee_config: FeeConfig,
+
+    /// Defines how delegations are spread out
+    pub delegation_strategy: DelegationStrategy<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -209,6 +214,19 @@ pub struct StateResponse {
     pub available: Uint128,
     // Total amount of uluna within the contract (bonded + unbonding + available)
     pub tvl_uluna: Uint128,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct WantedDelegationsResponse {
+    pub tune_time_period: Option<(u64, u64)>,
+    pub delegations: Vec<(String, Uint128)>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct WantedDelegationsShare {
+    pub tune_time: u64,
+    pub tune_period: u64,
+    pub shares: Vec<(String, Decimal)>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

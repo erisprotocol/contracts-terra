@@ -6,6 +6,7 @@ use cosmwasm_std::{
     to_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, DepsMut, DistributionMsg, Env, Event,
     Order, Response, StdError, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
 };
+use eris::governance_helper::get_period;
 use eris::helpers::bps::BasicPoints;
 use itertools::Itertools;
 
@@ -19,12 +20,13 @@ use eris::emp_gauges::get_emp_tune_info;
 use eris::helper::addr_validate_to_lower;
 use eris::hub::{
     Batch, CallbackMsg, DelegationStrategy, ExecuteMsg, FeeConfig, InstantiateMsg, PendingBatch,
-    UnbondRequest,
+    UnbondRequest, WantedDelegationsShare,
 };
 
-use crate::constants::{get_reward_fee_cap, CONTRACT_NAME, CONTRACT_VERSION};
+use crate::constants::{get_reward_fee_cap, CONTRACT_DENOM, CONTRACT_NAME, CONTRACT_VERSION};
 use crate::helpers::{
-    dedupe_check_received_addrs, query_cw20_total_supply, query_delegation, query_delegations,
+    dedupe_check_received_addrs, query_all_delegations, query_cw20_total_supply, query_delegation,
+    query_delegations,
 };
 use crate::math::{
     compute_mint_amount, compute_redelegations_for_rebalancing, compute_redelegations_for_removal,
@@ -234,7 +236,7 @@ pub fn reinvest(deps: DepsMut, env: Env) -> StdResult<Response> {
 
     let uluna_available = unlocked_coins
         .iter()
-        .find(|coin| coin.denom == "uluna")
+        .find(|coin| coin.denom == CONTRACT_DENOM)
         .ok_or_else(|| StdError::generic_err("no uluna available to be bonded"))?
         .amount;
 
@@ -253,7 +255,7 @@ pub fn reinvest(deps: DepsMut, env: Env) -> StdResult<Response> {
 
     let new_delegation = Delegation::new(validator, uluna_to_bond.u128());
 
-    unlocked_coins.retain(|coin| coin.denom != "uluna");
+    unlocked_coins.retain(|coin| coin.denom != CONTRACT_DENOM);
     state.unlocked_coins.save(deps.storage, &unlocked_coins)?;
 
     let event = Event::new("erishub/harvested")
@@ -415,7 +417,8 @@ pub fn submit_batch(deps: DepsMut, env: Env) -> StdResult<Response> {
 
     let uluna_to_unbond =
         compute_unbond_amount(ustake_supply, pending_batch.ustake_to_burn, &delegations);
-    let new_undelegations = compute_undelegations(uluna_to_unbond, &delegations);
+    let new_undelegations =
+        compute_undelegations(&state, deps.storage, uluna_to_unbond, &delegations)?;
 
     state.previous_batches.save(
         deps.storage,
@@ -495,10 +498,10 @@ pub fn reconcile(deps: DepsMut, env: Env) -> StdResult<Response> {
     }
 
     let unlocked_coins = state.unlocked_coins.load(deps.storage)?;
-    let uluna_expected_unlocked = Coins(unlocked_coins).find("uluna").amount;
+    let uluna_expected_unlocked = Coins(unlocked_coins).find(CONTRACT_DENOM).amount;
 
     let uluna_expected = uluna_expected_received + uluna_expected_unlocked;
-    let uluna_actual = deps.querier.query_balance(&env.contract.address, "uluna")?.amount;
+    let uluna_actual = deps.querier.query_balance(&env.contract.address, CONTRACT_DENOM)?.amount;
 
     if uluna_actual >= uluna_expected {
         mark_reconciled_batches(&mut batches);
@@ -590,7 +593,7 @@ pub fn withdraw_unbonded(
 
     let refund_msg = CosmosMsg::Bank(BankMsg::Send {
         to_address: receiver.clone().into(),
-        amount: vec![Coin::new(total_uluna_to_refund.u128(), "uluna")],
+        amount: vec![Coin::new(total_uluna_to_refund.u128(), CONTRACT_DENOM)],
     });
 
     let event = Event::new("erishub/unbonded_withdrawn")
@@ -607,13 +610,17 @@ pub fn withdraw_unbonded(
         .add_attribute("action", "erishub/withdraw_unbonded"))
 }
 
-pub fn tune_delegations(deps: DepsMut, _env: Env, _sender: Addr) -> StdResult<Response> {
+pub fn tune_delegations(deps: DepsMut, env: Env, sender: Addr) -> StdResult<Response> {
     let state = State::default();
-    let delegation_strategy = state.delegation_strategy.load(deps.storage)?;
+
+    state.assert_owner(deps.storage, &sender)?;
+
+    let delegation_strategy =
+        state.delegation_strategy.may_load(deps.storage)?.unwrap_or(DelegationStrategy::Uniform {});
 
     match delegation_strategy {
         DelegationStrategy::Uniform {} => {
-            state.delegation_distribution.remove(deps.storage);
+            state.delegation_goal.remove(deps.storage);
         },
         DelegationStrategy::Gauges {
             amp_gauges,
@@ -652,7 +659,7 @@ pub fn tune_delegations(deps: DepsMut, _env: Env, _sender: Addr) -> StdResult<Re
                     let emp_score = emp_factor.checked_mul(Decimal::from_ratio(emp, sum_emps))?;
 
                     let total_score = vamp_score.checked_add(emp_score)?;
-                    let score = Decimal::max(total_score, max_delegation);
+                    let score = Decimal::min(total_score, max_delegation);
 
                     Ok((val, score, total_score))
                 })
@@ -676,7 +683,14 @@ pub fn tune_delegations(deps: DepsMut, _env: Env, _sender: Addr) -> StdResult<Re
                 })
                 .collect::<StdResult<Vec<_>>>()?;
 
-            state.delegation_distribution.save(deps.storage, &validators)?;
+            state.delegation_goal.save(
+                deps.storage,
+                &WantedDelegationsShare {
+                    shares: validators,
+                    tune_time: env.block.time.seconds(),
+                    tune_period: get_period(env.block.time.seconds())?,
+                },
+            )?;
         },
     };
 
@@ -687,13 +701,14 @@ pub fn tune_delegations(deps: DepsMut, _env: Env, _sender: Addr) -> StdResult<Re
 // Ownership and management logics
 //--------------------------------------------------------------------------------------------------
 
-pub fn rebalance(deps: DepsMut, env: Env) -> StdResult<Response> {
+pub fn rebalance(deps: DepsMut, env: Env, sender: Addr) -> StdResult<Response> {
     let state = State::default();
-    let validators = state.validators.load(deps.storage)?;
+    state.assert_owner(deps.storage, &sender)?;
 
-    let delegations = query_delegations(&deps.querier, &validators, &env.contract.address)?;
+    let delegations = query_all_delegations(&deps.querier, &env.contract.address)?;
 
-    let new_redelegations = compute_redelegations_for_rebalancing(&delegations);
+    let new_redelegations =
+        compute_redelegations_for_rebalancing(&state, deps.storage, &delegations)?;
 
     let redelegate_submsgs = new_redelegations
         .iter()
@@ -747,14 +762,31 @@ pub fn remove_validator(
         Ok(validators)
     })?;
 
-    let delegations = query_delegations(&deps.querier, &validators, &env.contract.address)?;
-    let delegation_to_remove = query_delegation(&deps.querier, &validator, &env.contract.address)?;
-    let new_redelegations = compute_redelegations_for_removal(&delegation_to_remove, &delegations);
+    let delegation_strategy =
+        state.delegation_strategy.may_load(deps.storage)?.unwrap_or(DelegationStrategy::Uniform);
 
-    let redelegate_submsgs = new_redelegations
-        .iter()
-        .map(|d| SubMsg::reply_on_success(d.to_cosmos_msg(), 2))
-        .collect::<Vec<_>>();
+    let redelegate_submsgs = match delegation_strategy {
+        DelegationStrategy::Uniform => {
+            // only redelegate when old strategy
+            let delegations = query_delegations(&deps.querier, &validators, &env.contract.address)?;
+            let delegation_to_remove =
+                query_delegation(&deps.querier, &validator, &env.contract.address)?;
+            let new_redelegations = compute_redelegations_for_removal(
+                &state,
+                deps.storage,
+                &delegation_to_remove,
+                &delegations,
+            )?;
+
+            new_redelegations
+                .iter()
+                .map(|d| SubMsg::reply_on_success(d.to_cosmos_msg(), 2))
+                .collect::<Vec<_>>()
+        },
+        DelegationStrategy::Gauges {
+            ..
+        } => vec![],
+    };
 
     let event = Event::new("erishub/validator_removed").add_attribute("validator", validator);
 

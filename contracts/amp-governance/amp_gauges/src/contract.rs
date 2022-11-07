@@ -25,8 +25,7 @@ use crate::state::{
 };
 use crate::utils::{
     add_fixed_vamp, cancel_user_changes, fetch_last_validator_fixed_vamp_value, filter_validators,
-    get_validator_info, remove_fixed_vamp, update_validator_info, validate_validators_limit,
-    vote_for_validator,
+    get_validator_info, remove_fixed_vamp, update_validator_info, vote_for_validator,
 };
 
 /// Contract name that is used for migration.
@@ -57,7 +56,7 @@ pub fn instantiate(
             escrow_addr: addr_validate_to_lower(deps.api, &msg.escrow_addr)?,
             hub_addr: addr_validate_to_lower(deps.api, &msg.hub_addr)?,
             emp_registry_addr: addr_validate_to_lower(deps.api, &msg.emp_registry_addr)?,
-            validators_limit: validate_validators_limit(msg.validators_limit)?,
+            validators_limit: msg.validators_limit,
         },
     )?;
 
@@ -178,7 +177,7 @@ fn handle_vote(
     // Check duplicated votes
     let addrs_set = votes.iter().cloned().map(|(addr, _)| addr).collect::<HashSet<_>>();
     if votes.len() != addrs_set.len() {
-        return Err(ContractError::DuplicatedPools {});
+        return Err(ContractError::DuplicatedValidators {});
     }
 
     let allowed_validators = get_hub_validators(&deps.querier, config.hub_addr)?;

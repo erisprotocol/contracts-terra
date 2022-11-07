@@ -8,7 +8,7 @@ use cw20::Cw20ReceiveMsg;
 use eris::helper::unwrap_reply;
 use eris::hub::{CallbackMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, ReceiveMsg};
 
-use crate::constants::{CONTRACT_NAME, CONTRACT_VERSION};
+use crate::constants::{CONTRACT_DENOM, CONTRACT_NAME, CONTRACT_VERSION};
 use crate::helpers::parse_received_fund;
 use crate::state::State;
 use crate::{execute, queries};
@@ -34,12 +34,16 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             deps,
             env,
             receiver.map(|s| api.addr_validate(&s)).transpose()?.unwrap_or(info.sender),
-            parse_received_fund(&info.funds, "uluna")?,
+            parse_received_fund(&info.funds, CONTRACT_DENOM)?,
             false,
         ),
-        ExecuteMsg::Donate {} => {
-            execute::bond(deps, env, info.sender, parse_received_fund(&info.funds, "uluna")?, true)
-        },
+        ExecuteMsg::Donate {} => execute::bond(
+            deps,
+            env,
+            info.sender,
+            parse_received_fund(&info.funds, CONTRACT_DENOM)?,
+            true,
+        ),
         ExecuteMsg::WithdrawUnbonded {
             receiver,
         } => execute::withdraw_unbonded(
@@ -60,7 +64,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
         ExecuteMsg::AcceptOwnership {} => execute::accept_ownership(deps, info.sender),
         ExecuteMsg::Harvest {} => execute::harvest(deps, env),
         ExecuteMsg::TuneDelegations {} => execute::tune_delegations(deps, env, info.sender),
-        ExecuteMsg::Rebalance {} => execute::rebalance(deps, env),
+        ExecuteMsg::Rebalance {} => execute::rebalance(deps, env, info.sender),
         ExecuteMsg::Reconcile {} => execute::reconcile(deps, env),
         ExecuteMsg::SubmitBatch {} => execute::submit_batch(deps, env),
         ExecuteMsg::Callback(callback_msg) => callback(deps, env, info, callback_msg),
@@ -161,7 +165,6 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             start_after,
             limit,
         } => to_binary(&queries::unbond_requests_by_user(deps, user, start_after, limit)?),
-
         QueryMsg::UnbondRequestsByUserDetails {
             user,
             start_after,
@@ -173,6 +176,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             limit,
             env,
         )?),
+        QueryMsg::WantedDelegations {} => to_binary(&queries::wanted_delegations(deps, env)?),
     }
 }
 

@@ -45,8 +45,8 @@ fn vote() -> Result<()> {
     let mut router = mock_app();
     let helper = EscrowHelper::init(&mut router);
 
-    helper.ve_lock(&mut router, "user1", 100000, 3 * WEEK).unwrap();
-    helper.ve_lock(&mut router, "user2", 50000, 104 * WEEK).unwrap();
+    helper.ve_lock_lp(&mut router, "user1", 100000, 3 * WEEK).unwrap();
+    helper.ve_lock_lp(&mut router, "user2", 50000, 104 * WEEK).unwrap();
 
     let vote = helper.amp_vote(&mut router, "user1", vec![("val1".to_string(), 10000)])?;
     vote.assert_attribute("wasm", attr("vAMP", "223075"))?;
@@ -151,7 +151,7 @@ fn update_vote_extend_locktime() -> Result<()> {
     let mut router = mock_app();
     let helper = EscrowHelper::init(&mut router);
 
-    helper.ve_lock(&mut router, "user1", 100000, 3 * WEEK)?;
+    helper.ve_lock_lp(&mut router, "user1", 100000, 3 * WEEK)?;
 
     let vote = helper.amp_vote(
         &mut router,
@@ -209,7 +209,7 @@ fn update_vote_extend_amount() -> Result<()> {
     let mut router = mock_app();
     let helper = EscrowHelper::init(&mut router);
 
-    helper.ve_lock(&mut router, "user1", 100000, 3 * WEEK)?;
+    helper.ve_lock_lp(&mut router, "user1", 100000, 3 * WEEK)?;
 
     let vote = helper.amp_vote(
         &mut router,

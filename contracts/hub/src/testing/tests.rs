@@ -4,7 +4,7 @@ use std::vec;
 use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     to_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, DistributionMsg, Event, Order, OwnedDeps,
-    Reply, ReplyOn, StdError, SubMsg, SubMsgResponse, Uint128, WasmMsg,
+    Reply, ReplyOn, StdError, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, MinterResponse};
 use cw20_base::msg::InstantiateMsg as Cw20InstantiateMsg;
@@ -126,7 +126,8 @@ fn proper_instantiation() {
             fee_config: FeeConfig {
                 protocol_fee_contract: Addr::unchecked("fee"),
                 protocol_reward_fee: Decimal::from_ratio(1u128, 100u128)
-            }
+            },
+            delegation_strategy: eris::hub::DelegationStrategy::Uniform
         }
     );
 
@@ -1805,7 +1806,10 @@ fn querying_unbond_requests_details() {
 //--------------------------------------------------------------------------------------------------
 
 #[test]
-fn computing_undelegations() {
+fn computing_undelegations() -> StdResult<()> {
+    let deps = mock_dependencies();
+    let state = State::default();
+
     let current_delegations = vec![
         Delegation::new("alice", 400),
         Delegation::new("bob", 300),
@@ -1814,20 +1818,30 @@ fn computing_undelegations() {
 
     // Target: (400 + 300 + 200 - 451) / 3 = 149
     // Remainder: 2
-    // Alice:   400 - (149 + 1) = 250
-    // Bob:     300 - (149 + 1) = 150
+    // Alice:   400 - (149 + 2) = 249
+    // Bob:     300 - (149 + 0) = 151
     // Charlie: 200 - (149 + 0) = 51
-    let new_undelegations = compute_undelegations(Uint128::new(451), &current_delegations);
+    let new_undelegations = compute_undelegations(
+        &state,
+        deps.as_ref().storage,
+        Uint128::new(451),
+        &current_delegations,
+    )?;
     let expected = vec![
-        Undelegation::new("alice", 250),
-        Undelegation::new("bob", 150),
+        Undelegation::new("alice", 249),
+        Undelegation::new("bob", 151),
         Undelegation::new("charlie", 51),
     ];
     assert_eq!(new_undelegations, expected);
+
+    Ok(())
 }
 
 #[test]
-fn computing_redelegations_for_removal() {
+fn computing_redelegations_for_removal() -> StdResult<()> {
+    let deps = mock_dependencies();
+    let state = State::default();
+
     let current_delegations = vec![
         Delegation::new("alice", 13000),
         Delegation::new("bob", 12000),
@@ -1848,13 +1862,23 @@ fn computing_redelegations_for_removal() {
     ];
 
     assert_eq!(
-        compute_redelegations_for_removal(&current_delegations[3], &current_delegations[..3]),
+        compute_redelegations_for_removal(
+            &state,
+            deps.as_ref().storage,
+            &current_delegations[3],
+            &current_delegations[..3]
+        )?,
         expected,
     );
+
+    Ok(())
 }
 
 #[test]
-fn computing_redelegations_for_rebalancing() {
+fn computing_redelegations_for_rebalancing() -> StdResult<()> {
+    let deps = mock_dependencies();
+    let state = State::default();
+
     let current_delegations = vec![
         Delegation::new("alice", 69420),
         Delegation::new("bob", 1234),
@@ -1866,34 +1890,115 @@ fn computing_redelegations_for_rebalancing() {
     // uluna_per_validator = (69420 + 88888 + 1234 + 40471 + 2345) / 4 = 40471
     // remainer = 3
     // src_delegations:
-    //  - alice:   69420 - (40471 + 1) = 28948
-    //  - charlie: 88888 - (40471 + 1) = 48416
+    //  - alice:   69420 - (40471 + 3) = 28946
+    //  - charlie: 88888 - (40471 + 0) = 48417
     // dst_delegations:
-    //  - bob:     (40471 + 1) - 1234  = 39238
+    //  - bob:     (40471 + 0) - 1234  = 39237
     //  - evan:    (40471 + 0) - 2345  = 38126
     //
-    // Round 1: alice --(28948)--> bob
+    // Round 1: alice --(28946)--> bob
     // src_delegations:
-    //  - charlie: 48416
+    //  - charlie: 48417
     // dst_delegations:
-    //  - bob:     39238 - 28948 = 10290
+    //  - bob:     39237 - 28946 = 10291
     //  - evan:    38126
     //
-    // Round 2: charlie --(10290)--> bob
+    // Round 2: charlie --(10291)--> bob
     // src_delegations:
-    //  - charlie: 48416 - 10290 = 38126
+    //  - charlie: 48417 - 10291 = 38126
     // dst_delegations:
     //  - evan:    38126
     //
     // Round 3: charlie --(38126)--> evan
     // Queues are emptied
     let expected = vec![
-        Redelegation::new("alice", "bob", 28948),
-        Redelegation::new("charlie", "bob", 10290),
+        Redelegation::new("alice", "bob", 28946),
+        Redelegation::new("charlie", "bob", 10291),
         Redelegation::new("charlie", "evan", 38126),
     ];
 
-    assert_eq!(compute_redelegations_for_rebalancing(&current_delegations), expected,);
+    assert_eq!(
+        compute_redelegations_for_rebalancing(&state, deps.as_ref().storage, &current_delegations)?,
+        expected,
+    );
+    Ok(())
+}
+
+#[test]
+fn computing_redelegations_for_rebalancing_complex() -> StdResult<()> {
+    let mut deps = mock_dependencies();
+    let state = State::default();
+
+    state.delegation_goal.save(
+        deps.as_mut().storage,
+        &eris::hub::WantedDelegationsShare {
+            tune_time: 0,
+            tune_period: 0,
+            shares: vec![
+                ("charlie".to_string(), Decimal::from_str("0.5")?),
+                ("alice".to_string(), Decimal::from_str("0.25")?),
+                ("bob".to_string(), Decimal::from_str("0.25")?),
+            ],
+        },
+    )?;
+
+    // ratio is good
+    let current_delegations = vec![
+        Delegation::new("alice", 50000),
+        Delegation::new("bob", 50000),
+        Delegation::new("charlie", 100000),
+    ];
+
+    assert_eq!(
+        compute_redelegations_for_rebalancing(&state, deps.as_ref().storage, &current_delegations)?,
+        vec![],
+    );
+
+    // ratio is bad
+    let current_delegations = vec![
+        Delegation::new("unlisted", 25000),
+        Delegation::new("alice", 25000),
+        Delegation::new("bob", 50000),
+        Delegation::new("charlie", 100000),
+    ];
+
+    assert_eq!(
+        compute_redelegations_for_rebalancing(&state, deps.as_ref().storage, &current_delegations)?,
+        vec![Redelegation::new("unlisted", "alice", 25000)],
+    );
+
+    // ratio is bad
+    let current_delegations = vec![
+        Delegation::new("charlie", 100000),
+        Delegation::new("unlisted", 50000),
+        Delegation::new("alice", 25000),
+        Delegation::new("bob", 25000),
+    ];
+
+    assert_eq!(
+        compute_redelegations_for_rebalancing(&state, deps.as_ref().storage, &current_delegations)?,
+        vec![
+            Redelegation::new("unlisted", "alice", 25000),
+            Redelegation::new("unlisted", "bob", 25000)
+        ],
+    );
+
+    // ratio is bad
+    let current_delegations = vec![
+        Delegation::new("charlie", 150002),
+        Delegation::new("alice", 20000),
+        Delegation::new("bob", 20000),
+    ];
+
+    assert_eq!(
+        compute_redelegations_for_rebalancing(&state, deps.as_ref().storage, &current_delegations)?,
+        vec![
+            Redelegation::new("charlie", "alice", 27500),
+            Redelegation::new("charlie", "bob", 27500)
+        ],
+    );
+
+    Ok(())
 }
 
 //--------------------------------------------------------------------------------------------------

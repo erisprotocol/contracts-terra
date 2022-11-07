@@ -3,7 +3,7 @@ use std::{collections::HashSet, str::FromStr};
 use cosmwasm_std::{Addr, Api, Coin, QuerierWrapper, StdError, StdResult, Uint128};
 use cw20::{Cw20QueryMsg, TokenInfoResponse};
 
-use crate::types::Delegation;
+use crate::{constants::CONTRACT_DENOM, types::Delegation};
 
 /// Query the total supply of a CW20 token
 pub(crate) fn query_cw20_total_supply(
@@ -40,6 +40,23 @@ pub(crate) fn query_delegations(
         .iter()
         .map(|validator| query_delegation(querier, validator, delegator_addr))
         .collect()
+}
+
+pub(crate) fn query_all_delegations(
+    querier: &QuerierWrapper,
+    delegator_addr: &Addr,
+) -> StdResult<Vec<Delegation>> {
+    let result: Vec<_> = querier
+        .query_all_delegations(delegator_addr)?
+        .into_iter()
+        .filter(|d| d.amount.denom == CONTRACT_DENOM)
+        .map(|d| Delegation {
+            validator: d.validator,
+            amount: d.amount.amount.u128(),
+        })
+        .collect();
+
+    Ok(result)
 }
 
 /// `cosmwasm_std::Coin` does not implement `FromStr`, so we have do it ourselves

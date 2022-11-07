@@ -44,6 +44,7 @@ pub struct BaseErisTestPackage {
     pub emp_gauges: ContractInfoWrapper,
     pub amp_gauges: ContractInfoWrapper,
     pub amp_lp: ContractInfoWrapper,
+    pub amp_token: ContractInfoWrapper,
 }
 
 #[cw_serde]
@@ -61,6 +62,7 @@ impl BaseErisTestPackage {
             amp_lp: None.into(),
             emp_gauges: None.into(),
             amp_gauges: None.into(),
+            amp_token: None.into(),
         };
 
         base_pack.init_token(router, msg.owner.clone());
@@ -140,6 +142,17 @@ impl BaseErisTestPackage {
 
         let instance =
             router.instantiate_contract(code_id, owner, &init_msg, &[], "Hub", None).unwrap();
+
+        let config: eris::hub::ConfigResponse = router
+            .wrap()
+            .query_wasm_smart(instance.to_string(), &eris::hub::QueryMsg::Config {})
+            .unwrap();
+
+        self.amp_token = Some(ContractInfo {
+            address: Addr::unchecked(config.stake_token),
+            code_id: self.token_id.unwrap(),
+        })
+        .into();
 
         self.hub = Some(ContractInfo {
             address: instance,

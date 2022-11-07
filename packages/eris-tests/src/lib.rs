@@ -3,8 +3,8 @@ use std::str::FromStr;
 
 use anyhow::{Error, Ok, Result};
 use cosmwasm_std::testing::{mock_env, MockApi, MockStorage};
-use cosmwasm_std::{Attribute, BlockInfo, Decimal, Timestamp, Validator};
-use cw_multi_test::{App, AppResponse, BankKeeper, BasicAppBuilder, StakeKeeper};
+use cosmwasm_std::{coin, Addr, Attribute, BlockInfo, Decimal, Timestamp, Validator};
+use cw_multi_test::{App, AppResponse, BankKeeper, BasicAppBuilder, StakeKeeper, StakingInfo};
 use eris::governance_helper::{get_period, EPOCH_START, WEEK};
 
 #[allow(clippy::all)]
@@ -15,6 +15,10 @@ pub mod controller_helper;
 pub mod escrow_helper;
 
 pub fn mock_app() -> App {
+    mock_app_validators(None)
+}
+
+pub fn mock_app_validators(validators: Option<u64>) -> App {
     let mut env = mock_env();
     env.block.time = Timestamp::from_seconds(EPOCH_START);
     let api = MockApi::default();
@@ -28,6 +32,8 @@ pub fn mock_app() -> App {
         chain_id: "".to_string(),
     };
 
+    let validators = validators.unwrap_or(4);
+
     BasicAppBuilder::new()
         .with_api(api)
         .with_block(env.block)
@@ -36,64 +42,38 @@ pub fn mock_app() -> App {
         .with_staking(staking)
         .build(|router, api, storage| {
             router
-                .staking
-                .add_validator(
-                    api,
-                    storage,
-                    &block,
-                    Validator {
-                        address: "val1".into(),
-                        commission: Decimal::from_str("0.05").unwrap(),
-                        max_commission: Decimal::from_str("0.05").unwrap(),
-                        max_change_rate: Decimal::from_str("0.05").unwrap(),
-                    },
-                )
+                .bank
+                .init_balance(storage, &Addr::unchecked("user1"), vec![coin(1000_000000, "uluna")])
                 .unwrap();
 
             router
                 .staking
-                .add_validator(
-                    api,
+                .setup(
                     storage,
-                    &block,
-                    Validator {
-                        address: "val2".into(),
-                        commission: Decimal::from_str("0.05").unwrap(),
-                        max_commission: Decimal::from_str("0.05").unwrap(),
-                        max_change_rate: Decimal::from_str("0.05").unwrap(),
+                    StakingInfo {
+                        bonded_denom: "uluna".to_string(),
+                        apr: Decimal::from_str("0.13").unwrap(),
+                        unbonding_time: 1814400,
                     },
                 )
                 .unwrap();
 
-            router
-                .staking
-                .add_validator(
-                    api,
-                    storage,
-                    &block,
-                    Validator {
-                        address: "val3".into(),
-                        commission: Decimal::from_str("0.05").unwrap(),
-                        max_commission: Decimal::from_str("0.05").unwrap(),
-                        max_change_rate: Decimal::from_str("0.05").unwrap(),
-                    },
-                )
-                .unwrap();
-
-            router
-                .staking
-                .add_validator(
-                    api,
-                    storage,
-                    &block,
-                    Validator {
-                        address: "val4".into(),
-                        commission: Decimal::from_str("0.05").unwrap(),
-                        max_commission: Decimal::from_str("0.05").unwrap(),
-                        max_change_rate: Decimal::from_str("0.05").unwrap(),
-                    },
-                )
-                .unwrap();
+            for i in 1..validators {
+                router
+                    .staking
+                    .add_validator(
+                        api,
+                        storage,
+                        &block,
+                        Validator {
+                            address: format!("val{0}", i),
+                            commission: Decimal::from_str("0.05").unwrap(),
+                            max_commission: Decimal::from_str("0.05").unwrap(),
+                            max_change_rate: Decimal::from_str("0.05").unwrap(),
+                        },
+                    )
+                    .unwrap();
+            }
         })
 }
 
