@@ -418,7 +418,7 @@ pub fn submit_batch(deps: DepsMut, env: Env) -> StdResult<Response> {
     let uluna_to_unbond =
         compute_unbond_amount(ustake_supply, pending_batch.ustake_to_burn, &delegations);
     let new_undelegations =
-        compute_undelegations(&state, deps.storage, uluna_to_unbond, &delegations)?;
+        compute_undelegations(&state, deps.storage, uluna_to_unbond, &delegations, validators)?;
 
     state.previous_batches.save(
         deps.storage,
@@ -706,9 +706,10 @@ pub fn rebalance(deps: DepsMut, env: Env, sender: Addr) -> StdResult<Response> {
     state.assert_owner(deps.storage, &sender)?;
 
     let delegations = query_all_delegations(&deps.querier, &env.contract.address)?;
+    let validators = state.validators.load(deps.storage)?;
 
     let new_redelegations =
-        compute_redelegations_for_rebalancing(&state, deps.storage, &delegations)?;
+        compute_redelegations_for_rebalancing(&state, deps.storage, &delegations, validators)?;
 
     let redelegate_submsgs = new_redelegations
         .iter()
@@ -776,6 +777,7 @@ pub fn remove_validator(
                 deps.storage,
                 &delegation_to_remove,
                 &delegations,
+                validators,
             )?;
 
             new_redelegations

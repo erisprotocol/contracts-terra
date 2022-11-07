@@ -4,8 +4,9 @@ use crate::governance_helper::{get_periods_count, MAX_LOCK_TIME};
 
 /// Coefficient calculation where 0 [`WEEK`] is equal to 1 and [`MAX_LOCK_TIME`] is 9.
 pub fn calc_coefficient(interval: u64) -> Decimal {
-    // coefficient = 1 + 8 * (end - start) / MAX_LOCK_TIME 15_u64
-    Decimal::one() + Decimal::from_ratio(80_u64 * interval, get_periods_count(MAX_LOCK_TIME) * 10)
+    // coefficient = 9 * (end - start) / MAX_LOCK_TIME 15_u64
+    // 1 is fixed
+    Decimal::from_ratio(90_u64 * interval, get_periods_count(MAX_LOCK_TIME) * 10)
 }
 
 /// Adjusting voting power according to the slope. The maximum loss is 103/104 * 104 which is

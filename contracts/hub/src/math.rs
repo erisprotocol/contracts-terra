@@ -1,4 +1,8 @@
-use std::{cmp, cmp::Ordering, collections::HashMap};
+use std::{
+    cmp,
+    cmp::Ordering,
+    collections::{HashMap, HashSet},
+};
 
 use cosmwasm_std::{Addr, QuerierWrapper, StdResult, Storage, Uint128};
 
@@ -64,16 +68,17 @@ pub(crate) fn compute_undelegations(
     storage: &dyn Storage,
     uluna_to_unbond: Uint128,
     current_delegations: &[Delegation],
+    validators: Vec<String>,
 ) -> StdResult<Vec<Undelegation>> {
     let uluna_staked: u128 = current_delegations.iter().map(|d| d.amount).sum();
     let uluna_to_distribute = uluna_staked - uluna_to_unbond.u128();
 
     let (uluna_per_validator, mut add, mut remove, _) =
-        get_uluna_per_validator(state, storage, uluna_to_distribute, current_delegations)?;
+        get_uluna_per_validator(state, storage, uluna_to_distribute, &validators)?;
 
     let mut new_undelegations: Vec<Undelegation> = vec![];
     let mut uluna_available = uluna_to_unbond.u128();
-    for (_, d) in current_delegations.iter().enumerate() {
+    for (_, d) in merge_with_validators(current_delegations, validators).iter().enumerate() {
         let uluna_for_validator =
             get_uluna_for_validator(&uluna_per_validator, d, &mut add, &mut remove);
 
@@ -109,16 +114,17 @@ pub(crate) fn compute_redelegations_for_removal(
     storage: &dyn Storage,
     delegation_to_remove: &Delegation,
     current_delegations: &[Delegation],
+    validators: Vec<String>,
 ) -> StdResult<Vec<Redelegation>> {
     let uluna_staked: u128 = current_delegations.iter().map(|d| d.amount).sum();
     let uluna_to_distribute = uluna_staked + delegation_to_remove.amount;
 
     let (uluna_per_validator, mut add, mut remove, _) =
-        get_uluna_per_validator(state, storage, uluna_to_distribute, current_delegations)?;
+        get_uluna_per_validator(state, storage, uluna_to_distribute, &validators)?;
 
     let mut new_redelegations: Vec<Redelegation> = vec![];
     let mut uluna_available = delegation_to_remove.amount;
-    for (_, d) in current_delegations.iter().enumerate() {
+    for (_, d) in merge_with_validators(current_delegations, validators).iter().enumerate() {
         let uluna_for_validator =
             get_uluna_for_validator(&uluna_per_validator, d, &mut add, &mut remove);
 
@@ -145,6 +151,26 @@ pub(crate) fn compute_redelegations_for_removal(
     }
 
     Ok(new_redelegations)
+}
+
+fn merge_with_validators(
+    current_delegations: &[Delegation],
+    validators: Vec<String>,
+) -> Vec<Delegation> {
+    let hash: HashSet<_> = current_delegations.iter().map(|d| d.validator.to_string()).collect();
+
+    let mut delegations = current_delegations.to_vec();
+
+    for val in validators {
+        if !hash.contains(&val) {
+            delegations.push(Delegation {
+                validator: val,
+                amount: 0,
+            })
+        }
+    }
+
+    delegations
 }
 
 fn get_uluna_for_validator(
@@ -176,11 +202,12 @@ pub(crate) fn compute_redelegations_for_rebalancing(
     state: &State,
     storage: &dyn Storage,
     current_delegations: &[Delegation],
+    validators: Vec<String>,
 ) -> StdResult<Vec<Redelegation>> {
     let uluna_staked: u128 = current_delegations.iter().map(|d| d.amount).sum();
 
     let (uluna_per_validator, mut add, mut remove, _) =
-        get_uluna_per_validator(state, storage, uluna_staked, current_delegations)?;
+        get_uluna_per_validator(state, storage, uluna_staked, &validators)?;
 
     // If a validator's current delegated amount is greater than the target amount, Luna will be
     // redelegated _from_ them. They will be put in `src_validators` vector
@@ -188,7 +215,7 @@ pub(crate) fn compute_redelegations_for_rebalancing(
     // redelegated _to_ them. They will be put in `dst_validators` vector
     let mut src_delegations: Vec<Delegation> = vec![];
     let mut dst_delegations: Vec<Delegation> = vec![];
-    for (_, d) in current_delegations.iter().enumerate() {
+    for (_, d) in merge_with_validators(current_delegations, validators).iter().enumerate() {
         let uluna_for_validator =
             get_uluna_for_validator(&uluna_per_validator, d, &mut add, &mut remove);
 
@@ -239,18 +266,17 @@ pub(crate) fn get_uluna_per_validator_prepared(
 ) -> StdResult<UtokenPerValidator> {
     let current_delegations = query_all_delegations(querier, contract)?;
     let uluna_staked: u128 = current_delegations.iter().map(|d| d.amount).sum();
-    get_uluna_per_validator(state, storage, uluna_staked, &current_delegations)
+    let validators = state.validators.load(storage)?;
+    get_uluna_per_validator(state, storage, uluna_staked, &validators)
 }
 
 pub(crate) fn get_uluna_per_validator(
     state: &State,
     storage: &dyn Storage,
     uluna_staked: u128,
-    current_delegations: &[Delegation],
+    validators: &[String],
 ) -> StdResult<UtokenPerValidator> {
     let uluna_staked_uint = Uint128::new(uluna_staked);
-    let validator_count = current_delegations.len() as u128;
-
     let delegation_goal = state.delegation_goal.may_load(storage)?;
 
     let uluna_per_validator: Option<HashMap<_, _>> =
@@ -274,11 +300,9 @@ pub(crate) fn get_uluna_per_validator(
         };
 
     let uluna_per_validator = uluna_per_validator.unwrap_or_else(|| {
+        let validator_count = validators.len() as u128;
         let uluna_per_validator = uluna_staked / validator_count;
-        current_delegations
-            .iter()
-            .map(|d| (d.validator.clone(), Uint128::new(uluna_per_validator)))
-            .collect()
+        validators.iter().map(|d| (d.clone(), Uint128::new(uluna_per_validator))).collect()
     });
     let total: u128 = uluna_per_validator.iter().map(|a| a.1.u128()).sum();
     let add = if total < uluna_staked {

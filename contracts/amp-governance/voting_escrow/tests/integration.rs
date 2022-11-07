@@ -221,9 +221,9 @@ fn new_lock_after_lock_expired() {
     helper.create_lock(router_ref, "user", WEEK * 5, 50f32).unwrap();
 
     let vp = helper.query_user_vp(router_ref, "user").unwrap();
-    assert_eq!(vp, 119.23077); // ~  50 + 50 * (1 + 8 * 5 / 104)
+    assert_eq!(vp, 71.63461); // ~  50 + 50 * (1 + 8 * 5 / 104)
     let vp = helper.query_total_vp(router_ref).unwrap();
-    assert_eq!(vp, 119.23077);
+    assert_eq!(vp, 71.63461);
 
     // Go to the future
     router_ref.update_block(next_block);
@@ -258,9 +258,9 @@ fn new_lock_after_lock_expired() {
     helper.create_lock(router_ref, "user", WEEK * 5, 100f32).unwrap();
 
     let vp = helper.query_user_vp(router_ref, "user").unwrap();
-    assert_eq!(vp, 238.46153); // ~  100 * (2 + 8 * 5 / 104) =~238,4615385
+    assert_eq!(vp, 143.26923); // ~  100 * (2 + 8 * 5 / 104) =~238,4615385
     let vp = helper.query_total_vp(router_ref).unwrap();
-    assert_eq!(vp, 238.46153);
+    assert_eq!(vp, 143.26923);
 
     router_ref.update_block(next_block);
     router_ref.update_block(|block| block.time = block.time.plus_seconds(WEEK * 7));
@@ -276,9 +276,9 @@ fn new_lock_after_lock_expired() {
     let vp = helper.query_user_vp(router_ref, "user").unwrap();
     assert_eq!(vp, 100.0); // ~  100 * (2 + 8 * 5 / 104) =~238,4615385
     let vp = helper.query_user_vp(router_ref, "user2").unwrap();
-    assert_eq!(vp, 111.53847); // ~  50 * (2 + 8 * 2 / 104) =~107,6923077
+    assert_eq!(vp, 62.980766); // ~  50 * (2 + 8 * 2 / 104) =~107,6923077
     let vp = helper.query_total_vp(router_ref).unwrap();
-    assert_eq!(vp, 100.0 + 111.53847);
+    assert_eq!(vp, 100.0 + 62.980766);
 
     router_ref.update_block(next_block);
     router_ref.update_block(|block| block.time = block.time.plus_seconds(WEEK * 7));
@@ -305,9 +305,9 @@ fn voting_constant_decay() {
     helper.create_lock(router_ref, "user", WEEK * 10, 30f32).unwrap();
 
     let vp = helper.query_user_vp(router_ref, "user").unwrap();
-    assert_eq!(vp, 83.07692); // 30 + 30 * (1+8*10/104) =
+    assert_eq!(vp, 55.96153); // 30 + 30 * (9*10/104) =
     let vp = helper.query_total_vp(router_ref).unwrap();
-    assert_eq!(vp, 83.07692);
+    assert_eq!(vp, 55.96153);
 
     // Since user2 did not lock their xASTRO, the contract does not have any information
     let vp = helper.query_user_vp(router_ref, "user2").unwrap();
@@ -319,26 +319,26 @@ fn voting_constant_decay() {
 
     // We can check voting power in the past
     let vp = helper.query_user_vp(router_ref, "user").unwrap();
-    assert_eq!(vp, 56.53846); // (83.07692 - 30) / 2 + 30 = ~53.076 / 2 = 26.53 + 30
+    assert_eq!(vp, 42.980762);
 
     let res = helper
         .query_user_vp_at(router_ref, "user", router_ref.block_info().time.seconds() - WEEK)
         .unwrap();
-    assert_eq!(res, 61.846153);
+    assert_eq!(res, 45.57692);
     let res = helper
         .query_user_vp_at(router_ref, "user", router_ref.block_info().time.seconds() - 3 * WEEK)
         .unwrap();
-    assert_eq!(res, 72.46153);
+    assert_eq!(res, 50.769222);
     let res = helper
         .query_total_vp_at(router_ref, router_ref.block_info().time.seconds() - 5 * WEEK)
         .unwrap();
-    assert_eq!(res, 83.07692);
+    assert_eq!(res, 55.96153);
 
     // And we can even check voting power in the future
     let res = helper
         .query_user_vp_at(router_ref, "user", router_ref.block_info().time.seconds() + WEEK)
         .unwrap();
-    assert_eq!(res, 51.230766);
+    assert_eq!(res, 40.384613);
     let res = helper
         .query_user_vp_at(router_ref, "user", router_ref.block_info().time.seconds() + 5 * WEEK)
         .unwrap();
@@ -348,15 +348,15 @@ fn voting_constant_decay() {
     helper.create_lock(router_ref, "user2", WEEK * 6, 50f32).unwrap();
 
     let vp = helper.query_user_vp(router_ref, "user").unwrap();
-    assert_eq!(vp, 56.53846);
+    assert_eq!(vp, 42.980762);
     let vp = helper.query_user_vp(router_ref, "user2").unwrap();
-    assert_eq!(vp, 123.07692);
+    assert_eq!(vp, 75.96153);
     let vp = helper.query_total_vp(router_ref).unwrap();
-    assert_eq!(vp, 179.61537);
+    assert_eq!(vp, 118.94231);
     let res = helper
         .query_total_vp_at(router_ref, router_ref.block_info().time.seconds() + 4 * WEEK)
         .unwrap();
-    assert_eq!(res, 109.666664);
+    assert_eq!(res, 91.25);
 
     // Go to the future
     router_ref.update_block(next_block);
@@ -364,9 +364,9 @@ fn voting_constant_decay() {
     let vp = helper.query_user_vp(router_ref, "user").unwrap();
     assert_eq!(vp, 30.0);
     let vp = helper.query_user_vp(router_ref, "user2").unwrap();
-    assert_eq!(vp, 62.17949);
+    assert_eq!(vp, 54.326923);
     let vp = helper.query_total_vp(router_ref).unwrap();
-    assert_eq!(vp, 30.0 + 62.17949);
+    assert_eq!(vp, 30.0 + 54.326923);
 
     // Go to the future
     router_ref.update_block(next_block);
@@ -397,7 +397,7 @@ fn voting_variable_decay() {
     // Create lock for user2
     helper.create_lock(router_ref, "user2", WEEK * 6, 50f32).unwrap();
     let vp = helper.query_total_vp(router_ref).unwrap();
-    assert_eq!(vp, 179.61537);
+    assert_eq!(vp, 118.94231);
 
     // Go to the future
     router_ref.update_block(next_block);
@@ -406,20 +406,20 @@ fn voting_variable_decay() {
     helper.extend_lock_amount(router_ref, "user", 70f32).unwrap();
     helper.extend_lock_time(router_ref, "user2", WEEK * 8).unwrap();
     let vp = helper.query_user_vp(router_ref, "user").unwrap();
-    assert_eq!(vp, 180.6923);
+    assert_eq!(vp, 108.65385);
     let vp = helper.query_user_vp(router_ref, "user2").unwrap();
-    assert_eq!(vp, 138.46153);
+    assert_eq!(vp, 93.26923);
     let vp = helper.query_total_vp(router_ref).unwrap();
-    assert_eq!(vp, 319.15384);
+    assert_eq!(vp, 201.92307);
 
     let res = helper
         .query_user_vp_at(router_ref, "user2", router_ref.block_info().time.seconds() + 4 * WEEK)
         .unwrap();
-    assert_eq!(res, 103.07692);
+    assert_eq!(res, 75.96153);
     let res = helper
         .query_total_vp_at(router_ref, router_ref.block_info().time.seconds() + WEEK)
         .unwrap();
-    assert_eq!(res, 229.61537);
+    assert_eq!(res, 188.9423);
 
     // Go to the future
     router_ref.update_block(next_block);
@@ -427,9 +427,9 @@ fn voting_variable_decay() {
     let vp = helper.query_user_vp(router_ref, "user").unwrap();
     assert_eq!(vp, 100.0);
     let vp = helper.query_user_vp(router_ref, "user2").unwrap();
-    assert_eq!(vp, 129.61537);
+    assert_eq!(vp, 88.94231);
     let vp = helper.query_total_vp(router_ref).unwrap();
-    assert_eq!(vp, 100.0 + 129.61537);
+    assert_eq!(vp, 100.0 + 88.94231);
 
     // Go to the future
     router_ref.update_block(next_block);
@@ -475,9 +475,11 @@ fn check_queries() {
     assert_eq!(user_lock.end, cur_period + 3);
     let coeff = user_lock.coefficient.numerator().u128() as f32
         / user_lock.coefficient.denominator().u128() as f32;
-    if (coeff - 1.2307693).abs() > 1e-5 {
-        assert_eq!(coeff, 1.2307693)
+
+    if (coeff - 0.2596154).abs() > 1e-5 {
+        assert_eq!(coeff, 0.2596154)
     }
+    assert_eq!(user_lock.fixed_amount, Uint128::new(90_u128 * MULTIPLIER as u128));
 
     let total_vp_at_period = helper.query_total_vp_at_period(router_ref, cur_period).unwrap();
     let total_vp_at_ts =
@@ -775,7 +777,7 @@ fn check_blacklist() {
     let vp = helper
         .query_user_vp_at(router_ref, "user1", router_ref.block_info().time.seconds() - WEEK)
         .unwrap();
-    assert_eq!(vp, 129.61537);
+    assert_eq!(vp, 88.94231);
     // Total voting power should be zero as well since there was only one vxASTRO position created by user1
     let vp = helper.query_total_vp(router_ref).unwrap();
     assert_eq!(vp, 0.0);
@@ -859,7 +861,7 @@ fn total_vp_multiple_slope_subtraction() {
     helper.mint_xastro(router_ref, "user1", 1000);
     helper.create_lock(router_ref, "user1", 3 * WEEK, 100f32).unwrap();
     let total = helper.query_total_vp(router_ref).unwrap();
-    assert_eq!(total, 223.07693);
+    assert_eq!(total, 125.96153);
 
     router_ref.update_block(|bi| bi.time = bi.time.plus_seconds(3 * WEEK));
     // Slope changes have been applied

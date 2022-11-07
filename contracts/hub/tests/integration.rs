@@ -1,7 +1,8 @@
 use anyhow::{Ok, Result};
-use cosmwasm_std::{Addr, Decimal, Uint128};
+use cosmwasm_std::{attr, Addr, Decimal, Uint128};
 use eris_tests::{escrow_helper::EscrowHelper, TerraAppExtension};
-use eris_tests::{mock_app, mock_app_validators};
+use eris_tests::{mock_app, mock_app_validators, EventChecker};
+use itertools::Itertools;
 use std::str::FromStr;
 use std::vec;
 
@@ -118,7 +119,7 @@ fn happy_case() -> Result<()> {
     helper.amp_vote(router_ref, "user1", vec![("val1".into(), 5000), ("val4".into(), 5000)])?;
     helper.amp_vote(router_ref, "user2", vec![("val1".into(), 9000), ("val2".into(), 1000)])?;
     helper.amp_vote(router_ref, "user3", vec![("val1".into(), 1000), ("val4".into(), 9000)])?;
-    helper.amp_vote(router_ref, "user4", vec![("val5".into(), 2500), ("val6".into(), 7500)])?;
+    helper.amp_vote(router_ref, "user4", vec![("val5".into(), 2400), ("val6".into(), 7600)])?;
     helper.amp_vote(router_ref, "user5", vec![("val7".into(), 2500), ("val8".into(), 7500)])?;
 
     router_ref.next_period(1);
@@ -155,15 +156,36 @@ fn happy_case() -> Result<()> {
     assert_eq!(
         wanted.delegations,
         vec![
-            ("val2".into(), Uint128::new(22613022)),
-            ("val10".into(), Uint128::new(22174220)),
-            ("val6".into(), Uint128::new(19240163)),
-            ("val8".into(), Uint128::new(19240163)),
-            ("val1".into(), Uint128::new(16732429))
+            ("val2".into(), Uint128::new(22500152)),
+            ("val10".into(), Uint128::new(22019299)),
+            ("val6".into(), Uint128::new(19467469)),
+            ("val8".into(), Uint128::new(19211318)),
+            ("val1".into(), Uint128::new(16801760))
         ]
     );
 
-    helper.hub_rebalance(router_ref)?;
+    let results = helper.hub_rebalance(router_ref)?;
+    results.assert_attribute("wasm-erishub/rebalanced", attr("uluna_moved", "83198238")).unwrap();
+
+    let delegations = helper.hub_query_all_delegations(router_ref)?;
+
+    let sum: u128 = delegations.iter().map(|d| d.amount.amount.u128()).sum();
+    assert_eq!(sum, 100_000000u128);
+
+    assert_eq!(
+        delegations
+            .into_iter()
+            .map(|d| (d.validator, d.amount.amount))
+            .sorted_by(|(_, a), (_, b)| b.cmp(a))
+            .collect::<Vec<_>>(),
+        vec![
+            ("val2".into(), Uint128::new(22500152)),
+            ("val10".into(), Uint128::new(22019299)),
+            ("val6".into(), Uint128::new(19467469)),
+            ("val8".into(), Uint128::new(19211318)),
+            ("val1".into(), Uint128::new(16801760 + 2))
+        ]
+    );
 
     Ok(())
 }

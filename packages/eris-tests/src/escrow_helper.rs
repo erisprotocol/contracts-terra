@@ -1,5 +1,5 @@
 use anyhow::Result;
-use cosmwasm_std::{attr, coin, to_binary, Addr, StdResult, Uint128};
+use cosmwasm_std::{attr, coin, to_binary, Addr, Delegation, StdResult, Uint128};
 use cw20::Cw20ExecuteMsg;
 use cw_multi_test::{App, AppResponse, Executor};
 use eris::{emp_gauges::AddEmpInfo, governance_helper::WEEK};
@@ -414,6 +414,10 @@ impl EscrowHelper {
             self.base.hub.get_address_string(),
             &eris::hub::QueryMsg::WantedDelegations {},
         )
+    }
+
+    pub fn hub_query_all_delegations(&self, router_ref: &mut App) -> StdResult<Vec<Delegation>> {
+        router_ref.wrap().query_all_delegations(self.base.hub.get_address_string())
     }
 
     // pub fn init(router_ref: &mut App, owner: Addr) -> Self {

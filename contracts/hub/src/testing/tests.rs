@@ -15,6 +15,7 @@ use eris::hub::{
     QueryMsg, ReceiveMsg, StateResponse, UnbondRequest, UnbondRequestsByBatchResponseItem,
     UnbondRequestsByUserResponseItem, UnbondRequestsByUserResponseItemDetails,
 };
+use itertools::Itertools;
 
 use crate::contract::{execute, instantiate, reply};
 use crate::helpers::{dedupe, parse_coin, parse_received_fund};
@@ -1826,6 +1827,7 @@ fn computing_undelegations() -> StdResult<()> {
         deps.as_ref().storage,
         Uint128::new(451),
         &current_delegations,
+        current_delegations.iter().map(|a| a.validator.to_string()).collect_vec(),
     )?;
     let expected = vec![
         Undelegation::new("alice", 249),
@@ -1866,7 +1868,8 @@ fn computing_redelegations_for_removal() -> StdResult<()> {
             &state,
             deps.as_ref().storage,
             &current_delegations[3],
-            &current_delegations[..3]
+            &current_delegations[..3],
+            current_delegations[..3].iter().map(|a| a.validator.to_string()).collect_vec()
         )?,
         expected,
     );
@@ -1918,7 +1921,12 @@ fn computing_redelegations_for_rebalancing() -> StdResult<()> {
     ];
 
     assert_eq!(
-        compute_redelegations_for_rebalancing(&state, deps.as_ref().storage, &current_delegations)?,
+        compute_redelegations_for_rebalancing(
+            &state,
+            deps.as_ref().storage,
+            &current_delegations,
+            current_delegations.iter().map(|a| a.validator.to_string()).collect_vec()
+        )?,
         expected,
     );
     Ok(())
@@ -1950,7 +1958,12 @@ fn computing_redelegations_for_rebalancing_complex() -> StdResult<()> {
     ];
 
     assert_eq!(
-        compute_redelegations_for_rebalancing(&state, deps.as_ref().storage, &current_delegations)?,
+        compute_redelegations_for_rebalancing(
+            &state,
+            deps.as_ref().storage,
+            &current_delegations,
+            current_delegations.iter().map(|a| a.validator.to_string()).collect_vec()
+        )?,
         vec![],
     );
 
@@ -1963,7 +1976,12 @@ fn computing_redelegations_for_rebalancing_complex() -> StdResult<()> {
     ];
 
     assert_eq!(
-        compute_redelegations_for_rebalancing(&state, deps.as_ref().storage, &current_delegations)?,
+        compute_redelegations_for_rebalancing(
+            &state,
+            deps.as_ref().storage,
+            &current_delegations,
+            current_delegations.iter().map(|a| a.validator.to_string()).collect_vec()
+        )?,
         vec![Redelegation::new("unlisted", "alice", 25000)],
     );
 
@@ -1976,7 +1994,12 @@ fn computing_redelegations_for_rebalancing_complex() -> StdResult<()> {
     ];
 
     assert_eq!(
-        compute_redelegations_for_rebalancing(&state, deps.as_ref().storage, &current_delegations)?,
+        compute_redelegations_for_rebalancing(
+            &state,
+            deps.as_ref().storage,
+            &current_delegations,
+            current_delegations.iter().map(|a| a.validator.to_string()).collect_vec()
+        )?,
         vec![
             Redelegation::new("unlisted", "alice", 25000),
             Redelegation::new("unlisted", "bob", 25000)
@@ -1991,7 +2014,12 @@ fn computing_redelegations_for_rebalancing_complex() -> StdResult<()> {
     ];
 
     assert_eq!(
-        compute_redelegations_for_rebalancing(&state, deps.as_ref().storage, &current_delegations)?,
+        compute_redelegations_for_rebalancing(
+            &state,
+            deps.as_ref().storage,
+            &current_delegations,
+            current_delegations.iter().map(|a| a.validator.to_string()).collect_vec()
+        )?,
         vec![
             Redelegation::new("charlie", "alice", 27500),
             Redelegation::new("charlie", "bob", 27500)

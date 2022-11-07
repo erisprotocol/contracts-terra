@@ -46,6 +46,7 @@ impl SendFee {
     }
 }
 
+#[derive(Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub struct Undelegation {
     pub validator: String,
@@ -68,6 +69,7 @@ impl Undelegation {
     }
 }
 
+#[derive(Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub struct Redelegation {
     pub src: String,
