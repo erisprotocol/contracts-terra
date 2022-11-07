@@ -37,12 +37,12 @@ astroport = { git = "https://github.com/astroport-fi/astroport-core.git", defaul
 [dev-dependencies]
 cw-multi-test = "0.13.2"
 eris-tests = { path = "../../../packages/eris-tests" }
-astroport-generator = { git = "https://github.com/astroport-fi/astroport-core.git" }
-astroport-pair = { git = "https://github.com/astroport-fi/astroport-core.git" }
-astroport-factory = { git = "https://github.com/astroport-fi/astroport-core.git" }
-astroport-token = { git = "https://github.com/astroport-fi/astroport-core.git" }
-astroport-staking = { git = "https://github.com/astroport-fi/astroport-core.git" }
-astroport-whitelist = { git = "https://github.com/astroport-fi/astroport-core.git" }
+astroport-generator = { git = "https://github.com/astroport-fi/astroport-core.git", default-features = false, rev = "bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62" }
+astroport-pair = { git = "https://github.com/astroport-fi/astroport-core.git", default-features = false, rev = "bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62" }
+astroport-factory = { git = "https://github.com/astroport-fi/astroport-core.git", default-features = false, rev = "bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62" }
+astroport-token = { git = "https://github.com/astroport-fi/astroport-core.git", default-features = false, rev = "bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62" }
+astroport-staking = { git = "https://github.com/astroport-fi/astroport-core.git", default-features = false, rev = "bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62" }
+astroport-whitelist = { git = "https://github.com/astroport-fi/astroport-core.git", default-features = false, rev = "bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62" }
 cw20 = "0.13.2"
 voting-escrow = { path = "../voting_escrow" }
 anyhow = "1"

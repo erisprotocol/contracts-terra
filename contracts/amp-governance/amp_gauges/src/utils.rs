@@ -1,5 +1,3 @@
-use std::ops::RangeInclusive;
-
 use cosmwasm_std::{Addr, Order, QuerierWrapper, StdError, StdResult, Storage, Uint128};
 use cw_storage_plus::Bound;
 
@@ -7,14 +5,10 @@ use eris::governance_helper::calc_voting_power;
 use eris::helpers::bps::BasicPoints;
 use eris::hub::get_hub_validators;
 
-use crate::error::ContractError;
 use crate::state::{
     VotedValidatorInfo, VALIDATORS, VALIDATOR_FIXED_VAMP, VALIDATOR_PERIODS,
     VALIDATOR_SLOPE_CHANGES, VALIDATOR_VOTES,
 };
-
-/// Pools limit should be within the range `[2, 100]`
-const VALIDATOR_NUMBER_LIMIT: RangeInclusive<u64> = 2..=100;
 
 /// The enum defines math operations with voting power and slope.
 #[derive(Debug)]

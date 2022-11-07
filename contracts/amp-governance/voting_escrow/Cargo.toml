@@ -36,8 +36,8 @@ astroport = { git = "https://github.com/astroport-fi/astroport-core.git", defaul
 
 [dev-dependencies]
 cw-multi-test = "0.13.2"
-astroport-token = { git = "https://github.com/astroport-fi/astroport-core.git" }
-astroport-staking = { git = "https://github.com/astroport-fi/astroport-core.git" }
+astroport-token = { git = "https://github.com/astroport-fi/astroport-core.git", default-features = false, rev = "bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62" }
+astroport-staking = { git = "https://github.com/astroport-fi/astroport-core.git", default-features = false, rev = "bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62" }
 # astroport-escrow-fee-distributor = { path = "../escrow_fee_distributor" }
 anyhow = "1"
 proptest = "1.0"
