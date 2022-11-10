@@ -23,6 +23,10 @@ pub fn get_period(time: u64) -> StdResult<u64> {
     }
 }
 
+pub fn get_s_from_period(period: u64) -> u64 {
+    EPOCH_START + period * WEEK
+}
+
 /// Calculates how many periods are in the specified time interval. The time should be in seconds.
 pub fn get_periods_count(interval: u64) -> u64 {
     interval / WEEK

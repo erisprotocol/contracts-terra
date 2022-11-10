@@ -158,3 +158,18 @@ pub fn get_emp_tune_info(
     let gauge: GaugeInfoResponse = querier.query_wasm_smart(escrow_addr, &QueryMsg::TuneInfo {})?;
     Ok(gauge)
 }
+
+pub fn get_emp_validator_infos(
+    querier: &QuerierWrapper,
+    emp_gauge_addr: impl Into<String>,
+    period: u64,
+) -> StdResult<Vec<(String, VotedValidatorInfoResponse)>> {
+    let gauge: Vec<(String, VotedValidatorInfoResponse)> = querier.query_wasm_smart(
+        emp_gauge_addr,
+        &QueryMsg::ValidatorInfos {
+            validator_addrs: None,
+            period: Some(period),
+        },
+    )?;
+    Ok(gauge)
+}

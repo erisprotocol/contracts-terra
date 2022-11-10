@@ -387,7 +387,6 @@ fn tune_vamp(deps: DepsMut, env: Env, info: MessageInfo) -> ExecuteResult {
     let config = CONFIG.load(deps.storage)?;
     config.assert_owner(&info.sender)?;
 
-    let mut tune_info = TUNE_INFO.load(deps.storage)?;
     let block_period = get_period(env.block.time.seconds())?;
 
     let validator_votes: Vec<_> = VALIDATORS
@@ -424,6 +423,7 @@ fn tune_vamp(deps: DepsMut, env: Env, info: MessageInfo) -> ExecuteResult {
         .sorted_by(|(_, a), (_, b)| b.cmp(a)) // Sort in descending order
         .collect();
 
+    let mut tune_info = TUNE_INFO.load(deps.storage)?;
     tune_info.vamp_points = filter_validators(
         &deps.querier,
         &config.hub_addr,

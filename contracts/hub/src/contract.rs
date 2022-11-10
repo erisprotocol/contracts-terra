@@ -179,6 +179,9 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             env,
         )?),
         QueryMsg::WantedDelegations {} => to_binary(&queries::wanted_delegations(deps, env)?),
+        QueryMsg::SimulateWantedDelegations {
+            period,
+        } => to_binary(&queries::simulate_wanted_delegations(deps, env, period)?),
     }
 }
 

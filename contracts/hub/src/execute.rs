@@ -1,37 +1,32 @@
-use std::collections::HashMap;
-use std::convert::TryFrom;
 use std::str::FromStr;
 
 use cosmwasm_std::{
-    attr, to_binary, Addr, Attribute, BankMsg, Coin, CosmosMsg, Decimal, DepsMut, DistributionMsg,
-    Env, Event, Order, Response, StdError, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
+    attr, to_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, DepsMut, DistributionMsg, Env, Event,
+    Order, Response, StdError, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
 };
-use eris::governance_helper::get_period;
-use eris::helpers::bps::BasicPoints;
-use itertools::Itertools;
 
 use cw2::set_contract_version;
 use cw20::{Cw20ExecuteMsg, MinterResponse};
 use cw20_base::msg::InstantiateMsg as Cw20InstantiateMsg;
 use eris::DecimalCheckedOps;
 
-use eris::amp_gauges::get_amp_tune_info;
-use eris::emp_gauges::get_emp_tune_info;
 use eris::helper::addr_validate_to_lower;
 use eris::hub::{
     Batch, CallbackMsg, DelegationStrategy, ExecuteMsg, FeeConfig, InstantiateMsg, PendingBatch,
-    UnbondRequest, WantedDelegationsShare,
+    UnbondRequest,
 };
 
 use crate::constants::{get_reward_fee_cap, CONTRACT_DENOM, CONTRACT_NAME, CONTRACT_VERSION};
 use crate::helpers::{
-    dedupe, query_all_delegations, query_cw20_total_supply, query_delegation, query_delegations,
+    dedupe, get_wanted_delegations, query_all_delegations, query_cw20_total_supply,
+    query_delegation, query_delegations,
 };
 use crate::math::{
     compute_mint_amount, compute_redelegations_for_rebalancing, compute_redelegations_for_removal,
     compute_unbond_amount, compute_undelegations, mark_reconciled_batches, reconcile_batches,
 };
 use crate::state::State;
+use crate::types::gauges::TuneInfoGaugeLoader;
 use crate::types::{Coins, Delegation, SendFee};
 
 //--------------------------------------------------------------------------------------------------
@@ -639,88 +634,21 @@ pub fn tune_delegations(deps: DepsMut, env: Env, sender: Addr) -> StdResult<Resp
 
     state.assert_owner(deps.storage, &sender)?;
 
-    let delegation_strategy =
-        state.delegation_strategy.may_load(deps.storage)?.unwrap_or(DelegationStrategy::Uniform {});
-    let mut attributes: Vec<Attribute> = vec![];
-    match delegation_strategy {
-        DelegationStrategy::Uniform {} => {
-            state.delegation_goal.remove(deps.storage);
-        },
-        DelegationStrategy::Gauges {
-            amp_gauges,
-            emp_gauges,
-            amp_factor_bps,
-            min_delegation_bps,
-            max_delegation_bps,
-            validator_count,
-        } => {
-            let vamp_info = get_amp_tune_info(&deps.querier, amp_gauges)?;
-            let emp_info = get_emp_tune_info(&deps.querier, emp_gauges)?;
+    let (wanted_delegations, save) =
+        get_wanted_delegations(&state, &env, deps.storage, &deps.querier, TuneInfoGaugeLoader {})?;
 
-            let amp_factor = BasicPoints::try_from(amp_factor_bps)?.decimal();
-            let emp_factor = Decimal::one().checked_sub(amp_factor)?;
-            let min_delegation = BasicPoints::try_from(min_delegation_bps)?.decimal();
-            let max_delegation = BasicPoints::try_from(max_delegation_bps)?.decimal();
+    let attributes = if save {
+        state.delegation_goal.save(deps.storage, &wanted_delegations)?;
 
-            let sum_vamp: Uint128 = vamp_info.vamp_points.iter().map(|a| a.1).sum();
-            let sum_emps: Uint128 = emp_info.emp_points.iter().map(|a| a.1).sum();
-
-            let vamp_points: HashMap<_, _> =
-                vamp_info.vamp_points.into_iter().map(|v| (v.0.to_string(), v.1)).collect();
-
-            let emp_points: HashMap<_, _> =
-                emp_info.emp_points.into_iter().map(|v| (v.0.to_string(), v.1)).collect();
-
-            let validators: Vec<_> = state
-                .validators
-                .load(deps.storage)?
-                .into_iter()
-                .map(|val| -> StdResult<(String, Decimal, Decimal)> {
-                    let vamp = vamp_points.get(&val).copied().unwrap_or(Uint128::zero());
-                    let emp = emp_points.get(&val).copied().unwrap_or(Uint128::zero());
-
-                    let vamp_score = amp_factor.checked_mul(Decimal::from_ratio(vamp, sum_vamp))?;
-                    let emp_score = emp_factor.checked_mul(Decimal::from_ratio(emp, sum_emps))?;
-
-                    let total_score = vamp_score.checked_add(emp_score)?;
-                    let score = Decimal::min(total_score, max_delegation);
-
-                    Ok((val, score, total_score))
-                })
-                .collect::<StdResult<Vec<_>>>()?
-                .into_iter()
-                .filter(|(_, amount, _)| *amount > min_delegation)
-                .sorted_by(|(_, _, a), (_, _, b)| b.cmp(a)) // Sort in descending order
-                .take(validator_count.into())
-                .collect();
-
-            // normalize missing percentage over all validators
-            let total: Decimal = validators.iter().map(|a| a.1).sum();
-            let validators: Vec<_> = validators
-                .into_iter()
-                .map(|v| -> StdResult<(String, Decimal)> {
-                    let normalized =
-                        v.1.checked_div(total)
-                            .map_err(|_| StdError::generic_err("Could not divide by total"))?;
-
-                    Ok((v.0, normalized))
-                })
-                .collect::<StdResult<Vec<_>>>()?;
-
-            attributes = validators
-                .iter()
-                .map(|a| attr("goal_delegation", format!("{0}={1}", a.0, a.1)))
-                .collect();
-
-            state.delegation_goal.save(
-                deps.storage,
-                &WantedDelegationsShare {
-                    shares: validators,
-                    tune_time: env.block.time.seconds(),
-                    tune_period: get_period(env.block.time.seconds())?,
-                },
-            )?;
-        },
+        wanted_delegations
+            .shares
+            .iter()
+            .map(|a| attr("goal_delegation", format!("{0}={1}", a.0, a.1)))
+            .collect()
+    } else {
+        state.delegation_goal.remove(deps.storage);
+        // these would be boring, as all are the same
+        vec![]
     };
 
     Ok(Response::new()

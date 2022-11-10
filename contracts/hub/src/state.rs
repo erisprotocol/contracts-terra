@@ -4,6 +4,7 @@ use cw_storage_plus::{Index, IndexList, IndexedMap, Item, MultiIndex};
 use eris::hub::{
     Batch, DelegationStrategy, FeeConfig, PendingBatch, UnbondRequest, WantedDelegationsShare,
 };
+use itertools::Itertools;
 
 use crate::types::BooleanKey;
 
@@ -78,6 +79,14 @@ impl<'a> State<'a> {
         } else {
             Err(StdError::generic_err("unauthorized: sender is not owner"))
         }
+    }
+
+    /// active validators returns the list of delegation goal, or if not available (uniform mode) uses the validators list.
+    pub fn _active_validators(&self, storage: &dyn Storage) -> Vec<String> {
+        self.delegation_goal
+            .load(storage)
+            .map(|a| a.shares.into_iter().map(|s| s.0).collect_vec())
+            .unwrap_or_else(|_| self.validators.load(storage).unwrap_or_default())
     }
 }
 

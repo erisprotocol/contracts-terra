@@ -1,6 +1,7 @@
 use cosmwasm_std::{Addr, Decimal, Deps, Env, Order, StdResult, Uint128};
 use cw_storage_plus::Bound;
 
+use eris::governance_helper::get_period;
 use eris::hub::{
     Batch, ConfigResponse, PendingBatch, StateResponse, UnbondRequestsByBatchResponseItem,
     UnbondRequestsByUserResponseItem, UnbondRequestsByUserResponseItemDetails,
@@ -8,9 +9,10 @@ use eris::hub::{
 };
 use itertools::Itertools;
 
-use crate::helpers::{query_all_delegations, query_cw20_total_supply};
+use crate::helpers::{get_wanted_delegations, query_all_delegations, query_cw20_total_supply};
 use crate::math::get_uluna_per_validator_prepared;
 use crate::state::State;
+use crate::types::gauges::PeriodGaugeLoader;
 
 const MAX_LIMIT: u32 = 30;
 const DEFAULT_LIMIT: u32 = 10;
@@ -104,6 +106,40 @@ pub fn wanted_delegations(deps: Deps, env: Env) -> StdResult<WantedDelegationsRe
         deps.storage,
         &deps.querier,
         &env.contract.address,
+        None,
+    )?;
+
+    Ok(WantedDelegationsResponse {
+        delegations: delegations.into_iter().sorted_by(|(_, a), (_, b)| b.cmp(a)).collect(), // Sort in descending order
+        tune_time_period: share.map(|s| (s.tune_time, s.tune_period)),
+    })
+}
+
+pub fn simulate_wanted_delegations(
+    deps: Deps,
+    env: Env,
+    period: Option<u64>,
+) -> StdResult<WantedDelegationsResponse> {
+    let state = State::default();
+
+    let period = period.unwrap_or(get_period(env.block.time.seconds())? + 1);
+
+    let (delegation_goal, _) = get_wanted_delegations(
+        &state,
+        &env,
+        deps.storage,
+        &deps.querier,
+        PeriodGaugeLoader {
+            period,
+        },
+    )?;
+
+    let (delegations, _, _, share) = get_uluna_per_validator_prepared(
+        &state,
+        deps.storage,
+        &deps.querier,
+        &env.contract.address,
+        Some(delegation_goal),
     )?;
 
     Ok(WantedDelegationsResponse {

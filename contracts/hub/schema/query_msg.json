@@ -42,6 +42,30 @@
       "additionalProperties": false
     },
     {
+      "description": "The contract's delegation distribution goal based on period. Response: `WantedDelegationsResponse`",
+      "type": "object",
+      "required": [
+        "simulate_wanted_delegations"
+      ],
+      "properties": {
+        "simulate_wanted_delegations": {
+          "type": "object",
+          "properties": {
+            "period": {
+              "description": "by default uses the next period to look into the future.",
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
       "description": "The current batch on unbonding requests pending submission. Response: `PendingBatch`",
       "type": "object",
       "required": [

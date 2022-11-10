@@ -74,7 +74,7 @@ pub(crate) fn compute_undelegations(
     let uluna_to_distribute = uluna_staked - uluna_to_unbond.u128();
 
     let (uluna_per_validator, mut add, mut remove, _) =
-        get_uluna_per_validator(state, storage, uluna_to_distribute, &validators)?;
+        get_uluna_per_validator(state, storage, uluna_to_distribute, &validators, None)?;
 
     let mut new_undelegations: Vec<Undelegation> = vec![];
     let mut uluna_available = uluna_to_unbond.u128();
@@ -120,7 +120,7 @@ pub(crate) fn compute_redelegations_for_removal(
     let uluna_to_distribute = uluna_staked + delegation_to_remove.amount;
 
     let (uluna_per_validator, mut add, mut remove, _) =
-        get_uluna_per_validator(state, storage, uluna_to_distribute, &validators)?;
+        get_uluna_per_validator(state, storage, uluna_to_distribute, &validators, None)?;
 
     let mut new_redelegations: Vec<Redelegation> = vec![];
     let mut uluna_available = delegation_to_remove.amount;
@@ -207,7 +207,7 @@ pub(crate) fn compute_redelegations_for_rebalancing(
     let uluna_staked: u128 = current_delegations.iter().map(|d| d.amount).sum();
 
     let (uluna_per_validator, mut add, mut remove, _) =
-        get_uluna_per_validator(state, storage, uluna_staked, &validators)?;
+        get_uluna_per_validator(state, storage, uluna_staked, &validators, None)?;
 
     // If a validator's current delegated amount is greater than the target amount, Luna will be
     // redelegated _from_ them. They will be put in `src_validators` vector
@@ -258,16 +258,19 @@ pub(crate) fn compute_redelegations_for_rebalancing(
     Ok(new_redelegations)
 }
 
+/// Load uluna per validator
+/// If no goal is provided, the stored goal or uniform distribution is used.
 pub(crate) fn get_uluna_per_validator_prepared(
     state: &State,
     storage: &dyn Storage,
     querier: &QuerierWrapper,
     contract: &Addr,
+    goal: Option<WantedDelegationsShare>,
 ) -> StdResult<UtokenPerValidator> {
     let current_delegations = query_all_delegations(querier, contract)?;
     let uluna_staked: u128 = current_delegations.iter().map(|d| d.amount).sum();
     let validators = state.validators.load(storage)?;
-    get_uluna_per_validator(state, storage, uluna_staked, &validators)
+    get_uluna_per_validator(state, storage, uluna_staked, &validators, goal)
 }
 
 pub(crate) fn get_uluna_per_validator(
@@ -275,9 +278,14 @@ pub(crate) fn get_uluna_per_validator(
     storage: &dyn Storage,
     uluna_staked: u128,
     validators: &[String],
+    goal: Option<WantedDelegationsShare>,
 ) -> StdResult<UtokenPerValidator> {
     let uluna_staked_uint = Uint128::new(uluna_staked);
-    let delegation_goal = state.delegation_goal.may_load(storage)?;
+    let delegation_goal = if goal.is_some() {
+        goal
+    } else {
+        state.delegation_goal.may_load(storage)?
+    };
 
     let uluna_per_validator: Option<HashMap<_, _>> =
         if let Some(delegation_goal) = delegation_goal.clone() {

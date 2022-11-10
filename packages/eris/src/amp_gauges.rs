@@ -163,11 +163,27 @@ pub struct UserInfoResponse {
     pub fixed_amount: Uint128,
 }
 
-/// Queries emp tune info.
+/// Queries amp tune info.
 pub fn get_amp_tune_info(
     querier: &QuerierWrapper,
-    escrow_addr: impl Into<String>,
+    amp_gauge_addr: impl Into<String>,
 ) -> StdResult<GaugeInfoResponse> {
-    let gauge: GaugeInfoResponse = querier.query_wasm_smart(escrow_addr, &QueryMsg::TuneInfo {})?;
+    let gauge: GaugeInfoResponse =
+        querier.query_wasm_smart(amp_gauge_addr, &QueryMsg::TuneInfo {})?;
+    Ok(gauge)
+}
+
+pub fn get_amp_validator_infos(
+    querier: &QuerierWrapper,
+    amp_gauge_addr: impl Into<String>,
+    period: u64,
+) -> StdResult<Vec<(String, VotedValidatorInfoResponse)>> {
+    let gauge: Vec<(String, VotedValidatorInfoResponse)> = querier.query_wasm_smart(
+        amp_gauge_addr,
+        &QueryMsg::ValidatorInfos {
+            validator_addrs: None,
+            period: Some(period),
+        },
+    )?;
     Ok(gauge)
 }

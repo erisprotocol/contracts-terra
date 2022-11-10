@@ -147,6 +147,11 @@ pub enum QueryMsg {
     State {},
     /// The contract's current delegation distribution goal. Response: `WantedDelegationsResponse`
     WantedDelegations {},
+    /// The contract's delegation distribution goal based on period. Response: `WantedDelegationsResponse`
+    SimulateWantedDelegations {
+        /// by default uses the next period to look into the future.
+        period: Option<u64>,
+    },
     /// The current batch on unbonding requests pending submission. Response: `PendingBatch`
     PendingBatch {},
     /// Query an individual batch that has previously been submitted for unbonding but have not yet
