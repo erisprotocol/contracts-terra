@@ -1,9 +1,9 @@
 use cosmwasm_std::{Addr, Order, QuerierWrapper, StdError, StdResult, Storage, Uint128};
 use cw_storage_plus::Bound;
 
-use eris::governance_helper::calc_voting_power;
 use eris::helpers::bps::BasicPoints;
 use eris::hub::get_hub_validators;
+use eris::{emp_gauges::VotedValidatorInfoResponse, governance_helper::calc_voting_power};
 
 use crate::state::{
     VotedValidatorInfo, VALIDATORS, VALIDATOR_FIXED_EMPS, VALIDATOR_PERIODS,
@@ -47,15 +47,15 @@ pub(crate) enum VotedValidatorInfoResult {
 pub(crate) fn filter_validators(
     querier: &QuerierWrapper,
     hub_addr: &Addr,
-    validators: Vec<(Addr, Uint128)>,
+    validators: Vec<(String, Uint128)>,
     validators_limit: u64,
-) -> StdResult<Vec<(Addr, Uint128)>> {
+) -> StdResult<Vec<(String, Uint128)>> {
     let allowed_validators = get_hub_validators(querier, hub_addr)?;
 
     let validators = validators
         .into_iter()
         .filter_map(|(validator_addr, emp_amount)| {
-            if allowed_validators.contains(&validator_addr.to_string()) {
+            if allowed_validators.contains(&validator_addr) {
                 Some((validator_addr, emp_amount))
             } else {
                 None
@@ -73,7 +73,7 @@ pub(crate) fn filter_validators(
 // pub(crate) fn cancel_user_changes(
 //     storage: &mut dyn Storage,
 //     period: u64,
-//     validator_addr: &Addr,
+//     validator_addr: &str,
 //     old_bps: BasicPoints,
 //     old_vp: Uint128,
 //     old_slope: Uint128,
@@ -109,7 +109,7 @@ pub(crate) fn filter_validators(
 pub(crate) fn vote_for_validator(
     storage: &mut dyn Storage,
     period: u64,
-    validator_addr: &Addr,
+    validator_addr: &str,
     vp: Uint128,
     slope: Uint128,
     lock_end: u64,
@@ -138,7 +138,7 @@ pub(crate) fn vote_for_validator(
 pub(crate) fn add_fixed_emp(
     storage: &mut dyn Storage,
     period: u64,
-    validator_addr: &Addr,
+    validator_addr: &str,
     uemps: Uint128,
 ) -> StdResult<()> {
     add_validator_to_active(storage, validator_addr)?;
@@ -153,7 +153,7 @@ pub(crate) fn add_fixed_emp(
 // pub(crate) fn remove_fixed_emp(
 //     storage: &mut dyn Storage,
 //     period: u64,
-//     validator_addr: &Addr,
+//     validator_addr: &str,
 //     uemps: Uint128,
 // ) -> StdResult<()> {
 //     add_validator_to_active(storage, validator_addr)?;
@@ -173,7 +173,7 @@ pub(crate) fn add_fixed_emp(
 pub(crate) fn update_validator_info(
     storage: &mut dyn Storage,
     period: u64,
-    validator_addr: &Addr,
+    validator_addr: &str,
     changes: Option<(BasicPoints, Uint128, Uint128, Operation)>,
 ) -> StdResult<VotedValidatorInfo> {
     add_validator_to_active(storage, validator_addr)?;
@@ -185,8 +185,8 @@ pub(crate) fn update_validator_info(
         {
             if let Some((bps, vp, slope, op)) = changes {
                 validator_info.slope = op.calc_slope(validator_info.slope, slope, bps);
-                validator_info.emp_amount =
-                    op.calc_voting_power(validator_info.emp_amount, vp, bps);
+                validator_info.voting_power =
+                    op.calc_voting_power(validator_info.voting_power, vp, bps);
             }
             VALIDATOR_PERIODS.save(storage, (validator_addr, period_key), &())?;
             VALIDATOR_VOTES.save(storage, (period_key, validator_addr), &validator_info)?;
@@ -205,7 +205,7 @@ pub(crate) fn update_validator_info(
 
 fn add_validator_to_active(
     storage: &mut dyn Storage,
-    validator_addr: &Addr,
+    validator_addr: &str,
 ) -> Result<(), StdError> {
     if VALIDATORS.may_load(storage, validator_addr)?.is_none() {
         VALIDATORS.save(storage, validator_addr, &())?
@@ -217,7 +217,7 @@ fn add_validator_to_active(
 pub(crate) fn get_validator_info_mut(
     storage: &mut dyn Storage,
     period: u64,
-    validator_addr: &Addr,
+    validator_addr: &str,
 ) -> StdResult<VotedValidatorInfoResult> {
     let validator_info_result = if let Some(validator_info) =
         VALIDATOR_VOTES.may_load(storage, (period, validator_addr))?
@@ -234,13 +234,13 @@ pub(crate) fn get_validator_info_mut(
                 fetch_slope_changes(storage, validator_addr, prev_period, period)?;
             for (recalc_period, scheduled_change) in scheduled_slope_changes {
                 validator_info = VotedValidatorInfo {
-                    emp_amount: calc_voting_power(
+                    voting_power: calc_voting_power(
                         validator_info.slope,
-                        validator_info.emp_amount,
+                        validator_info.voting_power,
                         prev_period,
                         recalc_period,
                     ),
-                    slope: validator_info.slope - scheduled_change,
+                    slope: validator_info.slope.saturating_sub(scheduled_change),
                 };
                 // Save intermediate result
                 let recalc_period_key = recalc_period;
@@ -254,9 +254,9 @@ pub(crate) fn get_validator_info_mut(
             }
 
             VotedValidatorInfo {
-                emp_amount: calc_voting_power(
+                voting_power: calc_voting_power(
                     validator_info.slope,
-                    validator_info.emp_amount,
+                    validator_info.voting_power,
                     prev_period,
                     period,
                 ),
@@ -276,16 +276,17 @@ pub(crate) fn get_validator_info_mut(
 pub(crate) fn get_validator_info(
     storage: &dyn Storage,
     period: u64,
-    validator_addr: &Addr,
-) -> StdResult<VotedValidatorInfo> {
+    validator_addr: &str,
+) -> StdResult<VotedValidatorInfoResponse> {
     let fixed_amount = fetch_last_validator_fixed_emps_value(storage, period, validator_addr)?;
 
     let validator_info = if let Some(validator_info) =
         VALIDATOR_VOTES.may_load(storage, (period, validator_addr))?
     {
-        VotedValidatorInfo {
-            emp_amount: validator_info.emp_amount.checked_add(fixed_amount)?,
+        VotedValidatorInfoResponse {
+            voting_power: validator_info.voting_power,
             slope: validator_info.slope,
+            fixed_amount,
         }
     } else if let Some(mut prev_period) =
         fetch_last_validator_period(storage, period, validator_addr)?
@@ -296,34 +297,35 @@ pub(crate) fn get_validator_info(
             fetch_slope_changes(storage, validator_addr, prev_period, period)?;
         for (recalc_period, scheduled_change) in scheduled_slope_changes {
             validator_info = VotedValidatorInfo {
-                emp_amount: calc_voting_power(
+                voting_power: calc_voting_power(
                     validator_info.slope,
-                    validator_info.emp_amount,
+                    validator_info.voting_power,
                     prev_period,
                     recalc_period,
                 ),
-                slope: validator_info.slope - scheduled_change,
+                slope: validator_info.slope.saturating_sub(scheduled_change),
             };
             prev_period = recalc_period
         }
 
-        VotedValidatorInfo {
-            emp_amount: calc_voting_power(
+        VotedValidatorInfoResponse {
+            voting_power: calc_voting_power(
                 validator_info.slope,
-                validator_info.emp_amount,
+                validator_info.voting_power,
                 prev_period,
                 period,
-            )
-            .checked_add(fixed_amount)?,
-            ..validator_info
+            ),
+            fixed_amount,
+            slope: validator_info.slope,
         }
     } else if !fixed_amount.is_zero() {
-        VotedValidatorInfo {
-            emp_amount: fixed_amount,
+        VotedValidatorInfoResponse {
+            voting_power: Uint128::zero(),
+            fixed_amount,
             slope: Uint128::zero(),
         }
     } else {
-        VotedValidatorInfo::default()
+        VotedValidatorInfoResponse::default()
     };
 
     Ok(validator_info)
@@ -333,7 +335,7 @@ pub(crate) fn get_validator_info(
 pub(crate) fn fetch_last_validator_period(
     storage: &dyn Storage,
     period: u64,
-    validator_addr: &Addr,
+    validator_addr: &str,
 ) -> StdResult<Option<u64>> {
     let period_opt = VALIDATOR_PERIODS
         .prefix(validator_addr)
@@ -347,7 +349,7 @@ pub(crate) fn fetch_last_validator_period(
 pub(crate) fn fetch_last_validator_fixed_emps_value(
     storage: &dyn Storage,
     period: u64,
-    validator_addr: &Addr,
+    validator_addr: &str,
 ) -> StdResult<Uint128> {
     let result = fetch_last_validator_fixed_emps(storage, period, validator_addr)?;
     Ok(result.unwrap_or_default())
@@ -356,7 +358,7 @@ pub(crate) fn fetch_last_validator_fixed_emps_value(
 pub(crate) fn fetch_last_validator_fixed_emps(
     storage: &dyn Storage,
     period: u64,
-    validator_addr: &Addr,
+    validator_addr: &str,
 ) -> StdResult<Option<Uint128>> {
     let emps_opt = VALIDATOR_FIXED_EMPS
         .prefix(validator_addr)
@@ -370,7 +372,7 @@ pub(crate) fn fetch_last_validator_fixed_emps(
 /// Fetches all slope changes between `last_period` and `period` for specific pool.
 pub(crate) fn fetch_slope_changes(
     storage: &dyn Storage,
-    validator_addr: &Addr,
+    validator_addr: &str,
     last_period: u64,
     period: u64,
 ) -> StdResult<Vec<(u64, Uint128)>> {

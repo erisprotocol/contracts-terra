@@ -8,7 +8,7 @@ use eris::hub::{
 };
 use itertools::Itertools;
 
-use crate::helpers::{query_cw20_total_supply, query_delegations};
+use crate::helpers::{query_all_delegations, query_cw20_total_supply};
 use crate::math::get_uluna_per_validator_prepared;
 use crate::state::State;
 
@@ -57,8 +57,7 @@ pub fn state(deps: Deps, env: Env) -> StdResult<StateResponse> {
     let stake_token = state.stake_token.load(deps.storage)?;
     let total_ustake = query_cw20_total_supply(&deps.querier, &stake_token)?;
 
-    let validators = state.validators.load(deps.storage)?;
-    let delegations = query_delegations(&deps.querier, &validators, &env.contract.address)?;
+    let delegations = query_all_delegations(&deps.querier, &env.contract.address)?;
     let total_uluna: u128 = delegations.iter().map(|d| d.amount).sum();
 
     // only not reconciled batches are relevant as they are still unbonding and estimated unbond time in the future.

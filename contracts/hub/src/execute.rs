@@ -3,8 +3,8 @@ use std::convert::TryFrom;
 use std::str::FromStr;
 
 use cosmwasm_std::{
-    to_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, DepsMut, DistributionMsg, Env, Event,
-    Order, Response, StdError, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
+    attr, to_binary, Addr, Attribute, BankMsg, Coin, CosmosMsg, Decimal, DepsMut, DistributionMsg,
+    Env, Event, Order, Response, StdError, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
 };
 use eris::governance_helper::get_period;
 use eris::helpers::bps::BasicPoints;
@@ -25,8 +25,7 @@ use eris::hub::{
 
 use crate::constants::{get_reward_fee_cap, CONTRACT_DENOM, CONTRACT_NAME, CONTRACT_VERSION};
 use crate::helpers::{
-    dedupe_check_received_addrs, query_all_delegations, query_cw20_total_supply, query_delegation,
-    query_delegations,
+    dedupe, query_all_delegations, query_cw20_total_supply, query_delegation, query_delegations,
 };
 use crate::math::{
     compute_mint_amount, compute_redelegations_for_rebalancing, compute_redelegations_for_removal,
@@ -53,8 +52,7 @@ pub fn instantiate(deps: DepsMut, env: Env, msg: InstantiateMsg) -> StdResult<Re
     state.unbond_period.save(deps.storage, &msg.unbond_period)?;
 
     let mut validators = msg.validators;
-    dedupe_check_received_addrs(&mut validators, deps.api)
-        .map_err(|_| StdError::generic_err("invalid validators"))?;
+    dedupe(&mut validators);
 
     state.validators.save(deps.storage, &validators)?;
     state.unlocked_coins.save(deps.storage, &vec![])?;
@@ -140,24 +138,8 @@ pub fn bond(
 ) -> StdResult<Response> {
     let state = State::default();
     let stake_token = state.stake_token.load(deps.storage)?;
-    let validators = state.validators.load(deps.storage)?;
 
-    // Query the current delegations made to validators, and find the validator with the smallest
-    // delegated amount through a linear search
-    // The code for linear search is a bit uglier than using `sort_by` but cheaper: O(n) vs O(n * log(n))
-    let delegations = query_delegations(&deps.querier, &validators, &env.contract.address)?;
-    let mut validator = &delegations[0].validator;
-    let mut amount = delegations[0].amount;
-    for d in &delegations[1..] {
-        if d.amount < amount {
-            validator = &d.validator;
-            amount = d.amount;
-        }
-    }
-    let new_delegation = Delegation {
-        validator: validator.clone(),
-        amount: uluna_to_bond.u128(),
-    };
+    let (new_delegation, delegations) = find_new_delegation(&state, &deps, &env, uluna_to_bond)?;
 
     // Query the current supply of Staking Token and compute the amount to mint
     let ustake_supply = query_cw20_total_supply(&deps.querier, &stake_token)?;
@@ -230,7 +212,6 @@ pub fn harvest(deps: DepsMut, env: Env) -> StdResult<Response> {
 /// validator that has the smallest delegation amount.
 pub fn reinvest(deps: DepsMut, env: Env) -> StdResult<Response> {
     let state = State::default();
-    let validators = state.validators.load(deps.storage)?;
     let mut unlocked_coins = state.unlocked_coins.load(deps.storage)?;
     let fee_config = state.fee_config.load(deps.storage)?;
 
@@ -240,20 +221,10 @@ pub fn reinvest(deps: DepsMut, env: Env) -> StdResult<Response> {
         .ok_or_else(|| StdError::generic_err("no uluna available to be bonded"))?
         .amount;
 
-    let delegations = query_delegations(&deps.querier, &validators, &env.contract.address)?;
-    let mut validator = &delegations[0].validator;
-    let mut amount = delegations[0].amount;
-    for d in &delegations[1..] {
-        if d.amount < amount {
-            validator = &d.validator;
-            amount = d.amount;
-        }
-    }
-
     let protocol_fee_amount = fee_config.protocol_reward_fee.checked_mul_uint(uluna_available)?;
     let uluna_to_bond = uluna_available.saturating_sub(protocol_fee_amount);
 
-    let new_delegation = Delegation::new(validator, uluna_to_bond.u128());
+    let (new_delegation, _) = find_new_delegation(&state, &deps, &env, uluna_to_bond)?;
 
     unlocked_coins.retain(|coin| coin.denom != CONTRACT_DENOM);
     state.unlocked_coins.save(deps.storage, &unlocked_coins)?;
@@ -275,6 +246,59 @@ pub fn reinvest(deps: DepsMut, env: Env) -> StdResult<Response> {
         .add_messages(msgs)
         .add_event(event)
         .add_attribute("action", "erishub/reinvest"))
+}
+
+/// searches for the validator with the least amount of delegations
+/// For Uniform mode, searches through the validators list
+/// For Gauge mode, searches for all delegations, and if nothing found, use the first validator from the list.
+fn find_new_delegation(
+    state: &State,
+    deps: &DepsMut,
+    env: &Env,
+    uluna_to_bond: Uint128,
+) -> Result<(Delegation, Vec<Delegation>), StdError> {
+    let delegation_strategy =
+        state.delegation_strategy.may_load(deps.storage)?.unwrap_or(DelegationStrategy::Uniform {});
+
+    let delegations = match delegation_strategy {
+        DelegationStrategy::Uniform {} => {
+            let validators = state.validators.load(deps.storage)?;
+            query_delegations(&deps.querier, &validators, &env.contract.address)?
+        },
+        DelegationStrategy::Gauges {
+            ..
+        } => {
+            // if we have gauges, only delegate to validators that have delegations, all others are "inactive"
+            let mut delegations = query_all_delegations(&deps.querier, &env.contract.address)?;
+            if delegations.is_empty() {
+                let validatiors = state.validators.load(deps.storage)?;
+
+                delegations = vec![Delegation {
+                    amount: 0,
+                    validator: validatiors.first().unwrap().to_string(),
+                }]
+            }
+            delegations
+        },
+    };
+
+    // Query the current delegations made to validators, and find the validator with the smallest
+    // delegated amount through a linear search
+    // The code for linear search is a bit uglier than using `sort_by` but cheaper: O(n) vs O(n * log(n))
+    let mut validator = &delegations[0].validator;
+    let mut amount = delegations[0].amount;
+
+    for d in &delegations[1..] {
+        // when using uniform distribution, it is allowed to bond anywhere
+        // otherwise bond only in one of the
+        if d.amount < amount {
+            validator = &d.validator;
+            amount = d.amount;
+        }
+    }
+    let new_delegation = Delegation::new(validator, uluna_to_bond.u128());
+
+    Ok((new_delegation, delegations))
 }
 
 /// NOTE: a `SubMsgExecutionResponse` may contain multiple coin-receiving events, must handle them indivitually
@@ -412,7 +436,7 @@ pub fn submit_batch(deps: DepsMut, env: Env) -> StdResult<Response> {
         )));
     }
 
-    let delegations = query_delegations(&deps.querier, &validators, &env.contract.address)?;
+    let delegations = query_all_delegations(&deps.querier, &env.contract.address)?;
     let ustake_supply = query_cw20_total_supply(&deps.querier, &stake_token)?;
 
     let uluna_to_unbond =
@@ -617,7 +641,7 @@ pub fn tune_delegations(deps: DepsMut, env: Env, sender: Addr) -> StdResult<Resp
 
     let delegation_strategy =
         state.delegation_strategy.may_load(deps.storage)?.unwrap_or(DelegationStrategy::Uniform {});
-
+    let mut attributes: Vec<Attribute> = vec![];
     match delegation_strategy {
         DelegationStrategy::Uniform {} => {
             state.delegation_goal.remove(deps.storage);
@@ -683,6 +707,11 @@ pub fn tune_delegations(deps: DepsMut, env: Env, sender: Addr) -> StdResult<Resp
                 })
                 .collect::<StdResult<Vec<_>>>()?;
 
+            attributes = validators
+                .iter()
+                .map(|a| attr("goal_delegation", format!("{0}={1}", a.0, a.1)))
+                .collect();
+
             state.delegation_goal.save(
                 deps.storage,
                 &WantedDelegationsShare {
@@ -694,22 +723,34 @@ pub fn tune_delegations(deps: DepsMut, env: Env, sender: Addr) -> StdResult<Resp
         },
     };
 
-    Ok(Response::new().add_attribute("action", "erishub/tune_delegations"))
+    Ok(Response::new()
+        .add_attribute("action", "erishub/tune_delegations")
+        .add_attributes(attributes))
 }
 
 //--------------------------------------------------------------------------------------------------
 // Ownership and management logics
 //--------------------------------------------------------------------------------------------------
 
-pub fn rebalance(deps: DepsMut, env: Env, sender: Addr) -> StdResult<Response> {
+pub fn rebalance(
+    deps: DepsMut,
+    env: Env,
+    sender: Addr,
+    min_redelegation: Option<Uint128>,
+) -> StdResult<Response> {
     let state = State::default();
     state.assert_owner(deps.storage, &sender)?;
 
     let delegations = query_all_delegations(&deps.querier, &env.contract.address)?;
     let validators = state.validators.load(deps.storage)?;
 
+    let min_redelegation = min_redelegation.unwrap_or_default();
+
     let new_redelegations =
-        compute_redelegations_for_rebalancing(&state, deps.storage, &delegations, validators)?;
+        compute_redelegations_for_rebalancing(&state, deps.storage, &delegations, validators)?
+            .into_iter()
+            .filter(|redelegation| redelegation.amount > min_redelegation.u128())
+            .collect::<Vec<_>>();
 
     let redelegate_submsgs = new_redelegations
         .iter()
@@ -730,7 +771,6 @@ pub fn add_validator(deps: DepsMut, sender: Addr, validator: String) -> StdResul
     let state = State::default();
 
     state.assert_owner(deps.storage, &sender)?;
-    addr_validate_to_lower(deps.api, validator.as_str())?;
 
     state.validators.update(deps.storage, |mut validators| {
         if validators.contains(&validator) {
@@ -787,7 +827,10 @@ pub fn remove_validator(
         },
         DelegationStrategy::Gauges {
             ..
-        } => vec![],
+        } => {
+            // removed validators can have a delegation until the next tune, to keep undelegations in sync.
+            vec![]
+        },
     };
 
     let event = Event::new("erishub/validator_removed").add_attribute("validator", validator);

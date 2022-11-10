@@ -1,11 +1,12 @@
 use anyhow::{Ok, Result};
-use cosmwasm_std::{attr, Addr, Uint128};
-use emp_gauges::state::VotedValidatorInfo;
-use eris_tests::escrow_helper::EscrowHelper;
+use cosmwasm_std::{attr, Uint128};
+use eris_tests::gov_helper::EscrowHelper;
 use eris_tests::{mock_app, EventChecker, TerraAppExtension};
 use std::vec;
 
-use eris::emp_gauges::{ConfigResponse, EmpInfo, ExecuteMsg, GaugeInfoResponse};
+use eris::emp_gauges::{
+    ConfigResponse, EmpInfo, ExecuteMsg, GaugeInfoResponse, VotedValidatorInfoResponse,
+};
 
 #[test]
 fn update_configs() {
@@ -145,11 +146,12 @@ fn add_points() -> Result<()> {
         result,
         GaugeInfoResponse {
             tune_ts: 1669593600,
+            tune_period: 1,
             emp_points: vec![
-                (Addr::unchecked("val2"), Uint128::new(3500000)),
-                (Addr::unchecked("val1"), Uint128::new(2000000)),
-                (Addr::unchecked("val3"), Uint128::new(1000000)),
-                (Addr::unchecked("val4"), Uint128::new(500000)),
+                ("val2".to_string(), Uint128::new(3500000)),
+                ("val1".to_string(), Uint128::new(2000000)),
+                ("val3".to_string(), Uint128::new(1000000)),
+                ("val4".to_string(), Uint128::new(500000)),
             ]
         }
     );
@@ -160,6 +162,7 @@ fn add_points() -> Result<()> {
     result.assert_attribute("wasm", attr("emps", "val2=2750000"))?;
     result.assert_attribute("wasm", attr("emps", "val3=500000"))?;
     result.assert_attribute("wasm", attr("emps", "val4=500000"))?;
+
     let result = helper.emp_execute(&mut router, ExecuteMsg::TuneEmps {}).unwrap();
     result.assert_attribute("wasm", attr("emps", "val1=1500000"))?;
     result.assert_attribute("wasm", attr("emps", "val2=2750000"))?;
@@ -186,8 +189,9 @@ fn add_points() -> Result<()> {
     let result = helper.emp_query_validator_history(&mut router, "val1", 0)?;
     assert_eq!(
         result,
-        VotedValidatorInfo {
-            emp_amount: Uint128::new(3000000),
+        VotedValidatorInfoResponse {
+            voting_power: Uint128::new(2000000),
+            fixed_amount: Uint128::new(1000000),
             slope: Uint128::new(250000)
         }
     );
@@ -195,8 +199,9 @@ fn add_points() -> Result<()> {
     let result = helper.emp_query_validator_history(&mut router, "val1", 1)?;
     assert_eq!(
         result,
-        VotedValidatorInfo {
-            emp_amount: Uint128::new(2750000),
+        VotedValidatorInfoResponse {
+            voting_power: Uint128::new(1750000),
+            fixed_amount: Uint128::new(1000000),
             slope: Uint128::new(250000)
         }
     );
@@ -204,8 +209,9 @@ fn add_points() -> Result<()> {
     let result = helper.emp_query_validator_history(&mut router, "val4", 0)?;
     assert_eq!(
         result,
-        VotedValidatorInfo {
-            emp_amount: Uint128::zero(),
+        VotedValidatorInfoResponse {
+            voting_power: Uint128::zero(),
+            fixed_amount: Uint128::zero(),
             slope: Uint128::zero()
         }
     );
@@ -213,8 +219,9 @@ fn add_points() -> Result<()> {
     let result = helper.emp_query_validator_history(&mut router, "val4", 2)?;
     assert_eq!(
         result,
-        VotedValidatorInfo {
-            emp_amount: Uint128::zero(),
+        VotedValidatorInfoResponse {
+            voting_power: Uint128::zero(),
+            fixed_amount: Uint128::zero(),
             slope: Uint128::zero()
         }
     );
@@ -222,8 +229,9 @@ fn add_points() -> Result<()> {
     let result = helper.emp_query_validator_history(&mut router, "val4", 4)?;
     assert_eq!(
         result,
-        VotedValidatorInfo {
-            emp_amount: Uint128::new(500000),
+        VotedValidatorInfoResponse {
+            voting_power: Uint128::zero(),
+            fixed_amount: Uint128::new(500000),
             slope: Uint128::zero()
         }
     );
@@ -231,8 +239,9 @@ fn add_points() -> Result<()> {
     let result = helper.emp_query_validator_history(&mut router, "val4", 5)?;
     assert_eq!(
         result,
-        VotedValidatorInfo {
-            emp_amount: Uint128::new(500000),
+        VotedValidatorInfoResponse {
+            voting_power: Uint128::zero(),
+            fixed_amount: Uint128::new(500000),
             slope: Uint128::zero()
         }
     );

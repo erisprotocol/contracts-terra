@@ -163,9 +163,9 @@ impl BaseErisTestPackage {
 
     fn init_voting_escrow(&mut self, router: &mut App, owner: Addr) {
         let voting_contract = Box::new(ContractWrapper::new_with_empty(
-            voting_escrow::contract::execute,
-            voting_escrow::contract::instantiate,
-            voting_escrow::contract::query,
+            eris_gov_voting_escrow::contract::execute,
+            eris_gov_voting_escrow::contract::instantiate,
+            eris_gov_voting_escrow::contract::query,
         ));
 
         let voting_code_id = router.store_code(voting_contract);
@@ -191,9 +191,9 @@ impl BaseErisTestPackage {
 
     fn init_emp_registry(&mut self, router: &mut App, owner: Addr) {
         let contract = Box::new(ContractWrapper::new_with_empty(
-            emp_gauges::contract::execute,
-            emp_gauges::contract::instantiate,
-            emp_gauges::contract::query,
+            eris_gov_emp_gauges::contract::execute,
+            eris_gov_emp_gauges::contract::instantiate,
+            eris_gov_emp_gauges::contract::query,
         ));
 
         let code_id = router.store_code(contract);
@@ -217,9 +217,9 @@ impl BaseErisTestPackage {
 
     fn init_amp_gauges(&mut self, router: &mut App, owner: Addr) {
         let contract = Box::new(ContractWrapper::new_with_empty(
-            amp_gauges::contract::execute,
-            amp_gauges::contract::instantiate,
-            amp_gauges::contract::query,
+            eris_gov_amp_gauges::contract::execute,
+            eris_gov_amp_gauges::contract::instantiate,
+            eris_gov_amp_gauges::contract::query,
         ));
 
         let code_id = router.store_code(contract);
@@ -228,7 +228,6 @@ impl BaseErisTestPackage {
             owner: owner.to_string(),
             hub_addr: self.hub.get_address_string(),
             escrow_addr: self.voting_escrow.get_address_string(),
-            emp_registry_addr: self.emp_gauges.get_address_string(),
             validators_limit: 30,
         };
 

@@ -6,22 +6,23 @@ use astroport::common::{claim_ownership, drop_ownership_proposal, propose_new_ow
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response, StdError, StdResult,
-    Storage, Uint128,
+    attr, to_binary, Addr, Attribute, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response,
+    StdError, StdResult, Storage, Uint128,
 };
-use cw2::set_contract_version;
+use cw2::{get_contract_version, set_contract_version};
 use eris::hub::get_hub_validators;
 use itertools::Itertools;
 
-use eris::amp_gauges::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, UserInfoResponse};
+use eris::amp_gauges::{
+    ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, UserInfoResponse, VotedValidatorInfoResponse,
+};
 use eris::governance_helper::{calc_voting_power, get_period};
 use eris::helpers::bps::BasicPoints;
 use eris::voting_escrow::{get_lock_info, LockInfoResponse};
 
 use crate::error::ContractError;
 use crate::state::{
-    Config, TuneInfo, UserInfo, VotedValidatorInfo, CONFIG, OWNERSHIP_PROPOSAL, TUNE_INFO,
-    USER_INFO, VALIDATORS,
+    Config, TuneInfo, UserInfo, CONFIG, OWNERSHIP_PROPOSAL, TUNE_INFO, USER_INFO, VALIDATORS,
 };
 use crate::utils::{
     add_fixed_vamp, cancel_user_changes, fetch_last_validator_fixed_vamp_value, filter_validators,
@@ -55,7 +56,6 @@ pub fn instantiate(
             owner: addr_validate_to_lower(deps.api, &msg.owner)?,
             escrow_addr: addr_validate_to_lower(deps.api, &msg.escrow_addr)?,
             hub_addr: addr_validate_to_lower(deps.api, &msg.hub_addr)?,
-            emp_registry_addr: addr_validate_to_lower(deps.api, &msg.emp_registry_addr)?,
             validators_limit: msg.validators_limit,
         },
     )?;
@@ -101,6 +101,9 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> E
             user,
             lock_info,
         } => update_vote(deps, env, info, user, lock_info),
+        ExecuteMsg::RemoveUser {
+            user,
+        } => remove_user(deps, env, info, user),
         ExecuteMsg::TuneVamp {} => tune_vamp(deps, env, info),
         ExecuteMsg::UpdateConfig {
             validators_limit,
@@ -189,7 +192,6 @@ fn handle_vote(
             if !allowed_validators.contains(&addr) {
                 return Err(ContractError::InvalidValidatorAddress(addr));
             }
-            let addr = addr_validate_to_lower(deps.api, addr)?;
             let bps: BasicPoints = bps.try_into()?;
             Ok((addr, bps))
         })
@@ -214,7 +216,7 @@ fn handle_vote(
 }
 
 fn apply_votest_of_user(
-    votes: Vec<(Addr, BasicPoints)>,
+    votes: Vec<(String, BasicPoints)>,
     deps: DepsMut,
     block_period: u64,
     user_vp: Uint128,
@@ -225,7 +227,7 @@ fn apply_votest_of_user(
     votes.iter().try_for_each(|(validator_addr, bps)| {
         add_fixed_vamp(
             deps.storage,
-            block_period,
+            block_period + 1,
             validator_addr,
             *bps * ve_lock_info.fixed_amount,
         )?;
@@ -270,7 +272,7 @@ fn remove_votes_of_user(
         user_info.votes.iter().try_for_each(|(validator_addr, bps)| {
             remove_fixed_vamp(
                 storage,
-                block_period,
+                block_period + 1,
                 validator_addr,
                 *bps * user_info.fixed_amount,
             )?;
@@ -287,7 +289,12 @@ fn remove_votes_of_user(
     } else {
         // still need to remove fixed vamp on remove
         user_info.votes.iter().try_for_each(|(validator_addr, bps)| {
-            remove_fixed_vamp(storage, block_period, validator_addr, *bps * user_info.fixed_amount)
+            remove_fixed_vamp(
+                storage,
+                block_period + 1,
+                validator_addr,
+                *bps * user_info.fixed_amount,
+            )
         })?;
     };
     Ok(())
@@ -313,7 +320,17 @@ fn update_vote(
     if let Some(user_info) = user_info {
         remove_votes_of_user(&user_info, block_period, deps.storage)?;
 
-        if lock.voting_power.is_zero() {
+        if lock.voting_power.is_zero() && lock.fixed_amount.is_zero() {
+            let user_info = UserInfo {
+                vote_ts: env.block.time.seconds(),
+                voting_power: Uint128::zero(),
+                slope: lock.slope,
+                lock_end: lock.end,
+                fixed_amount: lock.fixed_amount,
+                votes: user_info.votes,
+            };
+            USER_INFO.save(deps.storage, &user, &user_info)?;
+
             return Ok(Response::new().add_attribute("action", "update_vote_removed"));
         }
 
@@ -336,6 +353,31 @@ fn update_vote(
     Ok(Response::new().add_attribute("action", "update_vote_noop"))
 }
 
+fn remove_user(deps: DepsMut, env: Env, info: MessageInfo, user: String) -> ExecuteResult {
+    let config = CONFIG.load(deps.storage)?;
+    config.assert_owner(&info.sender)?;
+
+    let user = addr_validate_to_lower(deps.api, user)?;
+    let user_info = USER_INFO.may_load(deps.storage, &user)?;
+
+    if let Some(user_info) = user_info {
+        let block_period = get_period(env.block.time.seconds())?;
+        USER_INFO.remove(deps.storage, &user);
+
+        let result = remove_votes_of_user(&user_info, block_period, deps.storage);
+        let msg = if let Err(err) = result {
+            err.to_string()
+        } else {
+            "ok".to_string()
+        };
+        return Ok(Response::new()
+            .add_attribute("action", "remove_user")
+            .add_attribute("remove_votes", msg));
+    }
+
+    Ok(Response::new().add_attribute("action", "remove_user_noop"))
+}
+
 /// The function checks that the last pools tuning happened >= 14 days ago.
 /// Then it calculates voting power for each pool at the current period, filters all pools which
 /// are not eligible to receive allocation points,
@@ -355,15 +397,15 @@ fn tune_vamp(deps: DepsMut, env: Env, info: MessageInfo) -> ExecuteResult {
         .map(|validator_addr| {
             let validator_addr = validator_addr?;
 
-            let mut validator_info =
+            let validator_info =
                 update_validator_info(deps.storage, block_period, &validator_addr, None)?;
 
-            validator_info.vamp_amount = validator_info.vamp_amount.checked_add(
+            let vamp = validator_info.voting_power.checked_add(
                 fetch_last_validator_fixed_vamp_value(deps.storage, block_period, &validator_addr)?,
             )?;
 
             // Remove pools with zero voting power so we won't iterate over them in future
-            if validator_info.vamp_amount.is_zero()
+            if vamp.is_zero()
             // and the next period is also unset
                 && fetch_last_validator_fixed_vamp_value(
                     deps.storage,
@@ -374,7 +416,7 @@ fn tune_vamp(deps: DepsMut, env: Env, info: MessageInfo) -> ExecuteResult {
             {
                 VALIDATORS.remove(deps.storage, &validator_addr)
             }
-            Ok((validator_addr, validator_info.vamp_amount))
+            Ok((validator_addr, vamp))
         })
         .collect::<StdResult<Vec<_>>>()?
         .into_iter()
@@ -396,7 +438,10 @@ fn tune_vamp(deps: DepsMut, env: Env, info: MessageInfo) -> ExecuteResult {
     tune_info.tune_ts = env.block.time.seconds();
     TUNE_INFO.save(deps.storage, &tune_info)?;
 
-    Ok(Response::new().add_attribute("action", "tune_vamp"))
+    let attributes: Vec<Attribute> =
+        tune_info.vamp_points.iter().map(|a| attr("vamp", format!("{0}={1}", a.0, a.1))).collect();
+
+    Ok(Response::new().add_attribute("action", "tune_vamp").add_attributes(attributes))
 }
 
 /// Only contract owner can call this function.  
@@ -446,6 +491,10 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::ValidatorInfo {
             validator_addr,
         } => to_binary(&validator_info(deps, env, validator_addr, None)?),
+        QueryMsg::ValidatorInfos {
+            period,
+            validator_addrs,
+        } => to_binary(&validator_infos(deps, env, validator_addrs, period)?),
         QueryMsg::ValidatorInfoAtPeriod {
             validator_addr,
             period,
@@ -462,21 +511,65 @@ fn user_info(deps: Deps, user: String) -> StdResult<UserInfoResponse> {
         .ok_or_else(|| StdError::generic_err("User not found"))
 }
 
+/// Returns all active validators info at a specified period.
+fn validator_infos(
+    deps: Deps,
+    env: Env,
+    validator_addrs: Option<Vec<String>>,
+    period: Option<u64>,
+) -> StdResult<Vec<(String, VotedValidatorInfoResponse)>> {
+    let block_period = get_period(env.block.time.seconds())?;
+    let period = period.unwrap_or(block_period);
+
+    // use active validators as fallback
+    let validator_addrs = validator_addrs.unwrap_or_else(|| {
+        let active_validators = VALIDATORS
+            .keys(deps.storage, None, None, Order::Ascending)
+            .collect::<StdResult<Vec<_>>>();
+
+        active_validators.unwrap_or_default()
+    });
+
+    let validator_infos: Vec<_> = validator_addrs
+        .into_iter()
+        .map(|validator_addr| {
+            let validator_info = get_validator_info(deps.storage, period, &validator_addr)?;
+            Ok((validator_addr, validator_info))
+        })
+        .collect::<StdResult<Vec<_>>>()?;
+
+    Ok(validator_infos)
+}
+
 /// Returns pool's voting information at a specified period.
 fn validator_info(
     deps: Deps,
     env: Env,
     validator_addr: String,
     period: Option<u64>,
-) -> StdResult<VotedValidatorInfo> {
-    let pool_addr = addr_validate_to_lower(deps.api, &validator_addr)?;
+) -> StdResult<VotedValidatorInfoResponse> {
     let block_period = get_period(env.block.time.seconds())?;
     let period = period.unwrap_or(block_period);
-    get_validator_info(deps.storage, period, &pool_addr)
+    get_validator_info(deps.storage, period, &validator_addr)
 }
 
 /// Manages contract migration
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
-    Err(ContractError::MigrationError {})
+pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
+    let contract_version = get_contract_version(deps.storage)?;
+    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+    if contract_version.contract != CONTRACT_NAME {
+        return Err(StdError::generic_err(format!(
+            "contract_name does not match: prev: {0}, new: {1}",
+            contract_version.contract, CONTRACT_VERSION
+        ))
+        .into());
+    }
+
+    Ok(Response::new()
+        .add_attribute("previous_contract_name", &contract_version.contract)
+        .add_attribute("previous_contract_version", &contract_version.version)
+        .add_attribute("new_contract_name", CONTRACT_NAME)
+        .add_attribute("new_contract_version", CONTRACT_VERSION))
 }

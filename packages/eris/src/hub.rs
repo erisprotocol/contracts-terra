@@ -87,7 +87,9 @@ pub enum ExecuteMsg {
 
     TuneDelegations {},
     /// Use redelegations to balance the amounts of Luna delegated to validators
-    Rebalance {},
+    Rebalance {
+        min_redelegation: Option<Uint128>,
+    },
     /// Update Luna amounts in unbonding batches to reflect any slashing or rounding errors
     Reconcile {},
     /// Submit the current pending batch of unbonding requests to be unbonded

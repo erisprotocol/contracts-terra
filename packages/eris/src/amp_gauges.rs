@@ -15,8 +15,6 @@ pub struct InstantiateMsg {
     pub escrow_addr: String,
     /// Hub contract address
     pub hub_addr: String,
-    /// Emp registry address
-    pub emp_registry_addr: String,
     /// Max number of validators that can receive ASTRO emissions at the same time
     pub validators_limit: u64,
 }
@@ -40,6 +38,10 @@ pub enum ExecuteMsg {
     UpdateConfig {
         /// ChangeValidatorsLimit changes the max amount of validators that can be voted at once to receive delegations
         validators_limit: Option<u64>,
+    },
+    // Admin action to remove a user
+    RemoveUser {
+        user: String,
     },
     /// ProposeNewOwner proposes a new owner for the contract
     ProposeNewOwner {
@@ -80,15 +82,18 @@ pub enum QueryMsg {
         validator_addr: String,
         period: u64,
     },
+    /// ValidatorInfos returns the latest EMPs allocated to all active validators
+    #[returns(Vec<(String,VotedValidatorInfoResponse)>)]
+    ValidatorInfos {
+        validator_addrs: Option<Vec<String>>,
+        period: Option<u64>,
+    },
 }
 
 /// This structure describes a migration message.
 /// We currently take no arguments for migrations.
 #[cw_serde]
-pub struct MigrateMsg {
-    /// Max number of blacklisted voters can be removed
-    pub blacklisted_voters_limit: Option<u32>,
-}
+pub struct MigrateMsg {}
 
 /// This structure describes the parameters returned when querying for the contract configuration.
 #[cw_serde]
@@ -99,8 +104,6 @@ pub struct ConfigResponse {
     pub escrow_addr: Addr,
     /// Hub contract address
     pub hub_addr: Addr,
-    /// Emp registry address
-    pub emp_registry_addr: Addr,
     /// Max number of validators that can receive delegations at the same time
     pub validators_limit: u64,
 }
@@ -124,8 +127,10 @@ impl ConfigResponse {
 #[cw_serde]
 #[derive(Default)]
 pub struct VotedValidatorInfoResponse {
-    /// vAMP amount that voted for this validator
-    pub vamp_amount: Uint128,
+    /// Dynamic voting power that voted for this validator
+    pub voting_power: Uint128,
+    /// fixed amount available
+    pub fixed_amount: Uint128,
     /// The slope at which the amount of vAMP that voted for this validator will decay
     pub slope: Uint128,
 }
@@ -137,7 +142,7 @@ pub struct GaugeInfoResponse {
     /// Last timestamp when a tuning vote happened
     pub tune_ts: u64,
     /// Distribution of alloc_points to apply in the Generator contract
-    pub vamp_points: Vec<(Addr, Uint128)>,
+    pub vamp_points: Vec<(String, Uint128)>,
 }
 
 /// The struct describes a response used to return a staker's vAMP lock position.
@@ -146,14 +151,16 @@ pub struct GaugeInfoResponse {
 pub struct UserInfoResponse {
     /// Last timestamp when the user voted
     pub vote_ts: u64,
-    /// The user's vAMP voting power
+    /// The user's decreasing voting power
     pub voting_power: Uint128,
     /// The slope at which the user's voting power decays
     pub slope: Uint128,
     /// Timestamp when the user's lock expires
     pub lock_end: u64,
     /// The vote distribution for all the validators the staker picked
-    pub votes: Vec<(Addr, u16)>,
+    pub votes: Vec<(String, u16)>,
+    /// fixed amount available
+    pub fixed_amount: Uint128,
 }
 
 /// Queries emp tune info.

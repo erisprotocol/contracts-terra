@@ -1,6 +1,6 @@
 use anyhow::{Ok, Result};
 use cosmwasm_std::{attr, Addr, Decimal, Uint128};
-use eris_tests::{escrow_helper::EscrowHelper, TerraAppExtension};
+use eris_tests::{gov_helper::EscrowHelper, TerraAppExtension};
 use eris_tests::{mock_app, mock_app_validators, EventChecker};
 use itertools::Itertools;
 use std::str::FromStr;

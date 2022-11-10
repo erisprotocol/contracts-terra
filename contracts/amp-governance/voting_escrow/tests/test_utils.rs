@@ -91,9 +91,9 @@ impl Helper {
             .unwrap();
 
         let voting_contract = Box::new(ContractWrapper::new_with_empty(
-            voting_escrow::contract::execute,
-            voting_escrow::contract::instantiate,
-            voting_escrow::contract::query,
+            eris_gov_voting_escrow::contract::execute,
+            eris_gov_voting_escrow::contract::instantiate,
+            eris_gov_voting_escrow::contract::query,
         ));
 
         let voting_code_id = router.store_code(voting_contract);
@@ -295,11 +295,11 @@ impl Helper {
             .wrap()
             .query_wasm_smart(
                 self.voting_instance.clone(),
-                &QueryMsg::UserVotingPower {
+                &QueryMsg::UserVamp {
                     user: user.to_string(),
                 },
             )
-            .map(|vp: VotingPowerResponse| vp.voting_power.u128() as f32 / MULTIPLIER as f32)
+            .map(|vp: VotingPowerResponse| vp.vamp.u128() as f32 / MULTIPLIER as f32)
     }
 
     pub fn query_exact_user_vp(&self, router: &mut App, user: &str) -> StdResult<u128> {
@@ -307,11 +307,11 @@ impl Helper {
             .wrap()
             .query_wasm_smart(
                 self.voting_instance.clone(),
-                &QueryMsg::UserVotingPower {
+                &QueryMsg::UserVamp {
                     user: user.to_string(),
                 },
             )
-            .map(|vp: VotingPowerResponse| vp.voting_power.u128())
+            .map(|vp: VotingPowerResponse| vp.vamp.u128())
     }
 
     pub fn query_user_vp_at(&self, router: &mut App, user: &str, time: u64) -> StdResult<f32> {
@@ -319,12 +319,12 @@ impl Helper {
             .wrap()
             .query_wasm_smart(
                 self.voting_instance.clone(),
-                &QueryMsg::UserVotingPowerAt {
+                &QueryMsg::UserVampAt {
                     user: user.to_string(),
                     time,
                 },
             )
-            .map(|vp: VotingPowerResponse| vp.voting_power.u128() as f32 / MULTIPLIER as f32)
+            .map(|vp: VotingPowerResponse| vp.vamp.u128() as f32 / MULTIPLIER as f32)
     }
 
     pub fn query_user_vp_at_period(
@@ -337,26 +337,26 @@ impl Helper {
             .wrap()
             .query_wasm_smart(
                 self.voting_instance.clone(),
-                &QueryMsg::UserVotingPowerAtPeriod {
+                &QueryMsg::UserVampAtPeriod {
                     user: user.to_string(),
                     period,
                 },
             )
-            .map(|vp: VotingPowerResponse| vp.voting_power.u128() as f32 / MULTIPLIER as f32)
+            .map(|vp: VotingPowerResponse| vp.vamp.u128() as f32 / MULTIPLIER as f32)
     }
 
     pub fn query_total_vp(&self, router: &mut App) -> StdResult<f32> {
         router
             .wrap()
-            .query_wasm_smart(self.voting_instance.clone(), &QueryMsg::TotalVotingPower {})
-            .map(|vp: VotingPowerResponse| vp.voting_power.u128() as f32 / MULTIPLIER as f32)
+            .query_wasm_smart(self.voting_instance.clone(), &QueryMsg::TotalVamp {})
+            .map(|vp: VotingPowerResponse| vp.vamp.u128() as f32 / MULTIPLIER as f32)
     }
 
     pub fn query_exact_total_vp(&self, router: &mut App) -> StdResult<u128> {
         router
             .wrap()
-            .query_wasm_smart(self.voting_instance.clone(), &QueryMsg::TotalVotingPower {})
-            .map(|vp: VotingPowerResponse| vp.voting_power.u128())
+            .query_wasm_smart(self.voting_instance.clone(), &QueryMsg::TotalVamp {})
+            .map(|vp: VotingPowerResponse| vp.vamp.u128())
     }
 
     pub fn query_total_vp_at(&self, router: &mut App, time: u64) -> StdResult<f32> {
@@ -364,11 +364,11 @@ impl Helper {
             .wrap()
             .query_wasm_smart(
                 self.voting_instance.clone(),
-                &QueryMsg::TotalVotingPowerAt {
+                &QueryMsg::TotalVampAt {
                     time,
                 },
             )
-            .map(|vp: VotingPowerResponse| vp.voting_power.u128() as f32 / MULTIPLIER as f32)
+            .map(|vp: VotingPowerResponse| vp.vamp.u128() as f32 / MULTIPLIER as f32)
     }
 
     pub fn query_total_vp_at_period(&self, router: &mut App, period: u64) -> StdResult<f32> {
@@ -376,11 +376,11 @@ impl Helper {
             .wrap()
             .query_wasm_smart(
                 self.voting_instance.clone(),
-                &QueryMsg::TotalVotingPowerAtPeriod {
+                &QueryMsg::TotalVampAtPeriod {
                     period,
                 },
             )
-            .map(|vp: VotingPowerResponse| vp.voting_power.u128() as f32 / MULTIPLIER as f32)
+            .map(|vp: VotingPowerResponse| vp.vamp.u128() as f32 / MULTIPLIER as f32)
     }
 
     pub fn query_locked_balance_at(

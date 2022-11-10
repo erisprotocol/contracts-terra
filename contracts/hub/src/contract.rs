@@ -64,7 +64,9 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
         ExecuteMsg::AcceptOwnership {} => execute::accept_ownership(deps, info.sender),
         ExecuteMsg::Harvest {} => execute::harvest(deps, env),
         ExecuteMsg::TuneDelegations {} => execute::tune_delegations(deps, env, info.sender),
-        ExecuteMsg::Rebalance {} => execute::rebalance(deps, env, info.sender),
+        ExecuteMsg::Rebalance {
+            min_redelegation,
+        } => execute::rebalance(deps, env, info.sender, min_redelegation),
         ExecuteMsg::Reconcile {} => execute::reconcile(deps, env),
         ExecuteMsg::SubmitBatch {} => execute::submit_batch(deps, env),
         ExecuteMsg::Callback(callback_msg) => callback(deps, env, info, callback_msg),

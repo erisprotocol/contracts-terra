@@ -1,8 +1,6 @@
-use crate::voting_escrow::QueryMsg::{
-    LockInfo, TotalVotingPower, TotalVotingPowerAt, UserVotingPower, UserVotingPowerAt,
-};
+use crate::voting_escrow::QueryMsg::{LockInfo, TotalVamp, TotalVampAt, UserVamp, UserVampAt};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Addr, Binary, Decimal, QuerierWrapper, StdResult, Uint128};
+use cosmwasm_std::{Addr, Decimal, QuerierWrapper, StdResult, Uint128};
 use cw20::{
     BalanceResponse, Cw20ReceiveMsg, DownloadLogoResponse, Logo, MarketingInfoResponse,
     TokenInfoResponse,
@@ -172,31 +170,31 @@ pub enum QueryMsg {
     DownloadLogo {},
     /// Return the current total amount of vxASTRO
     #[returns(VotingPowerResponse)]
-    TotalVotingPower {},
+    TotalVamp {},
     /// Return the total amount of vxASTRO at some point in the past
     #[returns(VotingPowerResponse)]
-    TotalVotingPowerAt {
+    TotalVampAt {
         time: u64,
     },
     /// Return the total voting power at a specific period
     #[returns(VotingPowerResponse)]
-    TotalVotingPowerAtPeriod {
+    TotalVampAtPeriod {
         period: u64,
     },
     /// Return the user's current voting power (vxASTRO balance)
     #[returns(VotingPowerResponse)]
-    UserVotingPower {
+    UserVamp {
         user: String,
     },
     /// Return the user's vxASTRO balance at some point in the past
     #[returns(VotingPowerResponse)]
-    UserVotingPowerAt {
+    UserVampAt {
         user: String,
         time: u64,
     },
     /// Return the user's voting power at a specific period
     #[returns(VotingPowerResponse)]
-    UserVotingPowerAtPeriod {
+    UserVampAtPeriod {
         user: String,
         period: u64,
     },
@@ -220,7 +218,7 @@ pub enum QueryMsg {
 #[cw_serde]
 pub struct VotingPowerResponse {
     /// The vxASTRO balance
-    pub voting_power: Uint128,
+    pub vamp: Uint128,
 }
 
 /// This structure is used to return the lock information for a vxASTRO position.
@@ -239,7 +237,7 @@ pub struct LockInfoResponse {
 
     /// fixed sockel
     pub fixed_amount: Uint128,
-    /// also includes fixed part
+    /// includes only decreasing voting_power
     pub voting_power: Uint128,
 }
 
@@ -254,13 +252,13 @@ pub struct ConfigResponse {
     pub deposit_token_addr: String,
     /// The list of whitelisted logo urls prefixes
     pub logo_urls_whitelist: Vec<String>,
+    /// The list of contracts to receive push updates
+    pub push_update_contracts: Vec<String>,
 }
 
 /// This structure describes a Migration message.
 #[cw_serde]
-pub struct MigrateMsg {
-    pub params: Binary,
-}
+pub struct MigrateMsg {}
 
 /// Queries current user's voting power from the voting escrow contract.
 ///
@@ -272,11 +270,11 @@ pub fn get_voting_power(
 ) -> StdResult<Uint128> {
     let vp: VotingPowerResponse = querier.query_wasm_smart(
         escrow_addr,
-        &UserVotingPower {
+        &UserVamp {
             user: user.into(),
         },
     )?;
-    Ok(vp.voting_power)
+    Ok(vp.vamp)
 }
 
 /// Queries current user's voting power from the voting escrow contract by timestamp.
@@ -292,13 +290,13 @@ pub fn get_voting_power_at(
 ) -> StdResult<Uint128> {
     let vp: VotingPowerResponse = querier.query_wasm_smart(
         escrow_addr,
-        &UserVotingPowerAt {
+        &UserVampAt {
             user: user.into(),
             time: timestamp,
         },
     )?;
 
-    Ok(vp.voting_power)
+    Ok(vp.vamp)
 }
 
 /// Queries current total voting power from the voting escrow contract.
@@ -306,9 +304,9 @@ pub fn get_total_voting_power(
     querier: &QuerierWrapper,
     escrow_addr: impl Into<String>,
 ) -> StdResult<Uint128> {
-    let vp: VotingPowerResponse = querier.query_wasm_smart(escrow_addr, &TotalVotingPower {})?;
+    let vp: VotingPowerResponse = querier.query_wasm_smart(escrow_addr, &TotalVamp {})?;
 
-    Ok(vp.voting_power)
+    Ok(vp.vamp)
 }
 
 /// Queries total voting power from the voting escrow contract by timestamp.
@@ -321,12 +319,12 @@ pub fn get_total_voting_power_at(
 ) -> StdResult<Uint128> {
     let vp: VotingPowerResponse = querier.query_wasm_smart(
         escrow_addr,
-        &TotalVotingPowerAt {
+        &TotalVampAt {
             time: timestamp,
         },
     )?;
 
-    Ok(vp.voting_power)
+    Ok(vp.vamp)
 }
 
 /// Queries user's lockup information from the voting escrow contract.

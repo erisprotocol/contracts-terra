@@ -25,8 +25,8 @@ eris = { path = "../eris" }
 
 eris-staking-hub = { path = "../../contracts/hub" }
 eris-staking-token = { path = "../../contracts/token" }
-voting-escrow = { path = "../../contracts/amp-governance/voting_escrow" }
-emp-gauges = { path = "../../contracts/amp-governance/emp_gauges" }
-amp-gauges = { path = "../../contracts/amp-governance/amp_gauges" }
+eris-gov-voting-escrow = { path = "../../contracts/amp-governance/voting_escrow" }
+eris-gov-emp-gauges = { path = "../../contracts/amp-governance/emp_gauges" }
+eris-gov-amp-gauges = { path = "../../contracts/amp-governance/amp_gauges" }
 
 anyhow = "1"

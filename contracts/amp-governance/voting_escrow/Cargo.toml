@@ -1,5 +1,5 @@
 [package]
-name = "voting-escrow"
+name = "eris-gov-voting-escrow"
 version = "1.3.0"
 authors = ["devs <devs@erisprotocol.com>"]
 edition = "2021"

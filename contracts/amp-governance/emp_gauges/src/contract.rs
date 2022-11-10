@@ -8,21 +8,20 @@ use cosmwasm_std::{
     attr, to_binary, Attribute, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response, StdError,
     StdResult,
 };
-use cw2::set_contract_version;
+use cw2::{get_contract_version, set_contract_version};
 use eris::helpers::slope::adjust_vp_and_slope;
 use eris::hub::get_hub_validators;
 use itertools::Itertools;
 
 use crate::error::ContractError;
-use crate::state::{
-    Config, TuneInfo, VotedValidatorInfo, CONFIG, OWNERSHIP_PROPOSAL, TUNE_INFO, VALIDATORS,
-};
+use crate::state::{Config, TuneInfo, CONFIG, OWNERSHIP_PROPOSAL, TUNE_INFO, VALIDATORS};
 use crate::utils::{
     add_fixed_emp, fetch_last_validator_fixed_emps_value, filter_validators, get_validator_info,
     update_validator_info, vote_for_validator,
 };
 use eris::emp_gauges::{
     get_tune_msg, AddEmpInfo, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
+    VotedValidatorInfoResponse,
 };
 
 use eris::governance_helper::get_period;
@@ -58,6 +57,7 @@ pub fn instantiate(
         deps.storage,
         &TuneInfo {
             tune_ts: env.block.time.seconds(),
+            tune_period: get_period(env.block.time.seconds())?,
             emp_points: vec![],
         },
     )?;
@@ -166,13 +166,11 @@ fn handle_vote(
     let validators = get_hub_validators(&deps.querier, config.hub_addr)?;
 
     for emp in validator_emps {
-        let (addr, added_points) = emp;
+        let (validator_addr, added_points) = emp;
 
-        if !validators.contains(&addr) {
-            return Err(ContractError::InvalidValidatorAddress(addr));
+        if !validators.contains(&validator_addr) {
+            return Err(ContractError::InvalidValidatorAddress(validator_addr));
         }
-
-        let validator_addr = addr_validate_to_lower(deps.api, &addr)?;
 
         added_points.iter().try_for_each(|emp| -> StdResult<()> {
             if let Some(decaying_periods) = emp.decaying_period {
@@ -213,7 +211,13 @@ fn tune_emps(deps: DepsMut, env: Env, info: MessageInfo) -> ExecuteResult {
     config.assert_owner_or_self(&info.sender, &env.contract.address)?;
 
     let mut tune_info = TUNE_INFO.load(deps.storage)?;
-    let block_period = get_period(env.block.time.seconds())?;
+
+    // for emps we always tune immediately after the vote and apply the next period
+    let next_period = get_period(env.block.time.seconds())? + 1;
+
+    if next_period <= tune_info.tune_period {
+        return Err(ContractError::CooldownError {});
+    }
 
     let validator_votes: Vec<_> = VALIDATORS
         .keys(deps.as_ref().storage, None, None, Order::Ascending)
@@ -222,17 +226,18 @@ fn tune_emps(deps: DepsMut, env: Env, info: MessageInfo) -> ExecuteResult {
         .map(|validator_addr| {
             let validator_addr = validator_addr?;
 
-            let mut validator_info =
-                update_validator_info(deps.storage, block_period, &validator_addr, None)?;
+            let validator_info =
+                update_validator_info(deps.storage, next_period, &validator_addr, None)?;
 
-            validator_info.emp_amount = validator_info.emp_amount.checked_add(
-                fetch_last_validator_fixed_emps_value(deps.storage, block_period, &validator_addr)?,
+            let emps = validator_info.voting_power.checked_add(
+                fetch_last_validator_fixed_emps_value(deps.storage, next_period, &validator_addr)?,
             )?;
+
             // Remove pools with zero voting power so we won't iterate over them in future
-            if validator_info.emp_amount.is_zero() {
+            if emps.is_zero() {
                 VALIDATORS.remove(deps.storage, &validator_addr)
             }
-            Ok((validator_addr, validator_info.emp_amount))
+            Ok((validator_addr, emps))
         })
         .collect::<StdResult<Vec<_>>>()?
         .into_iter()
@@ -252,14 +257,15 @@ fn tune_emps(deps: DepsMut, env: Env, info: MessageInfo) -> ExecuteResult {
     }
 
     tune_info.tune_ts = env.block.time.seconds();
+    tune_info.tune_period = next_period;
     TUNE_INFO.save(deps.storage, &tune_info)?;
 
     let attributes: Vec<Attribute> =
         tune_info.emp_points.iter().map(|a| attr("emps", format!("{0}={1}", a.0, a.1))).collect();
 
     Ok(Response::new()
-        .add_attribute("action", "tune_pools")
-        .add_attribute("period", block_period.to_string())
+        .add_attribute("action", "tune_emps")
+        .add_attribute("next_period", next_period.to_string())
         .add_attributes(attributes))
 }
 
@@ -306,11 +312,45 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::ValidatorInfo {
             validator_addr,
         } => to_binary(&validator_info(deps, env, validator_addr, None)?),
+        QueryMsg::ValidatorInfos {
+            period,
+            validator_addrs,
+        } => to_binary(&validator_infos(deps, env, validator_addrs, period)?),
         QueryMsg::ValidatorInfoAtPeriod {
             validator_addr,
             period,
         } => to_binary(&validator_info(deps, env, validator_addr, Some(period))?),
     }
+}
+
+/// Returns all active validators info at a specified period.
+fn validator_infos(
+    deps: Deps,
+    env: Env,
+    validator_addrs: Option<Vec<String>>,
+    period: Option<u64>,
+) -> StdResult<Vec<(String, VotedValidatorInfoResponse)>> {
+    let block_period = get_period(env.block.time.seconds())?;
+    let period = period.unwrap_or(block_period);
+
+    // use active validators as fallback
+    let validator_addrs = validator_addrs.unwrap_or_else(|| {
+        let active_validators = VALIDATORS
+            .keys(deps.storage, None, None, Order::Ascending)
+            .collect::<StdResult<Vec<_>>>();
+
+        active_validators.unwrap_or_default()
+    });
+
+    let validator_infos: Vec<_> = validator_addrs
+        .into_iter()
+        .map(|validator_addr| {
+            let validator_info = get_validator_info(deps.storage, period, &validator_addr)?;
+            Ok((validator_addr, validator_info))
+        })
+        .collect::<StdResult<Vec<_>>>()?;
+
+    Ok(validator_infos)
 }
 
 /// Returns pool's voting information at a specified period.
@@ -319,8 +359,7 @@ fn validator_info(
     env: Env,
     validator_addr: String,
     period: Option<u64>,
-) -> StdResult<VotedValidatorInfo> {
-    let validator_addr = addr_validate_to_lower(deps.api, &validator_addr)?;
+) -> StdResult<VotedValidatorInfoResponse> {
     let block_period = get_period(env.block.time.seconds())?;
     let period = period.unwrap_or(block_period);
     get_validator_info(deps.storage, period, &validator_addr)
@@ -328,6 +367,21 @@ fn validator_info(
 
 /// Manages contract migration
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
-    Err(ContractError::MigrationError {})
+pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
+    let contract_version = get_contract_version(deps.storage)?;
+    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+    if contract_version.contract != CONTRACT_NAME {
+        return Err(StdError::generic_err(format!(
+            "contract_name does not match: prev: {0}, new: {1}",
+            contract_version.contract, CONTRACT_VERSION
+        ))
+        .into());
+    }
+
+    Ok(Response::new()
+        .add_attribute("previous_contract_name", &contract_version.contract)
+        .add_attribute("previous_contract_version", &contract_version.version)
+        .add_attribute("new_contract_name", CONTRACT_NAME)
+        .add_attribute("new_contract_version", CONTRACT_VERSION))
 }

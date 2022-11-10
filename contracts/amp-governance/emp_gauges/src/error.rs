@@ -28,8 +28,8 @@ pub enum ContractError {
     #[error("main_pool_min_alloc should be more than 0 and less than 1")]
     MainPoolMinAllocFailed {},
 
-    #[error("You can only run this action every {0} days")]
-    CooldownError(u64),
+    #[error("You can only run this once per period")]
+    CooldownError {},
 
     #[error("Votes contain duplicated pool addresses")]
     DuplicatedValidators {},

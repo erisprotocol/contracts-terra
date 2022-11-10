@@ -29,6 +29,19 @@
       "additionalProperties": false
     },
     {
+      "description": "The contract's current delegation distribution goal. Response: `WantedDelegationsResponse`",
+      "type": "object",
+      "required": [
+        "wanted_delegations"
+      ],
+      "properties": {
+        "wanted_delegations": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
       "description": "The current batch on unbonding requests pending submission. Response: `PendingBatch`",
       "type": "object",
       "required": [

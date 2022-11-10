@@ -8,7 +8,7 @@ use cosmwasm_std::{
     attr, from_binary, to_binary, Addr, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
     Response, StdError, StdResult, Storage, Uint128, WasmMsg,
 };
-use cw2::set_contract_version;
+use cw2::{get_contract_version, set_contract_version};
 use cw20::{
     BalanceResponse, Cw20ExecuteMsg, Cw20ReceiveMsg, Logo, LogoInfo, MarketingInfoResponse,
     TokenInfoResponse,
@@ -470,9 +470,14 @@ fn create_lock(
 
     let config = CONFIG.load(deps.storage)?;
 
+    let lock_info = get_user_lock_info(deps.as_ref(), &env, user.to_string())?;
+
     Ok(Response::default()
         .add_attribute("action", "create_lock")
-        .add_messages(get_push_update_msgs(deps.as_ref(), env, config, user)?))
+        .add_attribute("voting_power", lock_info.voting_power.to_string())
+        .add_attribute("fixed_power", lock_info.fixed_amount.to_string())
+        .add_attribute("lock_end", lock_info.end.to_string())
+        .add_messages(get_push_update_msgs(config, user, Ok(lock_info))?))
 }
 
 /// Deposits an 'amount' of xASTRO tokens into 'user''s lock.
@@ -504,9 +509,14 @@ fn deposit_for(
 
     let config = CONFIG.load(deps.storage)?;
 
+    let lock_info = get_user_lock_info(deps.as_ref(), &env, user.to_string())?;
+
     Ok(Response::default()
         .add_attribute("action", "deposit_for")
-        .add_messages(get_push_update_msgs(deps.as_ref(), env, config, user)?))
+        .add_attribute("voting_power", lock_info.voting_power.to_string())
+        .add_attribute("fixed_power", lock_info.fixed_amount.to_string())
+        .add_attribute("lock_end", lock_info.end.to_string())
+        .add_messages(get_push_update_msgs(config, user, Ok(lock_info))?))
 }
 
 /// Withdraws the whole amount of locked xASTRO from a specific user lock.
@@ -561,7 +571,8 @@ fn withdraw(deps: DepsMut, env: Env, info: MessageInfo) -> Result<Response, Cont
             Default::default(),
         )?;
 
-        let msgs = get_push_update_msgs(deps.as_ref(), env, config, sender)?;
+        let lock_info = get_user_lock_info(deps.as_ref(), &env, sender.to_string());
+        let msgs = get_push_update_msgs(config, sender, lock_info)?;
 
         Ok(Response::default()
             .add_message(transfer_msg)
@@ -578,7 +589,10 @@ fn get_push_update_msgs_multi(
 ) -> StdResult<Vec<CosmosMsg>> {
     let results: Vec<CosmosMsg> = sender
         .into_iter()
-        .map(|sender| get_push_update_msgs(deps, env.clone(), config.clone(), sender))
+        .map(|sender| {
+            let lock_info = get_user_lock_info(deps, &env, sender.to_string());
+            get_push_update_msgs(config.clone(), sender, lock_info)
+        })
         .collect::<StdResult<Vec<_>>>()?
         .into_iter()
         .flatten()
@@ -588,13 +602,10 @@ fn get_push_update_msgs_multi(
 }
 
 fn get_push_update_msgs(
-    deps: Deps,
-    env: Env,
     config: Config,
     sender: Addr,
+    lock_info: StdResult<LockInfoResponse>,
 ) -> StdResult<Vec<CosmosMsg>> {
-    let lock_info = get_user_lock_info(deps, env, sender.to_string());
-
     // only send update if lock info is available. LOCK info is never removed for any user that locked anything.
     if let Ok(lock_info) = lock_info {
         config
@@ -661,9 +672,14 @@ fn extend_lock_time(
 
     let config = CONFIG.load(deps.storage)?;
 
+    let lock_info = get_user_lock_info(deps.as_ref(), &env, user.to_string())?;
+
     Ok(Response::default()
         .add_attribute("action", "extend_lock_time")
-        .add_messages(get_push_update_msgs(deps.as_ref(), env, config, user)?))
+        .add_attribute("voting_power", lock_info.voting_power.to_string())
+        .add_attribute("fixed_power", lock_info.fixed_amount.to_string())
+        .add_attribute("lock_end", lock_info.end.to_string())
+        .add_messages(get_push_update_msgs(config, user, Ok(lock_info))?))
 }
 
 /// Update the staker blacklist. Whitelists addresses specified in 'remove_addrs'
@@ -840,27 +856,27 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             start_after,
             limit,
         } => to_binary(&get_blacklisted_voters(deps, start_after, limit)?),
-        QueryMsg::TotalVotingPower {} => to_binary(&get_total_voting_power(deps, env, None)?),
-        QueryMsg::UserVotingPower {
+        QueryMsg::TotalVamp {} => to_binary(&get_total_vamp(deps, env, None)?),
+        QueryMsg::UserVamp {
             user,
-        } => to_binary(&get_user_voting_power(deps, env, user, None)?),
-        QueryMsg::TotalVotingPowerAt {
+        } => to_binary(&get_user_vamp(deps, env, user, None)?),
+        QueryMsg::TotalVampAt {
             time,
-        } => to_binary(&get_total_voting_power(deps, env, Some(time))?),
-        QueryMsg::TotalVotingPowerAtPeriod {
+        } => to_binary(&get_total_vamp(deps, env, Some(time))?),
+        QueryMsg::TotalVampAtPeriod {
             period,
-        } => to_binary(&get_total_voting_power_at_period(deps, env, period)?),
-        QueryMsg::UserVotingPowerAt {
+        } => to_binary(&get_total_vamp_at_period(deps, env, period)?),
+        QueryMsg::UserVampAt {
             user,
             time,
-        } => to_binary(&get_user_voting_power(deps, env, user, Some(time))?),
-        QueryMsg::UserVotingPowerAtPeriod {
+        } => to_binary(&get_user_vamp(deps, env, user, Some(time))?),
+        QueryMsg::UserVampAtPeriod {
             user,
             period,
-        } => to_binary(&get_user_voting_power_at_period(deps, user, period)?),
+        } => to_binary(&get_user_vamp_at_period(deps, user, period)?),
         QueryMsg::LockInfo {
             user,
-        } => to_binary(&get_user_lock_info(deps, env, user)?),
+        } => to_binary(&get_user_lock_info(deps, &env, user)?),
         QueryMsg::UserDepositAtHeight {
             user,
             height,
@@ -872,6 +888,11 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
                 guardian_addr: config.guardian_addr,
                 deposit_token_addr: config.deposit_token_addr.to_string(),
                 logo_urls_whitelist: config.logo_urls_whitelist,
+                push_update_contracts: config
+                    .push_update_contracts
+                    .into_iter()
+                    .map(|a| a.to_string())
+                    .collect(),
             })
         },
         QueryMsg::Balance {
@@ -941,7 +962,7 @@ pub fn get_blacklisted_voters(
 /// Return a user's lock information.
 ///
 /// * **user** user for which we return lock information.
-fn get_user_lock_info(deps: Deps, env: Env, user: String) -> StdResult<LockInfoResponse> {
+fn get_user_lock_info(deps: Deps, env: &Env, user: String) -> StdResult<LockInfoResponse> {
     let addr = addr_validate_to_lower(deps.api, &user)?;
     if let Some(lock) = LOCKED.may_load(deps.storage, addr.clone())? {
         let cur_period = get_period(env.block.time.seconds())?;
@@ -998,14 +1019,14 @@ fn get_user_deposit_at_height(deps: Deps, user: String, block_height: u64) -> St
 /// * **user** user/staker for which we fetch the current voting power (vxASTRO balance).
 ///
 /// * **time** timestamp at which to fetch the user's voting power (vxASTRO balance).
-fn get_user_voting_power(
+fn get_user_vamp(
     deps: Deps,
     env: Env,
     user: String,
     time: Option<u64>,
 ) -> StdResult<VotingPowerResponse> {
     let period = get_period(time.unwrap_or_else(|| env.block.time.seconds()))?;
-    get_user_voting_power_at_period(deps, user, period)
+    get_user_vamp_at_period(deps, user, period)
 }
 
 /// Calculates a user's voting power at a given period number.
@@ -1013,7 +1034,7 @@ fn get_user_voting_power(
 /// * **user** user/staker for which we fetch the current voting power (vxASTRO balance).
 ///
 /// * **period** period number at which to fetch the user's voting power (vxASTRO balance).
-fn get_user_voting_power_at_period(
+fn get_user_vamp_at_period(
     deps: Deps,
     user: String,
     period: u64,
@@ -1033,12 +1054,12 @@ fn get_user_voting_power_at_period(
             calc_voting_power(&point, period) + point.fixed
         };
         Ok(VotingPowerResponse {
-            voting_power,
+            vamp: voting_power,
         })
     } else {
         // User not found
         Ok(VotingPowerResponse {
-            voting_power: Uint128::zero(),
+            vamp: Uint128::zero(),
         })
     }
 }
@@ -1047,9 +1068,9 @@ fn get_user_voting_power_at_period(
 ///
 /// * **user** user/staker for which we fetch the current voting power (vxASTRO balance).
 fn get_user_balance(deps: Deps, env: Env, user: String) -> StdResult<BalanceResponse> {
-    let vp_response = get_user_voting_power(deps, env, user, None)?;
+    let vp_response = get_user_vamp(deps, env, user, None)?;
     Ok(BalanceResponse {
-        balance: vp_response.voting_power,
+        balance: vp_response.vamp,
     })
 }
 
@@ -1057,23 +1078,15 @@ fn get_user_balance(deps: Deps, env: Env, user: String) -> StdResult<BalanceResp
 /// If `time` is None, then it calculates the total voting power at the current block.
 ///
 /// * **time** timestamp at which we fetch the total voting power (vxASTRO supply).
-fn get_total_voting_power(
-    deps: Deps,
-    env: Env,
-    time: Option<u64>,
-) -> StdResult<VotingPowerResponse> {
+fn get_total_vamp(deps: Deps, env: Env, time: Option<u64>) -> StdResult<VotingPowerResponse> {
     let period = get_period(time.unwrap_or_else(|| env.block.time.seconds()))?;
-    get_total_voting_power_at_period(deps, env, period)
+    get_total_vamp_at_period(deps, env, period)
 }
 
 /// Calculates the total voting power (total vxASTRO supply) at the given period number.
 ///
 /// * **period** period number at which we fetch the total voting power (vxASTRO supply).
-fn get_total_voting_power_at_period(
-    deps: Deps,
-    env: Env,
-    period: u64,
-) -> StdResult<VotingPowerResponse> {
+fn get_total_vamp_at_period(deps: Deps, env: Env, period: u64) -> StdResult<VotingPowerResponse> {
     let last_checkpoint = fetch_last_checkpoint(deps.storage, &env.contract.address, period)?;
 
     let point = last_checkpoint.map_or(
@@ -1105,25 +1118,40 @@ fn get_total_voting_power_at_period(
     };
 
     Ok(VotingPowerResponse {
-        voting_power,
+        vamp: voting_power,
     })
 }
 
 /// Fetch the vxASTRO token information, such as the token name, symbol, decimals and total supply (total voting power).
 fn query_token_info(deps: Deps, env: Env) -> StdResult<TokenInfoResponse> {
     let info = TOKEN_INFO.load(deps.storage)?;
-    let total_vp = get_total_voting_power(deps, env, None)?;
+    let total_vp = get_total_vamp(deps, env, None)?;
     let res = TokenInfoResponse {
         name: info.name,
         symbol: info.symbol,
         decimals: info.decimals,
-        total_supply: total_vp.voting_power,
+        total_supply: total_vp.vamp,
     };
     Ok(res)
 }
 
 /// Manages contract migration.
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
-    Err(ContractError::MigrationError {})
+pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
+    let contract_version = get_contract_version(deps.storage)?;
+    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+    if contract_version.contract != CONTRACT_NAME {
+        return Err(StdError::generic_err(format!(
+            "contract_name does not match: prev: {0}, new: {1}",
+            contract_version.contract, CONTRACT_VERSION
+        ))
+        .into());
+    }
+
+    Ok(Response::new()
+        .add_attribute("previous_contract_name", &contract_version.contract)
+        .add_attribute("previous_contract_version", &contract_version.version)
+        .add_attribute("new_contract_name", CONTRACT_NAME)
+        .add_attribute("new_contract_version", CONTRACT_VERSION))
 }

@@ -1,6 +1,6 @@
 use std::{collections::HashSet, str::FromStr};
 
-use cosmwasm_std::{Addr, Api, Coin, QuerierWrapper, StdError, StdResult, Uint128};
+use cosmwasm_std::{Addr, Coin, QuerierWrapper, StdError, StdResult, Uint128};
 use cw20::{Cw20QueryMsg, TokenInfoResponse};
 
 use crate::{constants::CONTRACT_DENOM, types::Delegation};
@@ -111,15 +111,4 @@ pub fn dedupe(v: &mut Vec<String>) {
     let mut set = HashSet::new();
 
     v.retain(|x| set.insert(x.clone()));
-}
-
-/// Dedupes and checks a list of received addrs
-pub fn dedupe_check_received_addrs(validators: &mut Vec<String>, api: &dyn Api) -> StdResult<()> {
-    dedupe(validators);
-
-    for validator in validators {
-        api.addr_validate(validator.as_str())?;
-    }
-
-    Ok(())
 }

@@ -74,6 +74,12 @@ pub enum QueryMsg {
         validator_addr: String,
         period: u64,
     },
+    /// ValidatorInfos returns the latest EMPs allocated to all active validators
+    #[returns(Vec<(String,VotedValidatorInfoResponse)>)]
+    ValidatorInfos {
+        validator_addrs: Option<Vec<String>>,
+        period: Option<u64>,
+    },
 }
 
 /// This structure describes a migration message.
@@ -112,8 +118,10 @@ impl ConfigResponse {
 #[cw_serde]
 #[derive(Default)]
 pub struct VotedValidatorInfoResponse {
-    /// vxASTRO amount that voted for this pool/generator
-    pub emp_amount: Uint128,
+    /// Dynamic decaying power
+    pub voting_power: Uint128,
+    /// Fixed power
+    pub fixed_amount: Uint128,
     /// The slope at which the amount of vxASTRO that voted for this pool/generator will decay
     pub slope: Uint128,
 }
@@ -124,8 +132,11 @@ pub struct VotedValidatorInfoResponse {
 pub struct GaugeInfoResponse {
     /// Last timestamp when a tuning vote happened
     pub tune_ts: u64,
+    /// Last period when a tuning vote happened
+    #[serde(default)]
+    pub tune_period: u64,
     /// Distribution of alloc_points to apply in the Generator contract
-    pub emp_points: Vec<(Addr, Uint128)>,
+    pub emp_points: Vec<(String, Uint128)>,
 }
 
 /// Queries user's lockup information from the voting escrow contract.

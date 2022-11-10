@@ -11,7 +11,8 @@
       ],
       "properties": {
         "config": {
-          "type": "object"
+          "type": "object",
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -39,7 +40,8 @@
                 "$ref": "#/definitions/Asset"
               }
             }
-          }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -59,7 +61,8 @@
             "lp_addr": {
               "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -79,7 +82,8 @@
             "lp_addr": {
               "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -107,7 +111,8 @@
                 "null"
               ]
             }
-          }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -145,7 +150,8 @@
               "maxItems": 2,
               "minItems": 2
             }
-          }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

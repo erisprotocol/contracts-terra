@@ -9,10 +9,7 @@ use eris::governance_helper::{get_period, EPOCH_START, WEEK};
 
 #[allow(clippy::all)]
 #[allow(dead_code)]
-pub mod controller_helper;
-#[allow(clippy::all)]
-#[allow(dead_code)]
-pub mod escrow_helper;
+pub mod gov_helper;
 
 pub fn mock_app() -> App {
     mock_app_validators(None)

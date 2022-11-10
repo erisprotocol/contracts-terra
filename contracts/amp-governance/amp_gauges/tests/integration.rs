@@ -1,7 +1,7 @@
 use anyhow::{Ok, Result};
-use cosmwasm_std::{attr, Addr, Uint128};
+use cosmwasm_std::{attr, Uint128};
 use eris::governance_helper::WEEK;
-use eris_tests::escrow_helper::EscrowHelper;
+use eris_tests::gov_helper::EscrowHelper;
 use eris_tests::{mock_app, EventChecker, TerraAppExtension};
 use std::vec;
 
@@ -56,27 +56,27 @@ fn vote() -> Result<()> {
     router.next_period(1);
     helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {}).unwrap();
     let info = helper.amp_query_tune_info(&mut router).unwrap();
-    assert_eq!(info.vamp_points, vec![(Addr::unchecked("val1"), Uint128::new(125959))]);
+    assert_eq!(info.vamp_points, vec![("val1".to_string(), Uint128::new(125959))]);
 
     router.next_period(1);
     helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {}).unwrap();
     let info = helper.amp_query_tune_info(&mut router).unwrap();
-    assert_eq!(info.vamp_points, vec![(Addr::unchecked("val1"), Uint128::new(117306))]);
+    assert_eq!(info.vamp_points, vec![("val1".to_string(), Uint128::new(117306))]);
 
     router.next_period(1);
     helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {}).unwrap();
     let info = helper.amp_query_tune_info(&mut router).unwrap();
-    assert_eq!(info.vamp_points, vec![(Addr::unchecked("val1"), Uint128::new(108653))]);
+    assert_eq!(info.vamp_points, vec![("val1".to_string(), Uint128::new(108653))]);
 
     router.next_period(1);
     helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {}).unwrap();
     let info = helper.amp_query_tune_info(&mut router).unwrap();
-    assert_eq!(info.vamp_points, vec![(Addr::unchecked("val1"), Uint128::new(100000))]);
+    assert_eq!(info.vamp_points, vec![("val1".to_string(), Uint128::new(100000))]);
 
     router.next_period(1);
     helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {}).unwrap();
     let info = helper.amp_query_tune_info(&mut router).unwrap();
-    assert_eq!(info.vamp_points, vec![(Addr::unchecked("val1"), Uint128::new(100000))]);
+    assert_eq!(info.vamp_points, vec![("val1".to_string(), Uint128::new(100000))]);
 
     let vote = helper
         .amp_vote(
@@ -90,7 +90,7 @@ fn vote() -> Result<()> {
     // vote is only applied in the next period
     helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {}).unwrap();
     let info = helper.amp_query_tune_info(&mut router).unwrap();
-    assert_eq!(info.vamp_points, vec![(Addr::unchecked("val1"), Uint128::new(100000)),]);
+    assert_eq!(info.vamp_points, vec![("val1".to_string(), Uint128::new(100000)),]);
 
     router.next_period(1);
     helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {}).unwrap();
@@ -98,8 +98,8 @@ fn vote() -> Result<()> {
     assert_eq!(
         info.vamp_points,
         vec![
-            (Addr::unchecked("val2"), Uint128::new(334791)), // ~ 446 * 0.7
-            (Addr::unchecked("val1"), Uint128::new(243482))
+            ("val2".to_string(), Uint128::new(334791)), // ~ 446 * 0.7
+            ("val1".to_string(), Uint128::new(243482))
         ]
     );
 
@@ -109,8 +109,8 @@ fn vote() -> Result<()> {
     assert_eq!(
         info.vamp_points,
         vec![
-            (Addr::unchecked("val2"), Uint128::new(331763)), // ~ 446 * 0.7 - decaying
-            (Addr::unchecked("val1"), Uint128::new(242185))  //
+            ("val2".to_string(), Uint128::new(331763)), // ~ 446 * 0.7 - decaying
+            ("val1".to_string(), Uint128::new(242185))  //
         ]
     );
 
@@ -120,8 +120,8 @@ fn vote() -> Result<()> {
     assert_eq!(
         info.vamp_points,
         vec![
-            (Addr::unchecked("val1"), Uint128::new(115079)), // rounding difference
-            (Addr::unchecked("val2"), Uint128::new(35019))   // rounding difference
+            ("val1".to_string(), Uint128::new(115079)), // rounding difference
+            ("val2".to_string(), Uint128::new(35019))   // rounding difference
         ]
     );
 
@@ -133,8 +133,8 @@ fn vote() -> Result<()> {
     assert_eq!(
         info.vamp_points,
         vec![
-            (Addr::unchecked("val1"), Uint128::new(115079)), // rounding difference
-            (Addr::unchecked("val2"), Uint128::new(35019))   // rounding difference
+            ("val1".to_string(), Uint128::new(115079)), // rounding difference
+            ("val2".to_string(), Uint128::new(35019))   // rounding difference
         ]
     );
     router.next_period(1);
@@ -143,8 +143,8 @@ fn vote() -> Result<()> {
     assert_eq!(
         info.vamp_points,
         vec![
-            (Addr::unchecked("val2"), Uint128::new(35019)), // rounding difference
-            (Addr::unchecked("val1"), Uint128::new(15079))  // rounding difference
+            ("val2".to_string(), Uint128::new(35019)), // rounding difference
+            ("val1".to_string(), Uint128::new(15079))  // rounding difference
         ]
     );
     Ok(())
@@ -181,9 +181,9 @@ fn update_vote_extend_locktime() -> Result<()> {
     assert_eq!(
         info.vamp_points,
         vec![
-            (Addr::unchecked("val1"), Uint128::new(50383)),
-            (Addr::unchecked("val2"), Uint128::new(50383)),
-            (Addr::unchecked("val3"), Uint128::new(25191))
+            ("val1".to_string(), Uint128::new(50383)),
+            ("val2".to_string(), Uint128::new(50383)),
+            ("val3".to_string(), Uint128::new(25191))
         ]
     );
 
@@ -193,9 +193,9 @@ fn update_vote_extend_locktime() -> Result<()> {
     assert_eq!(
         info.vamp_points,
         vec![
-            (Addr::unchecked("val1"), Uint128::new(50383)),
-            (Addr::unchecked("val2"), Uint128::new(50383)),
-            (Addr::unchecked("val3"), Uint128::new(25191))
+            ("val1".to_string(), Uint128::new(50383)),
+            ("val2".to_string(), Uint128::new(50383)),
+            ("val3".to_string(), Uint128::new(25191))
         ]
     );
 
@@ -205,9 +205,9 @@ fn update_vote_extend_locktime() -> Result<()> {
     assert_eq!(
         info.vamp_points,
         vec![
-            (Addr::unchecked("val1"), Uint128::new(81534)),
-            (Addr::unchecked("val2"), Uint128::new(81534)),
-            (Addr::unchecked("val3"), Uint128::new(40767))
+            ("val1".to_string(), Uint128::new(81534)),
+            ("val2".to_string(), Uint128::new(81534)),
+            ("val3".to_string(), Uint128::new(40767))
         ]
     );
 
@@ -240,9 +240,9 @@ fn update_vote_extend_amount() -> Result<()> {
     assert_eq!(
         info.vamp_points,
         vec![
-            (Addr::unchecked("val1"), Uint128::new(50383)),
-            (Addr::unchecked("val2"), Uint128::new(50383)),
-            (Addr::unchecked("val3"), Uint128::new(25191))
+            ("val1".to_string(), Uint128::new(50383)),
+            ("val2".to_string(), Uint128::new(50383)),
+            ("val3".to_string(), Uint128::new(25191))
         ]
     );
 
@@ -252,9 +252,9 @@ fn update_vote_extend_amount() -> Result<()> {
     assert_eq!(
         info.vamp_points,
         vec![
-            (Addr::unchecked("val1"), Uint128::new(50383)),
-            (Addr::unchecked("val2"), Uint128::new(50383)),
-            (Addr::unchecked("val3"), Uint128::new(25191))
+            ("val1".to_string(), Uint128::new(50383)),
+            ("val2".to_string(), Uint128::new(50383)),
+            ("val3".to_string(), Uint128::new(25191))
         ]
     );
 
@@ -267,9 +267,9 @@ fn update_vote_extend_amount() -> Result<()> {
     assert_eq!(
         info.vamp_points,
         vec![
-            (Addr::unchecked("val1"), Uint128::new(516152)),
-            (Addr::unchecked("val2"), Uint128::new(516152)),
-            (Addr::unchecked("val3"), Uint128::new(258076))
+            ("val1".to_string(), Uint128::new(516152)),
+            ("val2".to_string(), Uint128::new(516152)),
+            ("val3".to_string(), Uint128::new(258076))
         ]
     );
 
@@ -279,9 +279,9 @@ fn update_vote_extend_amount() -> Result<()> {
     assert_eq!(
         info.vamp_points,
         vec![
-            (Addr::unchecked("val1"), Uint128::new(478076)),
-            (Addr::unchecked("val2"), Uint128::new(478076)),
-            (Addr::unchecked("val3"), Uint128::new(239038))
+            ("val1".to_string(), Uint128::new(478076)),
+            ("val2".to_string(), Uint128::new(478076)),
+            ("val3".to_string(), Uint128::new(239038))
         ]
     );
 
@@ -291,9 +291,9 @@ fn update_vote_extend_amount() -> Result<()> {
     assert_eq!(
         info.vamp_points,
         vec![
-            (Addr::unchecked("val1"), Uint128::new(478076)),
-            (Addr::unchecked("val2"), Uint128::new(478076)),
-            (Addr::unchecked("val3"), Uint128::new(239038))
+            ("val1".to_string(), Uint128::new(478076)),
+            ("val2".to_string(), Uint128::new(478076)),
+            ("val3".to_string(), Uint128::new(239038))
         ]
     );
 
