@@ -150,22 +150,6 @@ pub(crate) fn add_fixed_emp(
     Ok(())
 }
 
-// pub(crate) fn remove_fixed_emp(
-//     storage: &mut dyn Storage,
-//     period: u64,
-//     validator_addr: &str,
-//     uemps: Uint128,
-// ) -> StdResult<()> {
-//     add_validator_to_active(storage, validator_addr)?;
-
-//     VALIDATOR_FIXED_EMPS.update(storage, (validator_addr, period), |v| -> StdResult<_> {
-//         let v = v.unwrap_or(Uint128::zero()).checked_sub(uemps).unwrap_or_default();
-//         Ok(v)
-//     })?;
-
-//     Ok(())
-// }
-
 /// Fetches voting parameters for a given pool at specific period, applies new changes, saves it in storage
 /// and returns new voting parameters in [`VotedPoolInfo`] object.
 /// If there are no changes in 'changes' parameter

@@ -89,7 +89,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> E
     match msg {
         ExecuteMsg::AddEmps {
             emps,
-        } => handle_vote(deps, env, info, emps),
+        } => add_emps(deps, env, info, emps),
         ExecuteMsg::TuneEmps {} => tune_emps(deps, env, info),
         ExecuteMsg::UpdateConfig {
             validators_limit,
@@ -146,7 +146,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> E
 /// * **votes** is a vector of pairs ([`String`], [`u16`]).
 /// Tuple consists of pool address and percentage of user's voting power for a given pool.
 /// Percentage should be in BPS form.
-fn handle_vote(
+fn add_emps(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
@@ -213,11 +213,11 @@ fn tune_emps(deps: DepsMut, env: Env, info: MessageInfo) -> ExecuteResult {
     let mut tune_info = TUNE_INFO.load(deps.storage)?;
 
     // for emps we always tune immediately after the vote and apply the next period
-    let next_period = get_period(env.block.time.seconds())? + 1;
+    let block_period = get_period(env.block.time.seconds())?;
 
-    if next_period <= tune_info.tune_period {
-        return Err(ContractError::CooldownError {});
-    }
+    // if block_period <= tune_info.tune_period {
+    //     return Err(ContractError::CooldownError {});
+    // }
 
     let validator_votes: Vec<_> = VALIDATORS
         .keys(deps.as_ref().storage, None, None, Order::Ascending)
@@ -227,10 +227,10 @@ fn tune_emps(deps: DepsMut, env: Env, info: MessageInfo) -> ExecuteResult {
             let validator_addr = validator_addr?;
 
             let validator_info =
-                update_validator_info(deps.storage, next_period, &validator_addr, None)?;
+                update_validator_info(deps.storage, block_period, &validator_addr, None)?;
 
             let emps = validator_info.voting_power.checked_add(
-                fetch_last_validator_fixed_emps_value(deps.storage, next_period, &validator_addr)?,
+                fetch_last_validator_fixed_emps_value(deps.storage, block_period, &validator_addr)?,
             )?;
 
             // Remove pools with zero voting power so we won't iterate over them in future
@@ -257,7 +257,7 @@ fn tune_emps(deps: DepsMut, env: Env, info: MessageInfo) -> ExecuteResult {
     }
 
     tune_info.tune_ts = env.block.time.seconds();
-    tune_info.tune_period = next_period;
+    tune_info.tune_period = block_period;
     TUNE_INFO.save(deps.storage, &tune_info)?;
 
     let attributes: Vec<Attribute> =
@@ -265,7 +265,7 @@ fn tune_emps(deps: DepsMut, env: Env, info: MessageInfo) -> ExecuteResult {
 
     Ok(Response::new()
         .add_attribute("action", "tune_emps")
-        .add_attribute("next_period", next_period.to_string())
+        .add_attribute("next_period", block_period.to_string())
         .add_attributes(attributes))
 }
 

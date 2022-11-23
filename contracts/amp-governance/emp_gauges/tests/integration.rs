@@ -63,41 +63,44 @@ fn add_points() -> Result<()> {
 
     assert_eq!("Invalid validator address: unknown-validator", result.root_cause().to_string());
 
-    let result = helper.emp_execute(
-        &mut router,
-        ExecuteMsg::AddEmps {
-            emps: vec![
-                (
-                    "val1".to_string(),
-                    vec![
-                        EmpInfo {
-                            decaying_period: Some(2 * 4), // 2 months
-                            umerit_points: Uint128::new(2000000),
-                        },
-                        EmpInfo {
-                            decaying_period: None,
-                            umerit_points: Uint128::new(1000000),
-                        },
-                    ],
-                ),
-                (
-                    "val2".to_string(),
-                    vec![
-                        EmpInfo {
-                            decaying_period: Some(2 * 4), // 2 months
-                            umerit_points: Uint128::new(1000000),
-                        },
-                        EmpInfo {
-                            decaying_period: None,
-                            umerit_points: Uint128::new(2000000),
-                        },
-                    ],
-                ),
-            ],
-        },
-    )?;
-    result.assert_attribute("wasm", attr("emps", "val1=3000000"))?;
-    result.assert_attribute("wasm", attr("emps", "val2=3000000"))?;
+    let result = helper
+        .emp_execute(
+            &mut router,
+            ExecuteMsg::AddEmps {
+                emps: vec![
+                    (
+                        "val1".to_string(),
+                        vec![
+                            EmpInfo {
+                                decaying_period: Some(2 * 4), // 2 months
+                                umerit_points: Uint128::new(2000000),
+                            },
+                            EmpInfo {
+                                decaying_period: None,
+                                umerit_points: Uint128::new(1000000),
+                            },
+                        ],
+                    ),
+                    (
+                        "val2".to_string(),
+                        vec![
+                            EmpInfo {
+                                decaying_period: Some(2 * 4), // 2 months
+                                umerit_points: Uint128::new(1000000),
+                            },
+                            EmpInfo {
+                                decaying_period: None,
+                                umerit_points: Uint128::new(2000000),
+                            },
+                        ],
+                    ),
+                ],
+            },
+        )
+        .unwrap();
+
+    result.assert_attribute("wasm", attr("emps", "val1=3000000")).unwrap();
+    result.assert_attribute("wasm", attr("emps", "val2=3000000")).unwrap();
 
     let old_period = router.block_period();
     router.next_period(4);
@@ -105,48 +108,50 @@ fn add_points() -> Result<()> {
     assert_eq!(old_period + 4, current_period);
 
     let result = helper.emp_execute(&mut router, ExecuteMsg::TuneEmps {}).unwrap();
-    result.assert_attribute("wasm", attr("emps", "val1=2000000"))?;
-    result.assert_attribute("wasm", attr("emps", "val2=2500000"))?;
+    result.assert_attribute("wasm", attr("emps", "val1=2000000")).unwrap();
+    result.assert_attribute("wasm", attr("emps", "val2=2500000")).unwrap();
 
-    let result = helper.emp_execute(
-        &mut router,
-        ExecuteMsg::AddEmps {
-            emps: vec![
-                (
-                    "val3".to_string(),
-                    vec![EmpInfo {
-                        decaying_period: Some(4), // 1 months
-                        umerit_points: Uint128::new(1000000),
-                    }],
-                ),
-                (
-                    "val2".to_string(),
-                    vec![EmpInfo {
-                        decaying_period: Some(4), // 1 months
-                        umerit_points: Uint128::new(1000000),
-                    }],
-                ),
-                (
-                    "val4".to_string(),
-                    vec![EmpInfo {
-                        decaying_period: None,
-                        umerit_points: Uint128::new(500000),
-                    }],
-                ),
-            ],
-        },
-    )?;
-    result.assert_attribute("wasm", attr("emps", "val1=2000000"))?;
-    result.assert_attribute("wasm", attr("emps", "val2=3500000"))?;
-    result.assert_attribute("wasm", attr("emps", "val3=1000000"))?;
-    result.assert_attribute("wasm", attr("emps", "val4=500000"))?;
+    let result = helper
+        .emp_execute(
+            &mut router,
+            ExecuteMsg::AddEmps {
+                emps: vec![
+                    (
+                        "val3".to_string(),
+                        vec![EmpInfo {
+                            decaying_period: Some(4), // 1 months
+                            umerit_points: Uint128::new(1000000),
+                        }],
+                    ),
+                    (
+                        "val2".to_string(),
+                        vec![EmpInfo {
+                            decaying_period: Some(4), // 1 months
+                            umerit_points: Uint128::new(1000000),
+                        }],
+                    ),
+                    (
+                        "val4".to_string(),
+                        vec![EmpInfo {
+                            decaying_period: None,
+                            umerit_points: Uint128::new(500000),
+                        }],
+                    ),
+                ],
+            },
+        )
+        .unwrap();
+    result.assert_attribute("wasm", attr("emps", "val1=2000000")).unwrap();
+    result.assert_attribute("wasm", attr("emps", "val2=3500000")).unwrap();
+    result.assert_attribute("wasm", attr("emps", "val3=1000000")).unwrap();
+    result.assert_attribute("wasm", attr("emps", "val4=500000")).unwrap();
 
-    let result = helper.emp_query_tune_info(&mut router)?;
+    let result = helper.emp_query_tune_info(&mut router).unwrap();
     assert_eq!(
         result,
         GaugeInfoResponse {
             tune_ts: 1669593600,
-            tune_period: 1,
+            tune_period: 4,
             emp_points: vec![
                 ("val2".to_string(), Uint128::new(3500000)),
                 ("val1".to_string(), Uint128::new(2000000)),
@@ -158,35 +163,35 @@ fn add_points() -> Result<()> {
 
     router.next_period(2);
     let result = helper.emp_execute(&mut router, ExecuteMsg::TuneEmps {}).unwrap();
-    result.assert_attribute("wasm", attr("emps", "val1=1500000"))?;
-    result.assert_attribute("wasm", attr("emps", "val2=2750000"))?;
-    result.assert_attribute("wasm", attr("emps", "val3=500000"))?;
-    result.assert_attribute("wasm", attr("emps", "val4=500000"))?;
+    result.assert_attribute("wasm", attr("emps", "val1=1500000")).unwrap();
+    result.assert_attribute("wasm", attr("emps", "val2=2750000")).unwrap();
+    result.assert_attribute("wasm", attr("emps", "val3=500000")).unwrap();
+    result.assert_attribute("wasm", attr("emps", "val4=500000")).unwrap();
 
     let result = helper.emp_execute(&mut router, ExecuteMsg::TuneEmps {}).unwrap();
-    result.assert_attribute("wasm", attr("emps", "val1=1500000"))?;
-    result.assert_attribute("wasm", attr("emps", "val2=2750000"))?;
-    result.assert_attribute("wasm", attr("emps", "val3=500000"))?;
-    result.assert_attribute("wasm", attr("emps", "val4=500000"))?;
+    result.assert_attribute("wasm", attr("emps", "val1=1500000")).unwrap();
+    result.assert_attribute("wasm", attr("emps", "val2=2750000")).unwrap();
+    result.assert_attribute("wasm", attr("emps", "val3=500000")).unwrap();
+    result.assert_attribute("wasm", attr("emps", "val4=500000")).unwrap();
 
     router.next_period(2);
     let result = helper.emp_execute(&mut router, ExecuteMsg::TuneEmps {}).unwrap();
-    result.assert_attribute("wasm", attr("emps", "val1=1000000"))?;
-    result.assert_attribute("wasm", attr("emps", "val2=2000000"))?;
-    result.assert_attribute("wasm", attr("emps", "val4=500000"))?;
+    result.assert_attribute("wasm", attr("emps", "val1=1000000")).unwrap();
+    result.assert_attribute("wasm", attr("emps", "val2=2000000")).unwrap();
+    result.assert_attribute("wasm", attr("emps", "val4=500000")).unwrap();
 
     router.next_period(4);
     let result = helper.emp_execute(&mut router, ExecuteMsg::TuneEmps {}).unwrap();
-    result.assert_attribute("wasm", attr("emps", "val1=1000000"))?;
-    result.assert_attribute("wasm", attr("emps", "val2=2000000"))?;
-    result.assert_attribute("wasm", attr("emps", "val4=500000"))?;
+    result.assert_attribute("wasm", attr("emps", "val1=1000000")).unwrap();
+    result.assert_attribute("wasm", attr("emps", "val2=2000000")).unwrap();
+    result.assert_attribute("wasm", attr("emps", "val4=500000")).unwrap();
 
     let result = helper.emp_execute(&mut router, ExecuteMsg::TuneEmps {}).unwrap();
-    result.assert_attribute("wasm", attr("emps", "val1=1000000"))?;
-    result.assert_attribute("wasm", attr("emps", "val2=2000000"))?;
-    result.assert_attribute("wasm", attr("emps", "val4=500000"))?;
+    result.assert_attribute("wasm", attr("emps", "val1=1000000")).unwrap();
+    result.assert_attribute("wasm", attr("emps", "val2=2000000")).unwrap();
+    result.assert_attribute("wasm", attr("emps", "val4=500000")).unwrap();
 
-    let result = helper.emp_query_validator_history(&mut router, "val1", 0)?;
+    let result = helper.emp_query_validator_history(&mut router, "val1", 0).unwrap();
     assert_eq!(
         result,
         VotedValidatorInfoResponse {
@@ -196,7 +201,7 @@ fn add_points() -> Result<()> {
         }
     );
 
-    let result = helper.emp_query_validator_history(&mut router, "val1", 1)?;
+    let result = helper.emp_query_validator_history(&mut router, "val1", 1).unwrap();
     assert_eq!(
         result,
         VotedValidatorInfoResponse {
@@ -206,7 +211,7 @@ fn add_points() -> Result<()> {
         }
     );
 
-    let result = helper.emp_query_validator_history(&mut router, "val4", 0)?;
+    let result = helper.emp_query_validator_history(&mut router, "val4", 0).unwrap();
     assert_eq!(
         result,
         VotedValidatorInfoResponse {
@@ -216,7 +221,7 @@ fn add_points() -> Result<()> {
         }
     );
 
-    let result = helper.emp_query_validator_history(&mut router, "val4", 2)?;
+    let result = helper.emp_query_validator_history(&mut router, "val4", 2).unwrap();
     assert_eq!(
         result,
         VotedValidatorInfoResponse {
@@ -226,7 +231,7 @@ fn add_points() -> Result<()> {
         }
     );
 
-    let result = helper.emp_query_validator_history(&mut router, "val4", 4)?;
+    let result = helper.emp_query_validator_history(&mut router, "val4", 4).unwrap();
     assert_eq!(
         result,
         VotedValidatorInfoResponse {
@@ -236,7 +241,7 @@ fn add_points() -> Result<()> {
         }
     );
 
-    let result = helper.emp_query_validator_history(&mut router, "val4", 5)?;
+    let result = helper.emp_query_validator_history(&mut router, "val4", 5).unwrap();
     assert_eq!(
         result,
         VotedValidatorInfoResponse {
@@ -254,47 +259,49 @@ fn check_kick_holders_works() -> Result<()> {
     let mut router = mock_app();
     let helper = EscrowHelper::init(&mut router);
 
-    let result = helper.emp_execute(
-        &mut router,
-        ExecuteMsg::AddEmps {
-            emps: vec![
-                (
-                    "val1".to_string(),
-                    vec![
-                        EmpInfo {
-                            decaying_period: Some(2 * 4), // 2 months
-                            umerit_points: Uint128::new(2000000),
-                        },
-                        EmpInfo {
-                            decaying_period: None,
-                            umerit_points: Uint128::new(1000000),
-                        },
-                    ],
-                ),
-                (
-                    "val2".to_string(),
-                    vec![
-                        EmpInfo {
-                            decaying_period: Some(2 * 4), // 2 months
-                            umerit_points: Uint128::new(1000000),
-                        },
-                        EmpInfo {
-                            decaying_period: None,
-                            umerit_points: Uint128::new(2000000),
-                        },
-                    ],
-                ),
-            ],
-        },
-    )?;
+    let result = helper
+        .emp_execute(
+            &mut router,
+            ExecuteMsg::AddEmps {
+                emps: vec![
+                    (
+                        "val1".to_string(),
+                        vec![
+                            EmpInfo {
+                                decaying_period: Some(2 * 4), // 2 months
+                                umerit_points: Uint128::new(2000000),
+                            },
+                            EmpInfo {
+                                decaying_period: None,
+                                umerit_points: Uint128::new(1000000),
+                            },
+                        ],
+                    ),
+                    (
+                        "val2".to_string(),
+                        vec![
+                            EmpInfo {
+                                decaying_period: Some(2 * 4), // 2 months
+                                umerit_points: Uint128::new(1000000),
+                            },
+                            EmpInfo {
+                                decaying_period: None,
+                                umerit_points: Uint128::new(2000000),
+                            },
+                        ],
+                    ),
+                ],
+            },
+        )
+        .unwrap();
 
-    result.assert_attribute("wasm", attr("emps", "val1=3000000"))?;
-    result.assert_attribute("wasm", attr("emps", "val2=3000000"))?;
+    result.assert_attribute("wasm", attr("emps", "val1=3000000")).unwrap();
+    result.assert_attribute("wasm", attr("emps", "val2=3000000")).unwrap();
 
-    helper.hub_remove_validator(&mut router, "val2")?;
+    helper.hub_remove_validator(&mut router, "val2").unwrap();
 
     let result = helper.emp_execute(&mut router, ExecuteMsg::TuneEmps {}).unwrap();
-    result.assert_attribute("wasm", attr("emps", "val1=3000000"))?;
+    result.assert_attribute("wasm", attr("emps", "val1=3000000")).unwrap();
     let err = result.assert_attribute("wasm", attr("emps", "val2=3000000")).unwrap_err();
     assert_eq!(err.to_string(), "Could not find key: emps value: val2=3000000");
 
@@ -306,49 +313,55 @@ fn add_points_later() -> Result<()> {
     let mut router = mock_app();
     let helper = EscrowHelper::init(&mut router);
 
-    let result = helper.emp_execute(
-        &mut router,
-        ExecuteMsg::AddEmps {
-            emps: vec![(
-                "val2".to_string(),
-                vec![EmpInfo {
-                    decaying_period: None,
-                    umerit_points: Uint128::new(1000000),
-                }],
-            )],
-        },
-    )?;
-    result.assert_attribute("wasm", attr("emps", "val2=1000000"))?;
+    let result = helper
+        .emp_execute(
+            &mut router,
+            ExecuteMsg::AddEmps {
+                emps: vec![(
+                    "val2".to_string(),
+                    vec![EmpInfo {
+                        decaying_period: None,
+                        umerit_points: Uint128::new(1000000),
+                    }],
+                )],
+            },
+        )
+        .unwrap();
+    result.assert_attribute("wasm", attr("emps", "val2=1000000")).unwrap();
 
     router.next_period(4);
 
-    let result = helper.emp_execute(
-        &mut router,
-        ExecuteMsg::AddEmps {
-            emps: vec![(
-                "val2".to_string(),
-                vec![EmpInfo {
-                    decaying_period: None,
-                    umerit_points: Uint128::new(2000000),
-                }],
-            )],
-        },
-    )?;
-    result.assert_attribute("wasm", attr("emps", "val2=3000000"))?;
+    let result = helper
+        .emp_execute(
+            &mut router,
+            ExecuteMsg::AddEmps {
+                emps: vec![(
+                    "val2".to_string(),
+                    vec![EmpInfo {
+                        decaying_period: None,
+                        umerit_points: Uint128::new(2000000),
+                    }],
+                )],
+            },
+        )
+        .unwrap();
+    result.assert_attribute("wasm", attr("emps", "val2=3000000")).unwrap();
 
-    let result = helper.emp_execute(
-        &mut router,
-        ExecuteMsg::AddEmps {
-            emps: vec![(
-                "val2".to_string(),
-                vec![EmpInfo {
-                    decaying_period: None,
-                    umerit_points: Uint128::new(2000000),
-                }],
-            )],
-        },
-    )?;
-    result.assert_attribute("wasm", attr("emps", "val2=5000000"))?;
+    let result = helper
+        .emp_execute(
+            &mut router,
+            ExecuteMsg::AddEmps {
+                emps: vec![(
+                    "val2".to_string(),
+                    vec![EmpInfo {
+                        decaying_period: None,
+                        umerit_points: Uint128::new(2000000),
+                    }],
+                )],
+            },
+        )
+        .unwrap();
+    result.assert_attribute("wasm", attr("emps", "val2=5000000")).unwrap();
 
     Ok(())
 }
