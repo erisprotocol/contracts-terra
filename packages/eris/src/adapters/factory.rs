@@ -15,9 +15,10 @@ impl Factory {
         offer_asset: &Asset,
         wanted: &AssetInfo,
         max_spread: Decimal,
+        to: Option<String>,
     ) -> StdResult<CosmosMsg> {
         let pair_info = self.get_pair(querier, offer_asset, wanted)?;
-        Pair(pair_info.contract_addr).swap_msg(offer_asset, None, Some(max_spread), None)
+        Pair(pair_info.contract_addr).swap_msg(offer_asset, None, Some(max_spread), to)
     }
 
     pub fn simulate(
