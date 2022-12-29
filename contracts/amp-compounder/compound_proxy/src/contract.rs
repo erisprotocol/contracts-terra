@@ -1,9 +1,10 @@
 use crate::error::ContractError;
-use crate::execute::{compound, handle_callback, update_config};
+use crate::execute::{compound, handle_callback, multi_swap, update_config};
 use crate::queries::{get_lp, get_lp_state, get_lps, get_routes, query_config};
 use crate::simulation::query_compound_simulation;
 use crate::state::{Config, State};
 
+use astroport::asset::addr_opt_validate;
 use astroport::common::{claim_ownership, drop_ownership_proposal, propose_new_owner};
 use cosmwasm_std::{
     entry_point, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
@@ -66,11 +67,8 @@ pub fn execute(
             slippage_tolerance,
             lp_token,
         } => {
-            let receiver_addr = if let Some(receiver) = receiver {
-                Some(deps.api.addr_validate(&receiver)?)
-            } else {
-                None
-            };
+            let receiver_addr = addr_opt_validate(deps.api, &receiver)?;
+
             compound(
                 deps,
                 env,
@@ -81,6 +79,16 @@ pub fn execute(
                 slippage_tolerance,
                 lp_token,
             )
+        },
+
+        ExecuteMsg::MultiSwap {
+            into,
+            assets,
+            receiver,
+        } => {
+            let receiver_addr = addr_opt_validate(deps.api, &receiver)?;
+
+            multi_swap(deps, env, info.clone(), into, assets, receiver_addr.unwrap_or(info.sender))
         },
 
         ExecuteMsg::UpdateConfig {

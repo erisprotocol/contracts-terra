@@ -138,7 +138,7 @@ pub fn stake(
 
     let staking_token = config.lp_token;
 
-    let balance = query_token_balance(&deps.querier, &staking_token, &env.contract.address)?;
+    let balance = query_token_balance(&deps.querier, &staking_token, env.contract.address)?;
     let amount = balance - prev_balance;
 
     if let Some(minimum_receive) = minimum_receive {

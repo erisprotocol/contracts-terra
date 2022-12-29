@@ -67,6 +67,31 @@
         }
       },
       "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "send_swap_result"
+      ],
+      "properties": {
+        "send_swap_result": {
+          "type": "object",
+          "required": [
+            "receiver",
+            "token"
+          ],
+          "properties": {
+            "receiver": {
+              "type": "string"
+            },
+            "token": {
+              "$ref": "#/definitions/AssetInfo"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     }
   ],
   "definitions": {

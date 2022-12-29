@@ -71,17 +71,15 @@ pub enum ExecuteMsg {
         /// slippage tolerance when providing LP
         slippage_tolerance: Option<Decimal>,
     },
-    // /// Swaps a number of assets to a single result
-    // Swap {
-    //     /// LP into which the assets should be compounded into
-    //     into: AssetInfo,
-    //     /// List of reward asset send to compound
-    //     rewards: Vec<Asset>,
-    //     /// Receiver address for LP token
-    //     receiver: Option<String>,
-    //     /// slippage tolerance when providing LP
-    //     slippage_tolerance: Option<Decimal>,
-    // },
+    /// Swaps a number of assets to a single result
+    MultiSwap {
+        /// LP into which the assets should be compounded into
+        into: AssetInfo,
+        /// List of reward asset send to compound
+        assets: Vec<Asset>,
+        /// Receiver address for LP token
+        receiver: Option<String>,
+    },
     /// Creates a request to change the contract's ownership
     ProposeNewOwner {
         /// The newly proposed owner
@@ -135,6 +133,10 @@ pub enum CallbackMsg {
         receiver: String,
         slippage_tolerance: Option<Decimal>,
         lp_token: String,
+    },
+    SendSwapResult {
+        token: AssetInfo,
+        receiver: String,
     },
 }
 

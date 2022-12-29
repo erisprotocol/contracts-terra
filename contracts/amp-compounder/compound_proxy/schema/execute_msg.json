@@ -60,6 +60,48 @@
       "additionalProperties": false
     },
     {
+      "description": "Swaps a number of assets to a single result",
+      "type": "object",
+      "required": [
+        "multi_swap"
+      ],
+      "properties": {
+        "multi_swap": {
+          "type": "object",
+          "required": [
+            "assets",
+            "into"
+          ],
+          "properties": {
+            "assets": {
+              "description": "List of reward asset send to compound",
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Asset"
+              }
+            },
+            "into": {
+              "description": "LP into which the assets should be compounded into",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/AssetInfo"
+                }
+              ]
+            },
+            "receiver": {
+              "description": "Receiver address for LP token",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
       "description": "Creates a request to change the contract's ownership",
       "type": "object",
       "required": [
@@ -334,6 +376,31 @@
                       "type": "null"
                     }
                   ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "send_swap_result"
+          ],
+          "properties": {
+            "send_swap_result": {
+              "type": "object",
+              "required": [
+                "receiver",
+                "token"
+              ],
+              "properties": {
+                "receiver": {
+                  "type": "string"
+                },
+                "token": {
+                  "$ref": "#/definitions/AssetInfo"
                 }
               },
               "additionalProperties": false

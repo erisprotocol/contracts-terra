@@ -49,23 +49,22 @@ pub fn compound(
             // if it is already one of the target assets, let optimal swap handle it
         } else {
             let key = (reward.info.as_bytes(), lp_config.wanted_token.as_bytes());
-            let route_config = state.routes.load(deps.storage, key).map_err(|_| {
-                StdError::generic_err(format!(
-                    "did not find route {0}-{1}",
-                    reward.info.clone(),
-                    lp_config.wanted_token
-                ))
-            });
+            let route_config = state.routes.load(deps.storage, key);
 
             if let Ok(route_config) = route_config {
-                messages.push(route_config.create_swap(&reward, Decimal::percent(MAX_SPREAD))?);
+                messages.push(route_config.create_swap(
+                    &reward,
+                    Decimal::percent(MAX_SPREAD),
+                    None,
+                )?);
             } else if let Some(factory) = &factory {
                 // if factory is set, allowed to query pairs from factory
                 messages.push(factory.create_swap(
                     &deps.querier,
                     &reward,
                     &lp_config.wanted_token,
-                    Decimal::percent(50u64),
+                    Decimal::percent(MAX_SPREAD),
+                    None,
                 )?);
             } else {
                 return Err(StdError::generic_err(format!(
@@ -115,6 +114,74 @@ pub fn compound(
     Ok(Response::new().add_messages(messages).add_attribute("action", "compound"))
 }
 
+#[allow(clippy::too_many_arguments)]
+pub fn multi_swap(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    into: AssetInfo,
+    rewards: Vec<Asset>,
+    receiver: Addr,
+) -> Result<Response, ContractError> {
+    let state = State::default();
+    let factory: Option<Factory> = state.config.load(deps.storage)?.factory;
+
+    let mut messages: Vec<CosmosMsg> = vec![];
+
+    let wanted_token = into;
+
+    let mut send_back = false;
+
+    // Swap reward to asset in the pair
+    for reward in rewards {
+        reward.deposit_asset(&info, &env.contract.address, &mut messages)?;
+
+        if reward.info == wanted_token {
+            // if it is already the target assets, do nothing and send back
+            send_back = true;
+        } else {
+            let key = (reward.info.as_bytes(), wanted_token.as_bytes());
+            let route_config = state.routes.load(deps.storage, key);
+
+            if let Ok(route_config) = route_config {
+                messages.push(route_config.create_swap(
+                    &reward,
+                    Decimal::percent(MAX_SPREAD),
+                    Some(receiver.clone()),
+                )?);
+            } else if let Some(factory) = &factory {
+                // if factory is set, allowed to query pairs from factory
+                messages.push(factory.create_swap(
+                    &deps.querier,
+                    &reward,
+                    &wanted_token,
+                    Decimal::percent(MAX_SPREAD),
+                    Some(receiver.to_string()),
+                )?);
+            } else {
+                return Err(StdError::generic_err(format!(
+                    "did not find route {0}-{1}",
+                    reward.info.clone(),
+                    wanted_token
+                ))
+                .into());
+            }
+        }
+    }
+
+    if send_back {
+        messages.push(
+            CallbackMsg::SendSwapResult {
+                token: wanted_token,
+                receiver: receiver.to_string(),
+            }
+            .into_cosmos_msg(&env.contract.address)?,
+        );
+    }
+
+    Ok(Response::new().add_messages(messages).add_attribute("action", "multi_swap"))
+}
+
 /// # Description
 /// Handle the callbacks describes in the [`CallbackMsg`]. Returns an [`ContractError`] on failure, otherwise returns the [`Response`]
 pub fn handle_callback(
@@ -139,6 +206,10 @@ pub fn handle_callback(
         } => {
             provide_liquidity(deps, env, info, prev_balances, receiver, slippage_tolerance, lp_addr)
         },
+        CallbackMsg::SendSwapResult {
+            token,
+            receiver,
+        } => send_swap_result(deps, env, info, token, receiver),
     }
 }
 
@@ -170,6 +241,22 @@ fn optimal_swap(
     }
 
     Ok(Response::new().add_messages(messages).add_attribute("action", "optimal_swap"))
+}
+
+// returns the token back to the sender
+fn send_swap_result(
+    deps: DepsMut,
+    env: Env,
+    _info: MessageInfo,
+    token: AssetInfo,
+    receiver: String,
+) -> Result<Response, ContractError> {
+    let amount = token.query_pool(&deps.querier, env.contract.address)?;
+    let return_amount = token.with_balance(amount);
+
+    Ok(Response::new()
+        .add_message(return_amount.into_msg(&deps.querier, receiver)?)
+        .add_attribute("action", "send_swap_result"))
 }
 
 /// # Description
@@ -409,12 +496,12 @@ pub fn update_config(
                 }
             }
 
-            if let Some(removed_routes) = delete_routes {
-                for removed_route in removed_routes {
-                    state.remove_route(
+            if let Some(delete_routes) = delete_routes {
+                for delete_route in delete_routes {
+                    state.delete_route(
                         &mut deps,
-                        (removed_route.from, removed_route.to),
-                        removed_route.both.unwrap_or(true),
+                        (delete_route.from, delete_route.to),
+                        delete_route.both.unwrap_or(true),
                     )?;
                 }
             }

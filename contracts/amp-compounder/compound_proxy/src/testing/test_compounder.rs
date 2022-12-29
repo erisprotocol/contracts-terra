@@ -449,7 +449,7 @@ fn add_remove_routes() -> StdResult<()> {
             delete_routes: Some(vec![RouteDelete {
                 from: astro(),
                 to: uluna(),
-                both: Some(false),
+                both: Some(true),
             }]),
             insert_routes: Some(vec![RouteInit::Path {
                 router: "router".to_string(),
@@ -728,7 +728,10 @@ fn compound_token_path() -> Result<(), ContractError> {
     );
 
     assert_eq!(res.messages[1].msg, transfer);
-    assert_eq!(res.messages[2].msg, config.create_swap(&astro_amount(109), Decimal::percent(50))?);
+    assert_eq!(
+        res.messages[2].msg,
+        config.create_swap(&astro_amount(109), Decimal::percent(50), None)?
+    );
 
     match res.messages[3].msg.clone() {
         CosmosMsg::Wasm(WasmMsg::Execute {
