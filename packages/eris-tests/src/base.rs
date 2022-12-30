@@ -138,6 +138,7 @@ impl BaseErisTestPackage {
             ],
             protocol_fee_contract: "fee".to_string(),
             protocol_reward_fee: Decimal::from_ratio(1u128, 100u128),
+            delegation_strategy: None,
         };
 
         let instance =
@@ -252,7 +253,7 @@ impl BaseErisTestPackage {
                     protocol_reward_fee: None,
                     delegation_strategy: Some(eris::hub::DelegationStrategy::Gauges {
                         amp_gauges: self.amp_gauges.get_address_string(),
-                        emp_gauges: self.emp_gauges.get_address_string(),
+                        emp_gauges: Some(self.emp_gauges.get_address_string()),
                         amp_factor_bps: 5000,
                         min_delegation_bps: 100,
                         max_delegation_bps: 2500,
