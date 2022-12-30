@@ -52,7 +52,7 @@ pub fn execute_deposit(
             }
             .to_cosmos_msg(&env.contract.address)?,
         )
-        .add_attribute("action", "deposit"))
+        .add_attribute("action", "ampg/deposit"))
 }
 
 pub fn execute_withdraw(
@@ -93,7 +93,7 @@ pub fn execute_withdraw(
             }
             .to_cosmos_msg(&env.contract.address)?,
         )
-        .add_attribute("action", "withdraw"))
+        .add_attribute("action", "ampg/withdraw"))
 }
 
 pub fn execute_claim_rewards(
@@ -133,7 +133,7 @@ pub fn execute_claim_rewards(
         );
     }
 
-    Ok(Response::new().add_messages(messages).add_attribute("action", "claim_rewards"))
+    Ok(Response::new().add_messages(messages).add_attribute("action", "ampg/claim_rewards"))
 }
 
 fn fetch_balance(

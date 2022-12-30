@@ -215,7 +215,7 @@ pub fn execute(
                 validate_whitelist_links(&whitelist)?;
                 config.logo_urls_whitelist = whitelist;
                 CONFIG.save(deps.storage, &config)?;
-                Ok(Response::default().add_attribute("action", "set_logo_urls_whitelist"))
+                Ok(Response::default().add_attribute("action", "veamp/set_logo_urls_whitelist"))
             }
         },
         ExecuteMsg::UpdateConfig {
@@ -421,7 +421,7 @@ fn receive_cw20(
         Cw20HookMsg::DepositFor {
             user,
         } => {
-            let addr = addr_validate_to_lower(deps.api, &user)?;
+            let addr = addr_validate_to_lower(deps.api, user)?;
             assert_blacklist(deps.storage, &addr)?;
             deposit_for(deps, env, cw20_msg.amount, addr)
         },
@@ -473,7 +473,7 @@ fn create_lock(
     let lock_info = get_user_lock_info(deps.as_ref(), &env, user.to_string())?;
 
     Ok(Response::default()
-        .add_attribute("action", "create_lock")
+        .add_attribute("action", "veamp/create_lock")
         .add_attribute("voting_power", lock_info.voting_power.to_string())
         .add_attribute("fixed_power", lock_info.fixed_amount.to_string())
         .add_attribute("lock_end", lock_info.end.to_string())
@@ -512,7 +512,7 @@ fn deposit_for(
     let lock_info = get_user_lock_info(deps.as_ref(), &env, user.to_string())?;
 
     Ok(Response::default()
-        .add_attribute("action", "deposit_for")
+        .add_attribute("action", "veamp/deposit_for")
         .add_attribute("voting_power", lock_info.voting_power.to_string())
         .add_attribute("fixed_power", lock_info.fixed_amount.to_string())
         .add_attribute("lock_end", lock_info.end.to_string())
@@ -577,7 +577,7 @@ fn withdraw(deps: DepsMut, env: Env, info: MessageInfo) -> Result<Response, Cont
         Ok(Response::default()
             .add_message(transfer_msg)
             .add_messages(msgs)
-            .add_attribute("action", "withdraw"))
+            .add_attribute("action", "veamp/withdraw"))
     }
 }
 
@@ -675,7 +675,7 @@ fn extend_lock_time(
     let lock_info = get_user_lock_info(deps.as_ref(), &env, user.to_string())?;
 
     Ok(Response::default()
-        .add_attribute("action", "extend_lock_time")
+        .add_attribute("action", "veamp/extend_lock_time")
         .add_attribute("voting_power", lock_info.voting_power.to_string())
         .add_attribute("fixed_power", lock_info.fixed_amount.to_string())
         .add_attribute("lock_end", lock_info.end.to_string())
@@ -786,7 +786,7 @@ fn update_blacklist(
         Ok(updated_blacklist)
     })?;
 
-    let mut attrs = vec![attr("action", "update_blacklist")];
+    let mut attrs = vec![attr("action", "veamp/update_blacklist")];
     if !append_addrs.is_empty() {
         attrs.push(attr("added_addresses", append_addrs.join(",")))
     }
@@ -819,7 +819,7 @@ fn execute_update_config(
     }
 
     if let Some(new_guardian) = new_guardian {
-        cfg.guardian_addr = Some(addr_validate_to_lower(deps.api, &new_guardian)?);
+        cfg.guardian_addr = Some(addr_validate_to_lower(deps.api, new_guardian)?);
     }
 
     if let Some(push_update_contracts) = push_update_contracts {
@@ -831,7 +831,7 @@ fn execute_update_config(
 
     CONFIG.save(deps.storage, &cfg)?;
 
-    Ok(Response::default().add_attribute("action", "execute_update_config"))
+    Ok(Response::default().add_attribute("action", "veamp/execute_update_config"))
 }
 
 /// Expose available contract queries.
@@ -963,7 +963,7 @@ pub fn get_blacklisted_voters(
 ///
 /// * **user** user for which we return lock information.
 fn get_user_lock_info(deps: Deps, env: &Env, user: String) -> StdResult<LockInfoResponse> {
-    let addr = addr_validate_to_lower(deps.api, &user)?;
+    let addr = addr_validate_to_lower(deps.api, user)?;
     if let Some(lock) = LOCKED.may_load(deps.storage, addr.clone())? {
         let cur_period = get_period(env.block.time.seconds())?;
 
@@ -1004,7 +1004,7 @@ fn get_user_lock_info(deps: Deps, env: &Env, user: String) -> StdResult<LockInfo
 ///
 /// * **block_height** block height at which we return the staked xASTRO amount.
 fn get_user_deposit_at_height(deps: Deps, user: String, block_height: u64) -> StdResult<Uint128> {
-    let addr = addr_validate_to_lower(deps.api, &user)?;
+    let addr = addr_validate_to_lower(deps.api, user)?;
     let locked_opt = LOCKED.may_load_at_height(deps.storage, addr, block_height)?;
     if let Some(lock) = locked_opt {
         Ok(lock.amount)
@@ -1039,7 +1039,7 @@ fn get_user_vamp_at_period(
     user: String,
     period: u64,
 ) -> StdResult<VotingPowerResponse> {
-    let user = addr_validate_to_lower(deps.api, &user)?;
+    let user = addr_validate_to_lower(deps.api, user)?;
     let last_checkpoint = fetch_last_checkpoint(deps.storage, &user, period)?;
 
     if let Some(point) = last_checkpoint.map(|(_, point)| point) {

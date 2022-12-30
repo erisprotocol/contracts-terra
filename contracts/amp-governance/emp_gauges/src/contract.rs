@@ -198,7 +198,7 @@ fn add_emps(
 
     Ok(Response::new()
         .add_message(get_tune_msg(env.contract.address.to_string())?)
-        .add_attribute("action", "vote"))
+        .add_attribute("action", "emp/vote"))
 }
 
 /// The function checks that the last pools tuning happened >= 14 days ago.
@@ -264,7 +264,7 @@ fn tune_emps(deps: DepsMut, env: Env, info: MessageInfo) -> ExecuteResult {
         tune_info.emp_points.iter().map(|a| attr("emps", format!("{0}={1}", a.0, a.1))).collect();
 
     Ok(Response::new()
-        .add_attribute("action", "tune_emps")
+        .add_attribute("action", "emp/tune_emps")
         .add_attribute("next_period", block_period.to_string())
         .add_attributes(attributes))
 }
@@ -289,7 +289,7 @@ fn update_config(deps: DepsMut, info: MessageInfo, validators_limit: Option<u64>
 
     CONFIG.save(deps.storage, &config)?;
 
-    Ok(Response::default().add_attribute("action", "update_config"))
+    Ok(Response::default().add_attribute("action", "emp/update_config"))
 }
 
 /// Expose available contract queries.

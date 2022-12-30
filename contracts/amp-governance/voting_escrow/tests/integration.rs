@@ -726,7 +726,7 @@ fn check_blacklist() {
 
     // Blacklisting user2
     let res = helper.update_blacklist(router_ref, Some(vec!["user2".to_string()]), None).unwrap();
-    assert_eq!(res.events[1].attributes[1], attr("action", "update_blacklist"));
+    assert_eq!(res.events[1].attributes[1], attr("action", "veamp/update_blacklist"));
     assert_eq!(res.events[1].attributes[2], attr("added_addresses", "user2"));
 
     helper.create_lock(router_ref, "user1", WEEK * 10, 50f32).unwrap();
@@ -758,7 +758,7 @@ fn check_blacklist() {
     let res = router_ref
         .execute_contract(Addr::unchecked("guardian"), helper.voting_instance.clone(), &msg, &[])
         .unwrap();
-    assert_eq!(res.events[1].attributes[1], attr("action", "update_blacklist"));
+    assert_eq!(res.events[1].attributes[1], attr("action", "veamp/update_blacklist"));
     assert_eq!(res.events[1].attributes[2], attr("added_addresses", "user1"));
 
     // user1 is now blacklisted
@@ -791,7 +791,7 @@ fn check_blacklist() {
 
     // Remove user1 from the blacklist
     let res = helper.update_blacklist(router_ref, None, Some(vec!["user1".to_string()])).unwrap();
-    assert_eq!(res.events[1].attributes[1], attr("action", "update_blacklist"));
+    assert_eq!(res.events[1].attributes[1], attr("action", "veamp/update_blacklist"));
     assert_eq!(res.events[1].attributes[2], attr("removed_addresses", "user1"));
 
     // Now user1 can create a new lock

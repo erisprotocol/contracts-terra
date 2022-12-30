@@ -111,7 +111,7 @@ pub fn compound(
         .into_cosmos_msg(&env.contract.address)?,
     );
 
-    Ok(Response::new().add_messages(messages).add_attribute("action", "compound"))
+    Ok(Response::new().add_messages(messages).add_attribute("action", "ampc/compound"))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -179,7 +179,7 @@ pub fn multi_swap(
         );
     }
 
-    Ok(Response::new().add_messages(messages).add_attribute("action", "multi_swap"))
+    Ok(Response::new().add_messages(messages).add_attribute("action", "ampc/multi_swap"))
 }
 
 /// # Description
@@ -240,7 +240,7 @@ fn optimal_swap(
         },
     }
 
-    Ok(Response::new().add_messages(messages).add_attribute("action", "optimal_swap"))
+    Ok(Response::new().add_messages(messages).add_attribute("action", "ampc/optimal_swap"))
 }
 
 // returns the token back to the sender
@@ -256,7 +256,7 @@ fn send_swap_result(
 
     Ok(Response::new()
         .add_message(return_amount.into_msg(&deps.querier, receiver)?)
-        .add_attribute("action", "send_swap_result"))
+        .add_attribute("action", "ampc/send_swap_result"))
 }
 
 /// # Description
@@ -402,7 +402,7 @@ pub fn provide_liquidity(
 
     Ok(Response::new()
         .add_messages(messages)
-        .add_attribute("action", "provide_liquidity")
+        .add_attribute("action", "ampc/provide_liquidity")
         .add_attribute("receiver", receiver))
 }
 

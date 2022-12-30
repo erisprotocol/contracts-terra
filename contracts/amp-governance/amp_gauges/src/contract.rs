@@ -212,7 +212,7 @@ fn handle_vote(
         user,
     )?;
 
-    Ok(Response::new().add_attribute("action", "vote").add_attribute("vAMP", vamp))
+    Ok(Response::new().add_attribute("action", "vamp/vote").add_attribute("vAMP", vamp))
 }
 
 fn apply_votest_of_user(
@@ -331,7 +331,7 @@ fn update_vote(
             };
             USER_INFO.save(deps.storage, &user, &user_info)?;
 
-            return Ok(Response::new().add_attribute("action", "update_vote_removed"));
+            return Ok(Response::new().add_attribute("action", "vamp/update_vote_removed"));
         }
 
         let vamp = lock.voting_power + lock.fixed_amount;
@@ -346,11 +346,11 @@ fn update_vote(
         )?;
 
         return Ok(Response::new()
-            .add_attribute("action", "update_vote_changed")
+            .add_attribute("action", "vamp/update_vote_changed")
             .add_attribute("vAMP", vamp));
     }
 
-    Ok(Response::new().add_attribute("action", "update_vote_noop"))
+    Ok(Response::new().add_attribute("action", "vamp/update_vote_noop"))
 }
 
 fn remove_user(deps: DepsMut, env: Env, info: MessageInfo, user: String) -> ExecuteResult {
@@ -371,11 +371,11 @@ fn remove_user(deps: DepsMut, env: Env, info: MessageInfo, user: String) -> Exec
             "ok".to_string()
         };
         return Ok(Response::new()
-            .add_attribute("action", "remove_user")
+            .add_attribute("action", "vamp/remove_user")
             .add_attribute("remove_votes", msg));
     }
 
-    Ok(Response::new().add_attribute("action", "remove_user_noop"))
+    Ok(Response::new().add_attribute("action", "vamp/remove_user_noop"))
 }
 
 /// The function checks that the last pools tuning happened >= 14 days ago.
@@ -441,7 +441,7 @@ fn tune_vamp(deps: DepsMut, env: Env, info: MessageInfo) -> ExecuteResult {
     let attributes: Vec<Attribute> =
         tune_info.vamp_points.iter().map(|a| attr("vamp", format!("{0}={1}", a.0, a.1))).collect();
 
-    Ok(Response::new().add_attribute("action", "tune_vamp").add_attributes(attributes))
+    Ok(Response::new().add_attribute("action", "vamp/tune_vamp").add_attributes(attributes))
 }
 
 /// Only contract owner can call this function.  
@@ -465,7 +465,7 @@ fn update_config(deps: DepsMut, info: MessageInfo, validators_limit: Option<u64>
 
     CONFIG.save(deps.storage, &config)?;
 
-    Ok(Response::default().add_attribute("action", "update_config"))
+    Ok(Response::default().add_attribute("action", "vamp/update_config"))
 }
 
 /// Expose available contract queries.
@@ -504,7 +504,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
 
 /// Returns user information.
 fn user_info(deps: Deps, user: String) -> StdResult<UserInfoResponse> {
-    let user_addr = addr_validate_to_lower(deps.api, &user)?;
+    let user_addr = addr_validate_to_lower(deps.api, user)?;
     USER_INFO
         .may_load(deps.storage, &user_addr)?
         .map(UserInfo::into_response)
