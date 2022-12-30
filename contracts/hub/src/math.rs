@@ -342,11 +342,7 @@ pub(crate) fn reconcile_batches(batches: &mut [Batch], uluna_to_deduct: Uint128)
     let remainder = uluna_to_deduct.u128() % batch_count;
 
     for (i, batch) in batches.iter_mut().enumerate() {
-        let remainder_for_batch: u128 = if (i + 1) as u128 <= remainder {
-            1
-        } else {
-            0
-        };
+        let remainder_for_batch: u128 = u128::from((i + 1) as u128 <= remainder);
         let uluna_for_batch = uluna_per_batch + remainder_for_batch;
 
         batch.uluna_unclaimed -= Uint128::new(uluna_for_batch);

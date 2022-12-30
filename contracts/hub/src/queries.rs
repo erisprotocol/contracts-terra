@@ -43,7 +43,7 @@ pub fn config(deps: Deps) -> StdResult<ConfigResponse> {
                 validator_count,
             } => eris::hub::DelegationStrategy::Gauges {
                 amp_gauges: amp_gauges.to_string(),
-                emp_gauges: emp_gauges.to_string(),
+                emp_gauges: emp_gauges.map(|a| a.to_string()),
                 amp_factor_bps,
                 min_delegation_bps,
                 max_delegation_bps,

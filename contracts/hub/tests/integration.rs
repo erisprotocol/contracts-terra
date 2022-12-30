@@ -38,7 +38,7 @@ fn update_configs() -> Result<()> {
             },
             delegation_strategy: eris::hub::DelegationStrategy::Gauges {
                 amp_gauges: helper.base.amp_gauges.get_address_string(),
-                emp_gauges: helper.base.emp_gauges.get_address_string(),
+                emp_gauges: Some(helper.base.emp_gauges.get_address_string()),
                 amp_factor_bps: 5000,
                 min_delegation_bps: 100,
                 max_delegation_bps: 2500,

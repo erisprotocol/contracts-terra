@@ -169,38 +169,38 @@ pub(crate) fn get_wanted_delegations(
             max_delegation_bps,
             validator_count,
         } => {
-            let vamp_info = loader.get_amp_tune_info(querier, amp_gauges)?;
-            let emp_info = loader.get_emp_tune_info(querier, emp_gauges)?;
-
-            let amp_factor = BasicPoints::try_from(amp_factor_bps)?.decimal();
-            let emp_factor = Decimal::one().checked_sub(amp_factor)?;
             let min_delegation = BasicPoints::try_from(min_delegation_bps)?.decimal();
             let max_delegation = BasicPoints::try_from(max_delegation_bps)?.decimal();
 
-            let sum_vamp: Uint128 = vamp_info.vamp_points.iter().map(|a| a.1).sum();
-            let sum_emps: Uint128 = emp_info.emp_points.iter().map(|a| a.1).sum();
+            let vamp_factor = BasicPoints::try_from(amp_factor_bps)?.decimal();
+            let emp_factor = Decimal::one().checked_sub(vamp_factor)?;
 
-            let vamp_points: HashMap<_, _> =
-                vamp_info.vamp_points.into_iter().map(|v| (v.0.to_string(), v.1)).collect();
-
-            let emp_points: HashMap<_, _> =
-                emp_info.emp_points.into_iter().map(|v| (v.0.to_string(), v.1)).collect();
+            let vamp_context = Context::from_amps(&loader, querier, amp_gauges)?;
+            let emp_context = Context::from_emps(&loader, querier, emp_gauges)?;
 
             let validators: Vec<_> = state
                 .validators
                 .load(storage)?
                 .into_iter()
                 .map(|val| -> StdResult<(String, Decimal, Decimal)> {
-                    let vamp = vamp_points.get(&val).copied().unwrap_or(Uint128::zero());
-                    let emp = emp_points.get(&val).copied().unwrap_or(Uint128::zero());
+                    let vamp = vamp_context.points.get(&val).copied().unwrap_or_default();
 
-                    let vamp_score = amp_factor.checked_mul(Decimal::from_ratio(vamp, sum_vamp))?;
-                    let emp_score = emp_factor.checked_mul(Decimal::from_ratio(emp, sum_emps))?;
+                    let total_share = if let Some(emp_context) = &emp_context {
+                        let vamp_share =
+                            vamp_factor.checked_mul(Decimal::from_ratio(vamp, vamp_context.sum))?;
 
-                    let total_score = vamp_score.checked_add(emp_score)?;
-                    let score = Decimal::min(total_score, max_delegation);
+                        let emp = emp_context.points.get(&val).copied().unwrap_or(Uint128::zero());
+                        let emp_share =
+                            emp_factor.checked_mul(Decimal::from_ratio(emp, emp_context.sum))?;
 
-                    Ok((val, score, total_score))
+                        vamp_share.checked_add(emp_share)?
+                    } else {
+                        Decimal::from_ratio(vamp, vamp_context.sum)
+                    };
+
+                    let score = Decimal::min(total_share, max_delegation);
+
+                    Ok((val, score, total_share))
                 })
                 .collect::<StdResult<Vec<_>>>()?
                 .into_iter()
@@ -231,5 +231,48 @@ pub(crate) fn get_wanted_delegations(
                 true,
             ))
         },
+    }
+}
+
+struct Context {
+    pub sum: Uint128,
+    pub points: HashMap<String, Uint128>,
+}
+
+impl Context {
+    pub fn from_emps(
+        loader: &impl GaugeLoader,
+        querier: &QuerierWrapper,
+        emp_gauges: Option<Addr>,
+    ) -> StdResult<Option<Context>> {
+        if let Some(emp_gauges) = emp_gauges {
+            let emp_info = loader.get_emp_tune_info(querier, emp_gauges)?;
+            let emp_sum: Uint128 = emp_info.emp_points.iter().map(|a| a.1).sum();
+            let emp_points: HashMap<_, _> =
+                emp_info.emp_points.into_iter().map(|v| (v.0.to_string(), v.1)).collect();
+
+            Ok(Some(Self {
+                sum: emp_sum,
+                points: emp_points,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn from_amps(
+        loader: &impl GaugeLoader,
+        querier: &QuerierWrapper,
+        amp_gauges: Addr,
+    ) -> StdResult<Context> {
+        let vamp_info = loader.get_amp_tune_info(querier, amp_gauges)?;
+        let vamp_sum: Uint128 = vamp_info.vamp_points.iter().map(|a| a.1).sum();
+        let vamp_points: HashMap<_, _> =
+            vamp_info.vamp_points.into_iter().map(|v| (v.0.to_string(), v.1)).collect();
+
+        Ok(Self {
+            sum: vamp_sum,
+            points: vamp_points,
+        })
     }
 }

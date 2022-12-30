@@ -10,7 +10,6 @@ use cw20::{Cw20ExecuteMsg, MinterResponse};
 use cw20_base::msg::InstantiateMsg as Cw20InstantiateMsg;
 use eris::DecimalCheckedOps;
 
-use eris::helper::addr_validate_to_lower;
 use eris::hub::{
     Batch, CallbackMsg, DelegationStrategy, ExecuteMsg, FeeConfig, InstantiateMsg, PendingBatch,
     UnbondRequest,
@@ -67,6 +66,9 @@ pub fn instantiate(deps: DepsMut, env: Env, msg: InstantiateMsg) -> StdResult<Re
             est_unbond_start_time: env.block.time.seconds() + msg.epoch_period,
         },
     )?;
+
+    let delegation_strategy = msg.delegation_strategy.unwrap_or(DelegationStrategy::Uniform);
+    state.delegation_strategy.save(deps.storage, &delegation_strategy.validate(deps.api)?)?;
 
     Ok(Response::new().add_submessage(SubMsg::reply_on_success(
         CosmosMsg::Wasm(WasmMsg::Instantiate {
@@ -827,27 +829,7 @@ pub fn update_config(
     }
 
     if let Some(delegation_strategy) = delegation_strategy {
-        state.delegation_strategy.save(
-            deps.storage,
-            &match delegation_strategy {
-                DelegationStrategy::Uniform {} => DelegationStrategy::Uniform {},
-                DelegationStrategy::Gauges {
-                    amp_gauges,
-                    emp_gauges,
-                    amp_factor_bps: amp_factor,
-                    min_delegation_bps,
-                    validator_count,
-                    max_delegation_bps,
-                } => DelegationStrategy::Gauges {
-                    amp_gauges: addr_validate_to_lower(deps.api, amp_gauges)?,
-                    emp_gauges: addr_validate_to_lower(deps.api, emp_gauges)?,
-                    amp_factor_bps: amp_factor,
-                    min_delegation_bps,
-                    validator_count,
-                    max_delegation_bps,
-                },
-            },
-        )?;
+        state.delegation_strategy.save(deps.storage, &delegation_strategy.validate(deps.api)?)?;
     }
 
     Ok(Response::new().add_attribute("action", "erishub/update_config"))

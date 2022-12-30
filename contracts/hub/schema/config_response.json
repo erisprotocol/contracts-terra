@@ -92,7 +92,6 @@
               "required": [
                 "amp_factor_bps",
                 "amp_gauges",
-                "emp_gauges",
                 "max_delegation_bps",
                 "min_delegation_bps",
                 "validator_count"
@@ -110,7 +109,10 @@
                 },
                 "emp_gauges": {
                   "description": "gauges based on eris merit points",
-                  "type": "string"
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "max_delegation_bps": {
                   "description": "max amount of delegation needed",
