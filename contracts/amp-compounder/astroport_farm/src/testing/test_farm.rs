@@ -632,6 +632,7 @@ fn bond(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Result<(
         assets: assets.clone(),
         minimum_receive: Some(Uint128::from(10000u128)),
         no_swap: None,
+        receiver: None,
         slippage_tolerance: Some(Decimal::percent(2)),
     };
 
@@ -697,6 +698,7 @@ fn bond(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Result<(
         assets: assets.clone(),
         minimum_receive: Some(Uint128::from(10000u128)),
         no_swap: Some(true),
+        receiver: None,
         slippage_tolerance: None,
     };
 

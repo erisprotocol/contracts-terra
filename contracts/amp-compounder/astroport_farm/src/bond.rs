@@ -1,17 +1,15 @@
 use astroport::asset::{token_asset, Asset};
 use astroport::querier::query_token_balance;
-use cosmwasm_std::{
-    attr, Addr, Coin, CosmosMsg, Decimal, DepsMut, Env, MessageInfo, Response, Uint128,
-};
+use cosmwasm_std::{attr, Addr, CosmosMsg, Decimal, DepsMut, Env, MessageInfo, Response, Uint128};
+use eris::helper::funds_or_allowance;
 
 use crate::error::ContractError;
 use crate::state::{Config, ScalingOperation, CONFIG, STATE};
 
-use cw20::Expiration;
-
 use eris::adapters::asset::AssetEx;
 use eris::astroport_farm::CallbackMsg;
 
+#[allow(clippy::too_many_arguments)]
 /// ## Description
 /// Send assets to compound proxy to create LP token and bond received LP token on behalf of sender.
 pub fn bond_assets(
@@ -22,29 +20,13 @@ pub fn bond_assets(
     minimum_receive: Option<Uint128>,
     no_swap: Option<bool>,
     slippage_tolerance: Option<Decimal>,
+    receiver: Addr,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     let lp_token = config.lp_token;
 
-    let mut messages: Vec<CosmosMsg> = vec![];
-    let mut funds: Vec<Coin> = vec![];
-
-    for asset in assets.iter() {
-        asset.deposit_asset(&info, &env.contract.address, &mut messages)?;
-        if !asset.amount.is_zero() {
-            if asset.is_native_token() {
-                funds.push(Coin {
-                    denom: asset.info.to_string(),
-                    amount: asset.amount,
-                });
-            } else {
-                messages.push(asset.increase_allowance_msg(
-                    config.compound_proxy.0.to_string(),
-                    Some(Expiration::AtHeight(env.block.height + 1)),
-                )?);
-            }
-        }
-    }
+    let (funds, mut messages) =
+        funds_or_allowance(&env, &config.compound_proxy.0, &assets, Some(&info))?;
 
     let compound = config.compound_proxy.compound_msg(
         assets,
@@ -58,7 +40,7 @@ pub fn bond_assets(
     let prev_balance = query_token_balance(&deps.querier, lp_token, &env.contract.address)?;
     messages.push(
         CallbackMsg::BondTo {
-            to: info.sender,
+            to: receiver,
             prev_balance,
             minimum_receive,
         }
@@ -145,7 +127,7 @@ fn bond_internal(
 
     messages.push(config.staking_contract.deposit_msg(config.lp_token.to_string(), amount)?);
     Ok(Response::new().add_messages(messages).add_attributes(vec![
-        attr("action", "bond"),
+        attr("action", "ampf/bond"),
         attr("amount", amount),
         attr("bond_amount", amount),
         attr("bond_share", bond_share),
@@ -191,7 +173,7 @@ pub fn unbond(
             token_asset(staking_token, bond_amount).transfer_msg(&staker_addr)?,
         ])
         .add_attributes(vec![
-            attr("action", "unbond"),
+            attr("action", "ampf/unbond"),
             attr("staker_addr", staker_addr),
             attr("amount", bond_amount),
         ]))

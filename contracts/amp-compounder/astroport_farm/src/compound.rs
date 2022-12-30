@@ -121,7 +121,7 @@ pub fn compound(
 
     Ok(Response::new()
         .add_messages(messages)
-        .add_attribute("action", "compound")
+        .add_attribute("action", "ampf/compound")
         .add_attributes(attributes))
 }
 
@@ -153,7 +153,7 @@ pub fn stake(
     Ok(Response::new()
         .add_message(config.staking_contract.deposit_msg(staking_token.to_string(), amount)?)
         .add_attributes(vec![
-            attr("action", "stake"),
+            attr("action", "ampf/stake"),
             attr("staking_token", staking_token),
             attr("amount", amount),
         ]))
