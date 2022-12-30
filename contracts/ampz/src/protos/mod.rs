@@ -11,7 +11,7 @@ pub mod msgex;
 pub mod proto;
 
 impl MsgExec {
-    pub fn to_cosmos_msg(&self) -> CosmosMsg {
+    pub fn to_authz_cosmos_msg(&self) -> CosmosMsg {
         let exec_bytes: Vec<u8> = self.write_to_bytes().unwrap();
 
         CosmosMsg::Stargate {

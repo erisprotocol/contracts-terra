@@ -27,6 +27,9 @@ pub enum Source {
     AstroRewards {
         lps: Vec<String>,
     },
+    Wallet {
+        over: Asset,
+    },
 }
 
 impl From<Source> for String {
@@ -36,6 +39,9 @@ impl From<Source> for String {
             Source::AstroRewards {
                 ..
             } => "astro_rewards".to_string(),
+            Source::Wallet {
+                over,
+            } => format!("wallet_{}", over.info),
         }
     }
 }
@@ -44,7 +50,7 @@ impl From<Source> for String {
 pub struct Execution {
     pub user: String,
     pub source: Source,
-    pub destination: CallbackMsg,
+    pub destination: Destination,
     pub schedule: Schedule,
 }
 
@@ -52,11 +58,6 @@ pub struct Execution {
 pub struct Schedule {
     pub start: Option<u64>,
     pub interval_s: u64,
-}
-
-#[cw_serde]
-pub struct BalanceSnapshot {
-    pub coins: Vec<Asset>,
 }
 
 #[cw_serde]
@@ -79,6 +80,12 @@ impl AstroportConfig<String> {
 pub enum ExecuteMsg {
     Execute {
         id: u128,
+        user: Option<String>,
+    },
+
+    // being executed via authz
+    Deposit {
+        assets: Vec<Asset>,
     },
 
     AddExecution {
@@ -119,17 +126,22 @@ pub enum ExecuteMsg {
 #[cw_serde]
 pub struct FeeConfig<T> {
     pub fee_bps: BasicPoints,
+    pub operator_bps: BasicPoints,
     pub receiver: T,
 }
 
 impl FeeConfig<String> {
     pub fn validate(self, api: &dyn Api) -> StdResult<FeeConfig<Addr>> {
-        if self.fee_bps.u16() > 100 {
-            return Err(StdError::generic_err("max fee is 1 %"));
+        if self.fee_bps.u16() > 500 {
+            return Err(StdError::generic_err("max fee is 5 %"));
+        }
+        if self.operator_bps.u16() > 500 {
+            return Err(StdError::generic_err("max operator fee is 5 %"));
         }
 
         Ok(FeeConfig {
             fee_bps: self.fee_bps,
+            operator_bps: self.operator_bps,
             receiver: api.addr_validate(&self.receiver)?,
         })
     }
@@ -145,30 +157,51 @@ impl FeeConfig<String> {
 #[cw_serde]
 pub struct CallbackWrapper {
     pub id: u128,
+    pub user: Addr,
     pub message: CallbackMsg,
+}
+
+#[cw_serde]
+pub enum Destination {
+    DepositAmplifier {},
+    DepositFarm {
+        farm: String,
+    },
 }
 
 /// This structure describes the callback messages of the contract.
 #[cw_serde]
 pub enum CallbackMsg {
-    DepositAmplifier {},
-    DepositFarm {
-        farm: String,
+    AuthzDeposit {
+        user_balance_start: Vec<Asset>,
     },
-    // internal callback
-    MultiSwap {
+
+    Swap {
+        asset_infos: Vec<AssetInfo>,
         into: AssetInfo,
+    },
+
+    FinishExecution {
+        asset_infos: Vec<AssetInfo>,
+        destination: Destination,
+        operator: Addr,
     },
 }
 
 // Modified from
 // https://github.com/CosmWasm/cw-plus/blob/v0.8.0/packages/cw20/src/receiver.rs#L23
 impl CallbackMsg {
-    pub fn into_cosmos_msg(&self, contract_addr: &Addr, id: u128) -> StdResult<CosmosMsg> {
+    pub fn into_cosmos_msg(
+        &self,
+        contract_addr: &Addr,
+        id: u128,
+        user: &Addr,
+    ) -> StdResult<CosmosMsg> {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: String::from(contract_addr),
             msg: to_binary(&ExecuteMsg::Callback(CallbackWrapper {
                 id,
+                user: user.clone(),
                 message: self.clone(),
             }))?,
             funds: vec![],
@@ -196,6 +229,11 @@ pub enum QueryMsg {
         start_after: Option<u128>,
         limit: Option<u32>,
     },
+
+    #[returns(ExecutionResponse)]
+    Execution {
+        id: u128,
+    },
 }
 
 #[cw_serde]
@@ -215,6 +253,8 @@ pub struct ConfigResponse {
     pub zapper: String,
 
     pub astroport: AstroportConfig<String>,
+
+    pub fee: FeeConfig<String>,
 }
 
 #[cw_serde]
@@ -224,12 +264,25 @@ pub struct StateResponse {
 
 #[cw_serde]
 pub struct UserInfoResponse {
-    pub executions: Vec<(u128, Execution)>,
+    pub executions: Vec<ExecutionDetail>,
 }
 
 #[cw_serde]
 pub struct ExecutionsResponse {
     pub executions: Vec<(u128, Execution)>,
+}
+
+#[cw_serde]
+pub struct ExecutionResponse {
+    pub detail: ExecutionDetail,
+}
+
+#[cw_serde]
+pub struct ExecutionDetail {
+    pub id: u128,
+    pub execution: Execution,
+    pub last_execution: u64,
+    pub can_execute: bool,
 }
 
 #[cw_serde]

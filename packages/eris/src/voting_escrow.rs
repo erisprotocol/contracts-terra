@@ -1,6 +1,7 @@
 use crate::voting_escrow::QueryMsg::{LockInfo, TotalVamp, TotalVampAt, UserVamp, UserVampAt};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Decimal, QuerierWrapper, StdResult, Uint128};
+#[allow(unused_imports)]
 use cw20::{
     BalanceResponse, Cw20ReceiveMsg, DownloadLogoResponse, Logo, MarketingInfoResponse,
     TokenInfoResponse,

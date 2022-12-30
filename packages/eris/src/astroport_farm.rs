@@ -72,6 +72,8 @@ pub enum ExecuteMsg {
         no_swap: Option<bool>,
         /// Slippage tolerance when providing LP
         slippage_tolerance: Option<Decimal>,
+        /// receiver of the ampLP
+        receiver: Option<String>,
     },
     /// Creates a request to change the contract's ownership
     ProposeNewOwner {

@@ -39,9 +39,32 @@ impl BasicPoints {
         Decimal::from_ratio(self.0, Self::MAX)
     }
 
+    pub fn div_decimal(self, rhs: Self) -> Decimal {
+        if self.is_zero() {
+            return Decimal::zero();
+        }
+        Decimal::from_ratio(self.0, rhs.0)
+    }
+
     #[inline]
     pub const fn max() -> Self {
         BasicPoints(BasicPoints::MAX)
+    }
+
+    #[inline]
+    pub const fn zero() -> Self {
+        BasicPoints(0)
+    }
+
+    pub const fn u16(self) -> u16 {
+        self.0
+    }
+
+    pub const fn is_max(self) -> bool {
+        self.0 == BasicPoints::MAX
+    }
+    pub const fn is_zero(self) -> bool {
+        self.0 == 0
     }
 }
 

@@ -4,6 +4,7 @@ use cosmwasm_std::{Decimal, Fraction, OverflowError, StdError, StdResult, Uint12
 
 /// Seconds in one week. It is intended for period number calculation.
 pub const WEEK: u64 = 7 * 86400; // lock period is rounded down by week
+                                 // pub const WEEK: u64 = 60 * 60; // on testnet we use period length of 1h instead of 1 week
 
 /// Seconds in 2 years which is the maximum lock period.
 pub const MAX_LOCK_TIME: u64 = 2 * 365 * 86400; // 2 years (104 weeks)
@@ -23,6 +24,7 @@ pub fn get_period(time: u64) -> StdResult<u64> {
     }
 }
 
+/// converts the period to the start time of the period (EPOCH_START + period * WEEK)
 pub fn get_s_from_period(period: u64) -> u64 {
     EPOCH_START + period * WEEK
 }

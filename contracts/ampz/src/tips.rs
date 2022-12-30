@@ -14,7 +14,7 @@
 //         }
 //     }
 
-//     Ok(Response::new().add_attribute("action", "add_to_tip_jar"))
+//     Ok(Response::new().add_attribute("action", "ampz/add_to_tip_jar"))
 // }
 
 // pub fn withdraw_tip_jar(
@@ -33,7 +33,7 @@
 //     let withdraw_msg =
 //         native_asset(CONTRACT_DENOM.to_string(), amount).into_msg(&deps.querier, info.sender)?;
 
-//     Ok(Response::new().add_message(withdraw_msg).add_attribute("action", "withdraw_tip_jar"))
+//     Ok(Response::new().add_message(withdraw_msg).add_attribute("action", "ampz/withdraw_tip_jar"))
 // }
 
 // fn add_to_tip_jar_state(

@@ -1,10 +1,12 @@
 use cosmwasm_std::{
-    to_binary, Addr, Coin, CosmosMsg, Decimal, Empty, QuerierWrapper, StdResult, Timestamp,
+    to_binary, Addr, Api, Coin, CosmosMsg, Decimal, Empty, QuerierWrapper, StdResult, Timestamp,
     Uint128, WasmMsg,
 };
 use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+
+use crate::helper::{addr_opt_validate, addr_validate_to_lower};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -16,7 +18,7 @@ pub enum DelegationStrategy<T = String> {
         /// gauges based on vAmp voting
         amp_gauges: T,
         /// gauges based on eris merit points
-        emp_gauges: T,
+        emp_gauges: Option<T>,
         /// weight between amp and emp gauges between 0 and 1
         amp_factor_bps: u16,
         /// min amount of delegation needed
@@ -26,6 +28,30 @@ pub enum DelegationStrategy<T = String> {
         /// count of validators that should receive delegations
         validator_count: u8,
     },
+}
+
+impl DelegationStrategy<String> {
+    pub fn validate(self, api: &dyn Api) -> StdResult<DelegationStrategy<Addr>> {
+        let result = match self {
+            DelegationStrategy::Uniform {} => DelegationStrategy::Uniform {},
+            DelegationStrategy::Gauges {
+                amp_gauges,
+                emp_gauges,
+                amp_factor_bps: amp_factor,
+                min_delegation_bps,
+                validator_count,
+                max_delegation_bps,
+            } => DelegationStrategy::Gauges {
+                amp_gauges: addr_validate_to_lower(api, amp_gauges)?,
+                emp_gauges: addr_opt_validate(api, &emp_gauges)?,
+                amp_factor_bps: amp_factor,
+                min_delegation_bps,
+                validator_count,
+                max_delegation_bps,
+            },
+        };
+        Ok(result)
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -51,6 +77,8 @@ pub struct InstantiateMsg {
     pub protocol_fee_contract: String,
     /// Fees that are being applied during reinvest of staking rewards
     pub protocol_reward_fee: Decimal, // "1 is 100%, 0.05 is 5%"
+    /// Strategy how delegations should be handled
+    pub delegation_strategy: Option<DelegationStrategy>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

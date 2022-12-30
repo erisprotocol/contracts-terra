@@ -72,7 +72,7 @@ pub fn update_config(
                 state.fee.save(deps.storage, &fee.validate(deps.api)?)?;
             }
 
-            Ok(Response::new().add_attribute("action", "update_config"))
+            Ok(Response::new().add_attribute("action", "ampz/update_config"))
         },
         _ => Err(StdError::generic_err("not supported")),
     }

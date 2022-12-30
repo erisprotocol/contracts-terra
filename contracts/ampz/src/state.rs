@@ -1,11 +1,9 @@
-use astroport::asset::{Asset, AssetInfo};
-use cosmwasm_std::{Addr, Order, QuerierWrapper, StdError, StdResult, Storage, Uint128};
+use cosmwasm_std::{Addr, Order, StdError, StdResult, Storage};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 use eris::{
     adapters::{compounder::Compounder, farm::Farm, generator::Generator, hub::Hub},
-    ampz::{AstroportConfig, BalanceSnapshot, Execution, FeeConfig},
+    ampz::{AstroportConfig, Execution, FeeConfig},
 };
-use itertools::Itertools;
 
 pub(crate) struct State<'a> {
     pub controller: Item<'a, Addr>,
@@ -23,7 +21,8 @@ pub(crate) struct State<'a> {
     pub executions: IndexedMap<'a, u128, Execution, ExecutionIndexes<'a>>,
     pub last_execution: Map<'a, u128, u64>,
     pub execution_user_source: Map<'a, (String, String), u128>,
-    pub balance_snapshot: Item<'a, BalanceSnapshot>,
+
+    pub is_executing: Item<'a, bool>,
 
     pub fee: Item<'a, FeeConfig<Addr>>, // pub tips: Item<'a, TipConfig>,
                                         // pub tip_jar: Map<'a, String, Uint128>,
@@ -49,8 +48,8 @@ impl Default for State<'static> {
             execution_user_source: Map::new("execution_user_source"),
             last_execution: Map::new("last_execution"),
 
-            // temporary snapshot
-            balance_snapshot: Item::new("balance_snapshot"),
+            // temporary state
+            is_executing: Item::new("is_executing"),
 
             fee: Item::new("fee_config"),
             // tips: Item::new("tips"),
@@ -69,19 +68,19 @@ impl<'a> State<'a> {
         }
     }
 
-    pub fn assert_controller_owner(&self, storage: &dyn Storage, sender: &Addr) -> StdResult<()> {
-        let executor = self.controller.load(storage)?;
-        if *sender == executor {
-            Ok(())
-        } else {
-            let owner = self.owner.load(storage)?;
-            if *sender == owner {
-                Ok(())
-            } else {
-                Err(StdError::generic_err("unauthorized: sender is neither owner nor controller"))
-            }
-        }
-    }
+    // pub fn assert_controller_owner(&self, storage: &dyn Storage, sender: &Addr) -> StdResult<()> {
+    //     let executor = self.controller.load(storage)?;
+    //     if *sender == executor {
+    //         Ok(())
+    //     } else {
+    //         let owner = self.owner.load(storage)?;
+    //         if *sender == owner {
+    //             Ok(())
+    //         } else {
+    //             Err(StdError::generic_err("unauthorized: sender is neither owner nor controller"))
+    //         }
+    //     }
+    // }
 
     pub fn get_by_id(&self, storage: &dyn Storage, id: u128) -> StdResult<Execution> {
         self.executions
@@ -100,75 +99,6 @@ impl<'a> State<'a> {
             .prefix(user)
             .range(storage, None, None, Order::Ascending)
             .collect::<StdResult<Vec<_>>>()
-    }
-
-    pub fn set_user_balance_snapshot(
-        &self,
-        querier: &QuerierWrapper,
-        storage: &mut dyn Storage,
-        user: &Addr,
-        vec: Vec<AssetInfo>,
-    ) -> StdResult<()> {
-        if self.balance_snapshot.load(storage).is_ok() {
-            return Err(StdError::generic_err("snapshot already set"));
-        }
-
-        let coins: Vec<Asset> = vec
-            .into_iter()
-            .map(|asset| {
-                let result = asset.query_pool(querier, user)?;
-                Ok(Asset {
-                    info: asset,
-                    amount: result,
-                })
-            })
-            .collect::<StdResult<_>>()?;
-
-        self.balance_snapshot.save(
-            storage,
-            &BalanceSnapshot {
-                coins,
-            },
-        )?;
-
-        Ok(())
-    }
-
-    pub fn get_user_balance_diff(
-        &self,
-        querier: &QuerierWrapper,
-        storage: &mut dyn Storage,
-        user: &Addr,
-    ) -> StdResult<Vec<Asset>> {
-        let snapshot = self
-            .balance_snapshot
-            .load(storage)
-            .map_err(|_| StdError::generic_err("snapshot does not exist"))?;
-
-        let coins: Vec<Asset> = snapshot
-            .coins
-            .into_iter()
-            .map(|asset| {
-                let result = asset.info.query_pool(querier, user)?;
-                Ok(Asset {
-                    info: asset.info,
-                    amount: result.checked_sub(asset.amount)?,
-                })
-            })
-            .collect::<StdResult<_>>()?;
-
-        Ok(coins.into_iter().filter(|a| !a.amount.is_zero()).collect_vec())
-    }
-
-    pub fn get_user_balance_diff_and_clear(
-        &self,
-        querier: &QuerierWrapper,
-        storage: &mut dyn Storage,
-        user: &Addr,
-    ) -> StdResult<Vec<Asset>> {
-        let result = self.get_user_balance_diff(querier, storage, user)?;
-        self.balance_snapshot.remove(storage);
-        Ok(result)
     }
 }
 
