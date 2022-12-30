@@ -59,7 +59,7 @@ dependencies = [
  "cw-storage-plus 0.13.2",
  "cw2 0.13.2",
  "itertools",
- "protobuf",
+ "protobuf 2.28.0",
  "schemars",
  "serde",
  "thiserror",
@@ -76,7 +76,7 @@ dependencies = [
  "cw-storage-plus 0.13.2",
  "cw2 0.13.2",
  "cw20 0.13.2",
- "protobuf",
+ "protobuf 2.28.0",
  "schemars",
  "serde",
  "thiserror",
@@ -118,7 +118,7 @@ dependencies = [
  "cw2 0.13.2",
  "cw20 0.13.2",
  "integer-sqrt",
- "protobuf",
+ "protobuf 2.28.0",
  "schemars",
  "serde",
  "thiserror",
@@ -134,7 +134,7 @@ dependencies = [
  "cw-storage-plus 0.13.2",
  "cw2 0.13.2",
  "cw20 0.13.2",
- "protobuf",
+ "protobuf 2.28.0",
  "schemars",
  "serde",
  "thiserror",
@@ -770,6 +770,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "eris-ampz"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "astroport 2.0.0 (git+https://github.com/astroport-fi/astroport-core.git?rev=bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62)",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-multi-test 0.13.2",
+ "cw-storage-plus 0.13.2",
+ "cw2 0.13.2",
+ "cw20 0.13.2",
+ "cw20-base",
+ "eris",
+ "eris-tests",
+ "itertools",
+ "protobuf 3.2.0",
+ "serde",
+]
+
+[[package]]
 name = "eris-astroport-farm"
 version = "1.2.0"
 dependencies = [
@@ -1128,6 +1148,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "once_cell"
+version = "1.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "86f0b0d4bf799edbc74508c1e8bf170ff5f41238e5f8225603ca7caaae2b7860"
+
+[[package]]
 name = "opaque-debug"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1228,6 +1254,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "106dd99e98437432fed6519dedecfade6a06a73bb7b2a1e019fdd2bee5778d94"
 dependencies = [
  "bytes",
+]
+
+[[package]]
+name = "protobuf"
+version = "3.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b55bad9126f378a853655831eb7363b7b01b81d19f8cb1218861086ca4a1a61e"
+dependencies = [
+ "once_cell",
+ "protobuf-support",
+ "thiserror",
+]
+
+[[package]]
+name = "protobuf-support"
+version = "3.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a5d4d7b8601c814cfb36bcebb79f0e61e45e1e93640cf778837833bbed05c372"
+dependencies = [
+ "thiserror",
 ]
 
 [[package]]
