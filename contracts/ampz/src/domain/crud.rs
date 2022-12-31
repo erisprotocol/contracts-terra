@@ -43,6 +43,7 @@ pub fn add_execution(
         } => (),
         eris::ampz::Source::Wallet {
             over,
+            ..
         } => {
             let astro = state.astroport.load(deps.storage)?;
 

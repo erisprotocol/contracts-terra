@@ -174,7 +174,8 @@ fn pay_fees(
             if !protocol_fee_amount.is_zero() {
                 let protocol_fee = asset.info.with_balance(protocol_fee_amount);
                 msgs.push(protocol_fee.transfer_msg(&fee.receiver)?);
-                attrs.push(attr("protocol_fee", protocol_fee.to_string()));
+
+                attrs.push(attr("fee", protocol_fee.to_string()));
             }
             if !operator_fee_amount.is_zero() {
                 let operator_fee = asset.info.with_balance(operator_fee_amount);

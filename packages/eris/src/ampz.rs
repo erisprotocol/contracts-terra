@@ -1,6 +1,6 @@
 use astroport::asset::{Asset, AssetInfo};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{to_binary, Addr, Api, CosmosMsg, StdError, StdResult, WasmMsg};
+use cosmwasm_std::{to_binary, Addr, Api, Coin, CosmosMsg, StdError, StdResult, WasmMsg};
 
 use crate::{adapters::generator::Generator, helpers::bps::BasicPoints};
 
@@ -32,6 +32,19 @@ pub enum Source {
     },
 }
 
+#[cw_serde]
+pub struct VestingInfo {
+    pub periods: Vec<VestingPeriod>,
+    pub start_time: u64,
+    pub end_time: u64,
+}
+
+#[cw_serde]
+pub struct VestingPeriod {
+    pub length: u64,
+    pub amount: Vec<Coin>,
+}
+
 impl From<Source> for String {
     fn from(source: Source) -> Self {
         match source {
@@ -41,6 +54,7 @@ impl From<Source> for String {
             } => "astro_rewards".to_string(),
             Source::Wallet {
                 over,
+                ..
             } => format!("wallet_{}", over.info),
         }
     }

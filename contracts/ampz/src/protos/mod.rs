@@ -44,3 +44,9 @@ impl MsgExecuteContract {
             .map_err(|e| StdError::generic_err(e.to_string()))
     }
 }
+
+// impl QueryAccountRequest {
+//     pub(crate) fn to_bytes(&self) -> StdResult<Vec<u8>> {
+//         self.write_to_bytes().map_err(|e| StdError::generic_err(e.to_string()))
+//     }
+// }

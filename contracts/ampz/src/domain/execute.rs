@@ -110,12 +110,14 @@ pub fn execute_id(
                 )));
             }
 
+            if let Destination::DepositAmplifier {} = execution.destination {
+                if over.info != native_asset_info(CONTRACT_DENOM.to_string()) {
+                    requires_swap = true;
+                }
+            }
+
             asset_infos = vec![over.info.clone()];
             user_balance_start = vec![over];
-
-            if let Destination::DepositAmplifier {} = execution.destination {
-                requires_swap = true;
-            }
         },
     }
 
