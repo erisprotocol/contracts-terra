@@ -127,21 +127,17 @@ fn callback(
 
     match callback_msg {
         CallbackMsg::Reinvest {} => execute::reinvest(deps, env),
+
+        CallbackMsg::CheckReceivedCoin {
+            snapshot,
+        } => execute::callback_received_coin(deps, env, snapshot),
     }
 }
 
 #[entry_point]
-pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> StdResult<Response> {
+pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> StdResult<Response> {
     match reply.id {
         1 => execute::register_stake_token(deps, unwrap_reply(reply)?),
-        2 => execute::register_received_coins(
-            deps,
-            env,
-            unwrap_reply(reply)?.events,
-            "coin_received",
-            "receiver",
-            "amount",
-        ),
         id => Err(StdError::generic_err(format!("invalid reply id: {}; must be 1-2", id))),
     }
 }

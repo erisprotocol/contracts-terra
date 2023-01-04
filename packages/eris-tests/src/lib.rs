@@ -44,12 +44,17 @@ pub fn mock_app_validators(validators: Option<u64>) -> App {
                 .unwrap();
 
             router
+                .bank
+                .init_balance(storage, &Addr::unchecked("user2"), vec![coin(1000_000000, "uluna")])
+                .unwrap();
+
+            router
                 .staking
                 .setup(
                     storage,
                     StakingInfo {
                         bonded_denom: "uluna".to_string(),
-                        apr: Decimal::from_str("0.13").unwrap(),
+                        apr: Decimal::percent(10),
                         unbonding_time: 1814400,
                     },
                 )
@@ -81,9 +86,9 @@ pub trait TerraAppExtension {
 }
 
 impl TerraAppExtension for App {
-    fn next_block(&mut self, time: u64) {
+    fn next_block(&mut self, seconds: u64) {
         self.update_block(|block| {
-            block.time = block.time.plus_seconds(time);
+            block.time = block.time.plus_seconds(seconds);
             block.height += 1
         });
     }
@@ -91,7 +96,7 @@ impl TerraAppExtension for App {
     fn next_period(&mut self, periods: u64) {
         self.update_block(|block| {
             block.time = block.time.plus_seconds(periods * WEEK);
-            block.height += 1000
+            block.height += periods * WEEK / 6;
         });
     }
 

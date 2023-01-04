@@ -1,5 +1,4 @@
-use anyhow::{Ok, Result};
-use cosmwasm_std::{attr, Uint128};
+use cosmwasm_std::{attr, StdResult, Uint128};
 use eris_tests::gov_helper::EscrowHelper;
 use eris_tests::{mock_app, EventChecker, TerraAppExtension};
 use std::vec;
@@ -11,7 +10,7 @@ use eris::emp_gauges::{
 #[test]
 fn update_configs() {
     let mut router = mock_app();
-    let helper = EscrowHelper::init(&mut router);
+    let helper = EscrowHelper::init(&mut router, false);
 
     let config = helper.emp_query_config(&mut router).unwrap();
     assert_eq!(config.validators_limit, 30);
@@ -42,9 +41,9 @@ fn update_configs() {
 }
 
 #[test]
-fn add_points() -> Result<()> {
+fn add_points() -> StdResult<()> {
     let mut router = mock_app();
-    let helper = EscrowHelper::init(&mut router);
+    let helper = EscrowHelper::init(&mut router, false);
 
     let result = helper
         .emp_execute(
@@ -255,9 +254,9 @@ fn add_points() -> Result<()> {
 }
 
 #[test]
-fn check_kick_holders_works() -> Result<()> {
+fn check_kick_holders_works() -> StdResult<()> {
     let mut router = mock_app();
-    let helper = EscrowHelper::init(&mut router);
+    let helper = EscrowHelper::init(&mut router, false);
 
     let result = helper
         .emp_execute(
@@ -309,9 +308,9 @@ fn check_kick_holders_works() -> Result<()> {
 }
 
 #[test]
-fn add_points_later() -> Result<()> {
+fn add_points_later() -> StdResult<()> {
     let mut router = mock_app();
-    let helper = EscrowHelper::init(&mut router);
+    let helper = EscrowHelper::init(&mut router, false);
 
     let result = helper
         .emp_execute(
@@ -369,7 +368,7 @@ fn add_points_later() -> Result<()> {
 #[test]
 fn check_update_owner() {
     let mut router = mock_app();
-    let helper = EscrowHelper::init(&mut router);
+    let helper = EscrowHelper::init(&mut router, false);
 
     let new_owner = String::from("new_owner");
 

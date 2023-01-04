@@ -50,6 +50,8 @@ pub struct BaseErisTestPackage {
 #[cw_serde]
 pub struct BaseErisTestInitMessage {
     pub owner: Addr,
+
+    pub use_default_hub: bool,
 }
 
 impl BaseErisTestPackage {
@@ -71,7 +73,7 @@ impl BaseErisTestPackage {
         base_pack.init_emp_registry(router, msg.owner.clone());
         base_pack.init_amp_gauges(router, msg.owner.clone());
 
-        base_pack.init_hub_delegation_strategy(router, msg.owner);
+        base_pack.init_hub_delegation_strategy(router, msg.owner, msg.use_default_hub);
 
         base_pack
     }
@@ -243,7 +245,25 @@ impl BaseErisTestPackage {
         .into()
     }
 
-    fn init_hub_delegation_strategy(&mut self, router: &mut App, owner: Addr) {
+    fn init_hub_delegation_strategy(
+        &mut self,
+        router: &mut App,
+        owner: Addr,
+        use_default_hub: bool,
+    ) {
+        let delegation_strategy = if use_default_hub {
+            None
+        } else {
+            Some(eris::hub::DelegationStrategy::Gauges {
+                amp_gauges: self.amp_gauges.get_address_string(),
+                emp_gauges: Some(self.emp_gauges.get_address_string()),
+                amp_factor_bps: 5000,
+                min_delegation_bps: 100,
+                max_delegation_bps: 2500,
+                validator_count: 5,
+            })
+        };
+
         router
             .execute_contract(
                 owner.clone(),
@@ -251,14 +271,7 @@ impl BaseErisTestPackage {
                 &eris::hub::ExecuteMsg::UpdateConfig {
                     protocol_fee_contract: None,
                     protocol_reward_fee: None,
-                    delegation_strategy: Some(eris::hub::DelegationStrategy::Gauges {
-                        amp_gauges: self.amp_gauges.get_address_string(),
-                        emp_gauges: Some(self.emp_gauges.get_address_string()),
-                        amp_factor_bps: 5000,
-                        min_delegation_bps: 100,
-                        max_delegation_bps: 2500,
-                        validator_count: 5,
-                    }),
+                    delegation_strategy,
                 },
                 &[],
             )
@@ -276,118 +289,6 @@ impl BaseErisTestPackage {
             )
             .unwrap();
     }
-
-    // pub fn create_lock(
-    //     &self,
-    //     router: &mut App,
-    //     user: Addr,
-    //     time: u64,
-    //     amount: u64,
-    // ) -> Result<AppResponse> {
-    //     let amount = amount * MULTIPLIER;
-    //     let cw20msg = Cw20ExecuteMsg::Send {
-    //         contract: self.voting_escrow.clone().unwrap().address.to_string(),
-    //         amount: Uint128::from(amount),
-    //         msg: to_binary(&Cw20HookMsg::CreateLock {
-    //             time,
-    //         })
-    //         .unwrap(),
-    //     };
-
-    //     router.execute_contract(user, self.get_staking_xastro(router), &cw20msg, &[])
-    // }
-
-    // pub fn extend_lock_amount(
-    //     &mut self,
-    //     router: &mut App,
-    //     user: &str,
-    //     amount: u64,
-    // ) -> Result<AppResponse> {
-    //     let amount = amount * MULTIPLIER;
-    //     let cw20msg = Cw20ExecuteMsg::Send {
-    //         contract: self.voting_escrow.clone().unwrap().address.to_string(),
-    //         amount: Uint128::from(amount),
-    //         msg: to_binary(&Cw20HookMsg::ExtendLockAmount {}).unwrap(),
-    //     };
-    //     router.execute_contract(
-    //         Addr::unchecked(user),
-    //         self.get_staking_xastro(router),
-    //         &cw20msg,
-    //         &[],
-    //     )
-    // }
-
-    // pub fn extend_lock_time(
-    //     &mut self,
-    //     router: &mut App,
-    //     user: &str,
-    //     time: u64,
-    // ) -> Result<AppResponse> {
-    //     router.execute_contract(
-    //         Addr::unchecked(user),
-    //         self.voting_escrow.clone().unwrap().address,
-    //         &ExecuteMsg::ExtendLockTime {
-    //             time,
-    //         },
-    //         &[],
-    //     )
-    // }
-
-    // pub fn withdraw(&self, router: &mut App, user: &str) -> Result<AppResponse> {
-    //     router.execute_contract(
-    //         Addr::unchecked(user),
-    //         self.voting_escrow.clone().unwrap().address,
-    //         &ExecuteMsg::Withdraw {},
-    //         &[],
-    //     )
-    // }
-
-    // pub fn query_user_vp(&self, router: &mut App, user: Addr) -> StdResult<f32> {
-    //     router
-    //         .wrap()
-    //         .query_wasm_smart(
-    //             self.voting_escrow.clone().unwrap().address,
-    //             &QueryMsg::UserVotingPower {
-    //                 user: user.to_string(),
-    //             },
-    //         )
-    //         .map(|vp: VotingPowerResponse| vp.voting_power.u128() as f32 / MULTIPLIER as f32)
-    // }
-
-    // pub fn query_user_vp_at(&self, router: &mut App, user: Addr, time: u64) -> StdResult<f32> {
-    //     router
-    //         .wrap()
-    //         .query_wasm_smart(
-    //             self.voting_escrow.clone().unwrap().address,
-    //             &QueryMsg::UserVotingPowerAt {
-    //                 user: user.to_string(),
-    //                 time,
-    //             },
-    //         )
-    //         .map(|vp: VotingPowerResponse| vp.voting_power.u128() as f32 / MULTIPLIER as f32)
-    // }
-
-    // pub fn query_total_vp(&self, router: &mut App) -> StdResult<f32> {
-    //     router
-    //         .wrap()
-    //         .query_wasm_smart(
-    //             self.voting_escrow.clone().unwrap().address,
-    //             &QueryMsg::TotalVotingPower {},
-    //         )
-    //         .map(|vp: VotingPowerResponse| vp.voting_power.u128() as f32 / MULTIPLIER as f32)
-    // }
-
-    // pub fn query_total_vp_at(&self, router: &mut App, time: u64) -> StdResult<f32> {
-    //     router
-    //         .wrap()
-    //         .query_wasm_smart(
-    //             self.voting_escrow.clone().unwrap().address,
-    //             &QueryMsg::TotalVotingPowerAt {
-    //                 time,
-    //             },
-    //         )
-    //         .map(|vp: VotingPowerResponse| vp.voting_power.u128() as f32 / MULTIPLIER as f32)
-    // }
 }
 
 pub fn mint(router: &mut App, owner: Addr, token_instance: Addr, to: &Addr, amount: u128) {

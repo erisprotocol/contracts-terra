@@ -131,9 +131,9 @@ pub fn instantiate(
 /// ## Execute messages
 /// * **ExecuteMsg::ExtendLockTime { time }** Increase a staker's lock time.
 ///
-/// * **ExecuteMsg::Receive(msg)** Parse incoming messages coming from the xASTRO token contract.
+/// * **ExecuteMsg::Receive(msg)** Parse incoming messages coming from the ampLP token contract.
 ///
-/// * **ExecuteMsg::Withdraw {}** Withdraw all xASTRO from a lock position if the lock has expired.
+/// * **ExecuteMsg::Withdraw {}** Withdraw all ampLP from a lock position if the lock has expired.
 ///
 /// * **ExecuteMsg::ProposeNewOwner { owner, expires_in }** Creates a new request to change contract ownership.
 ///
@@ -225,17 +225,17 @@ pub fn execute(
     }
 }
 
-/// Checkpoint the total voting power (total supply of vxASTRO).
-/// This function fetches the last available vxASTRO checkpoint, recalculates passed periods since the checkpoint and until now,
+/// Checkpoint the total voting power (total supply of vAMP).
+/// This function fetches the last available vAMP checkpoint, recalculates passed periods since the checkpoint and until now,
 /// applies slope changes and saves all recalculated periods in [`HISTORY`].
 ///
-/// * **add_voting_power** amount of vxASTRO to add to the total.
+/// * **add_voting_power** amount of vAMP to add to the total.
 ///
-/// * **reduce_power** amount of vxASTRO to subtract from the total.
+/// * **reduce_power** amount of vAMP to subtract from the total.
 ///
-/// * **old_slope** old slope applied to the total voting power (vxASTRO supply).
+/// * **old_slope** old slope applied to the total voting power (vAMP supply).
 ///
-/// * **new_slope** new slope to be applied to the total voting power (vxASTRO supply).
+/// * **new_slope** new slope to be applied to the total voting power (vAMP supply).
 #[allow(clippy::too_many_arguments)]
 fn checkpoint_total(
     storage: &mut dyn Storage,
@@ -298,7 +298,7 @@ fn checkpoint_total(
     HISTORY.save(storage, (contract_addr, cur_period_key), &new_point)
 }
 
-/// Checkpoint a user's voting power (vxASTRO balance).
+/// Checkpoint a user's voting power (vAMP balance).
 /// This function fetches the user's last available checkpoint, calculates the user's current voting power, applies slope changes based on
 /// `add_amount` and `new_end` parameters, schedules slope changes for total voting power and saves the new checkpoint for the current
 /// period in [`HISTORY`] (using the user's address).
@@ -307,9 +307,9 @@ fn checkpoint_total(
 ///
 /// * **addr** staker for which we checkpoint the voting power.
 ///
-/// * **add_amount** amount of vxASTRO to add to the staker's balance.
+/// * **add_amount** amount of vAMP to add to the staker's balance.
 ///
-/// * **new_end** new lock time for the staker's vxASTRO position.
+/// * **new_end** new lock time for the staker's vAMP position.
 fn checkpoint(
     store: &mut dyn Storage,
     env: Env,
@@ -429,14 +429,14 @@ fn receive_cw20(
 }
 
 /// Creates a lock for the user that lasts for the specified time duration (in seconds).
-/// Checks that the user is locking xASTRO tokens.
+/// Checks that the user is locking ampLP tokens.
 /// Checks that the lock time is within [`WEEK`]..[`MAX_LOCK_TIME`].
 /// Creates a lock if it doesn't exist and triggers a [`checkpoint`] for the staker.
 /// If a lock already exists, then a [`ContractError`] is returned.
 ///
 /// * **user** staker for which we create a lock position.
 ///
-/// * **amount** amount of xASTRO deposited in the lock position.
+/// * **amount** amount of ampLP deposited in the lock position.
 ///
 /// * **time** duration of the lock.
 fn create_lock(
@@ -480,12 +480,12 @@ fn create_lock(
         .add_messages(get_push_update_msgs(config, user, Ok(lock_info))?))
 }
 
-/// Deposits an 'amount' of xASTRO tokens into 'user''s lock.
-/// Checks that the user is transferring and locking xASTRO.
+/// Deposits an 'amount' of ampLP tokens into 'user''s lock.
+/// Checks that the user is transferring and locking ampLP.
 /// Triggers a [`checkpoint`] for the user.
 /// If the user does not have a lock, then a [`ContractError`] is returned.
 ///
-/// * **amount** amount of xASTRO to deposit.
+/// * **amount** amount of ampLP to deposit.
 ///
 /// * **user** user who's lock amount will increase.
 fn deposit_for(
@@ -519,7 +519,7 @@ fn deposit_for(
         .add_messages(get_push_update_msgs(config, user, Ok(lock_info))?))
 }
 
-/// Withdraws the whole amount of locked xASTRO from a specific user lock.
+/// Withdraws the whole amount of locked ampLP from a specific user lock.
 /// If the user lock doesn't exist or if it has not yet expired, then a [`ContractError`] is returned.
 fn withdraw(deps: DepsMut, env: Env, info: MessageInfo) -> Result<Response, ContractError> {
     let sender = info.sender;
@@ -634,7 +634,7 @@ fn get_push_update_msgs(
 ///
 /// ## Note
 /// The time is added to the lock's `end`.
-/// For example, at period 0, the user has their xASTRO locked for 3 weeks.
+/// For example, at period 0, the user has their ampLP locked for 3 weeks.
 /// In 1 week, they increase their lock time by 10 weeks, thus the unlock period becomes 13 weeks.
 ///
 /// * **time** increase in lock time applied to the staker's position.
@@ -684,7 +684,7 @@ fn extend_lock_time(
 
 /// Update the staker blacklist. Whitelists addresses specified in 'remove_addrs'
 /// and blacklists new addresses specified in 'append_addrs'. Nullifies staker voting power and
-/// cancels their contribution in the total voting power (total vxASTRO supply).
+/// cancels their contribution in the total voting power (total vAMP supply).
 ///
 /// * **append_addrs** array of addresses to blacklist.
 ///
@@ -837,13 +837,13 @@ fn execute_update_config(
 /// Expose available contract queries.
 ///
 /// ## Queries
-/// * **QueryMsg::TotalVotingPower {}** Fetch the total voting power (vxASTRO supply) at the current block.
+/// * **QueryMsg::TotalVotingPower {}** Fetch the total voting power (vAMP supply) at the current block.
 ///
-/// * **QueryMsg::UserVotingPower { user }** Fetch the user's voting power (vxASTRO balance) at the current block.
+/// * **QueryMsg::UserVotingPower { user }** Fetch the user's voting power (vAMP balance) at the current block.
 ///
-/// * **QueryMsg::TotalVotingPowerAt { time }** Fetch the total voting power (vxASTRO supply) at a specified timestamp.
+/// * **QueryMsg::TotalVotingPowerAt { time }** Fetch the total voting power (vAMP supply) at a specified timestamp.
 ///
-/// * **QueryMsg::UserVotingPowerAt { time }** Fetch the user's voting power (vxASTRO balance) at a specified timestamp.
+/// * **QueryMsg::UserVotingPowerAt { time }** Fetch the user's voting power (vAMP balance) at a specified timestamp.
 ///
 /// * **QueryMsg::LockInfo { user }** Fetch a user's lock information.
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -998,11 +998,11 @@ fn get_user_lock_info(deps: Deps, env: &Env, user: String) -> StdResult<LockInfo
     }
 }
 
-/// Return a user's staked xASTRO amount at a given block height.
+/// Return a user's staked ampLP amount at a given block height.
 ///
 /// * **user** user for which we return lock information.
 ///
-/// * **block_height** block height at which we return the staked xASTRO amount.
+/// * **block_height** block height at which we return the staked ampLP amount.
 fn get_user_deposit_at_height(deps: Deps, user: String, block_height: u64) -> StdResult<Uint128> {
     let addr = addr_validate_to_lower(deps.api, user)?;
     let locked_opt = LOCKED.may_load_at_height(deps.storage, addr, block_height)?;
@@ -1016,9 +1016,9 @@ fn get_user_deposit_at_height(deps: Deps, user: String, block_height: u64) -> St
 /// Calculates a user's voting power at a given timestamp.
 /// If time is None, then it calculates the user's voting power at the current block.
 ///
-/// * **user** user/staker for which we fetch the current voting power (vxASTRO balance).
+/// * **user** user/staker for which we fetch the current voting power (vAMP balance).
 ///
-/// * **time** timestamp at which to fetch the user's voting power (vxASTRO balance).
+/// * **time** timestamp at which to fetch the user's voting power (vAMP balance).
 fn get_user_vamp(
     deps: Deps,
     env: Env,
@@ -1031,9 +1031,9 @@ fn get_user_vamp(
 
 /// Calculates a user's voting power at a given period number.
 ///
-/// * **user** user/staker for which we fetch the current voting power (vxASTRO balance).
+/// * **user** user/staker for which we fetch the current voting power (vAMP balance).
 ///
-/// * **period** period number at which to fetch the user's voting power (vxASTRO balance).
+/// * **period** period number at which to fetch the user's voting power (vAMP balance).
 fn get_user_vamp_at_period(
     deps: Deps,
     user: String,
@@ -1066,7 +1066,7 @@ fn get_user_vamp_at_period(
 
 /// Calculates a user's voting power at the current block.
 ///
-/// * **user** user/staker for which we fetch the current voting power (vxASTRO balance).
+/// * **user** user/staker for which we fetch the current voting power (vAMP balance).
 fn get_user_balance(deps: Deps, env: Env, user: String) -> StdResult<BalanceResponse> {
     let vp_response = get_user_vamp(deps, env, user, None)?;
     Ok(BalanceResponse {
@@ -1074,18 +1074,18 @@ fn get_user_balance(deps: Deps, env: Env, user: String) -> StdResult<BalanceResp
     })
 }
 
-/// Calculates the total voting power (total vxASTRO supply) at the given timestamp.
+/// Calculates the total voting power (total vAMP supply) at the given timestamp.
 /// If `time` is None, then it calculates the total voting power at the current block.
 ///
-/// * **time** timestamp at which we fetch the total voting power (vxASTRO supply).
+/// * **time** timestamp at which we fetch the total voting power (vAMP supply).
 fn get_total_vamp(deps: Deps, env: Env, time: Option<u64>) -> StdResult<VotingPowerResponse> {
     let period = get_period(time.unwrap_or_else(|| env.block.time.seconds()))?;
     get_total_vamp_at_period(deps, env, period)
 }
 
-/// Calculates the total voting power (total vxASTRO supply) at the given period number.
+/// Calculates the total voting power (total vAMP supply) at the given period number.
 ///
-/// * **period** period number at which we fetch the total voting power (vxASTRO supply).
+/// * **period** period number at which we fetch the total voting power (vAMP supply).
 fn get_total_vamp_at_period(deps: Deps, env: Env, period: u64) -> StdResult<VotingPowerResponse> {
     let last_checkpoint = fetch_last_checkpoint(deps.storage, &env.contract.address, period)?;
 
@@ -1122,7 +1122,7 @@ fn get_total_vamp_at_period(deps: Deps, env: Env, period: u64) -> StdResult<Voti
     })
 }
 
-/// Fetch the vxASTRO token information, such as the token name, symbol, decimals and total supply (total voting power).
+/// Fetch the vAMP token information, such as the token name, symbol, decimals and total supply (total voting power).
 fn query_token_info(deps: Deps, env: Env) -> StdResult<TokenInfoResponse> {
     let info = TOKEN_INFO.load(deps.storage)?;
     let total_vp = get_total_vamp(deps, env, None)?;

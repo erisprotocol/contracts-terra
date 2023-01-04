@@ -23,7 +23,7 @@ pub(crate) fn assert_periods_remaining(periods: u64) -> Result<(), ContractError
     }
 }
 
-/// Checks that the sender is the xASTRO token.
+/// Checks that the sender is the ampLP token.
 pub(crate) fn assert_token(storage: &dyn Storage, sender: Addr) -> Result<(), ContractError> {
     let config = CONFIG.load(storage)?;
     if sender != config.deposit_token_addr {

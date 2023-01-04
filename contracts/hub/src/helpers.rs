@@ -251,6 +251,10 @@ impl Context {
             let emp_points: HashMap<_, _> =
                 emp_info.emp_points.into_iter().map(|v| (v.0.to_string(), v.1)).collect();
 
+            if emp_sum.is_zero() {
+                return Err(StdError::generic_err("EMP not tuned."));
+            }
+
             Ok(Some(Self {
                 sum: emp_sum,
                 points: emp_points,
@@ -269,6 +273,10 @@ impl Context {
         let vamp_sum: Uint128 = vamp_info.vamp_points.iter().map(|a| a.1).sum();
         let vamp_points: HashMap<_, _> =
             vamp_info.vamp_points.into_iter().map(|v| (v.0.to_string(), v.1)).collect();
+
+        if vamp_sum.is_zero() {
+            return Err(StdError::generic_err("No vAMP. Vote first before tuning."));
+        }
 
         Ok(Self {
             sum: vamp_sum,

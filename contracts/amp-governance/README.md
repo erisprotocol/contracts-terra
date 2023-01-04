@@ -4,8 +4,8 @@ This product allows voting in governance based on locked ampLP positions.
 
 ## Process
 
-1. User locks ampLP for 1 year
-2. User has not yet voted in amp_gauge, so his vote is only creating vAMP
+1. User locks ampLP for 1 year (in voting_escrow)
+2. User has not yet voted in amp_gauge, so his vote is only creating (unused) voting power.
 3. User votes in amp_gauges for favorite validators
 4. User locks more capital in voting_escrow -> sends update to amp_gauges
 
@@ -16,7 +16,11 @@ This product allows voting in governance based on locked ampLP positions.
 3. TuneDelegations on hub to calculate delegation for the period, store them and start redelegation.
 4. Start redelegation on hub
 
-5. User locks ampLP for 1 year
+## Glossary
+
+ampLP = amplified LP (Amp Compounder)
+vAMP = vote escrowed ampLP
+EMP = eris merit points
 
 ## License
 

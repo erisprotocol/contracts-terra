@@ -8,7 +8,7 @@ use cw_storage_plus::{Item, Map, SnapshotMap, Strategy};
 pub struct Config {
     /// Address that's allowed to change contract parameters
     pub owner: Addr,
-    /// Address that can only blacklist vxASTRO stakers and remove their governance power
+    /// Address that can only blacklist vAMP stakers and remove their governance power
     pub guardian_addr: Option<Addr>,
     /// The ampLP token contract address
     pub deposit_token_addr: Addr,
@@ -18,10 +18,10 @@ pub struct Config {
     pub push_update_contracts: Vec<Addr>,
 }
 
-/// This structure stores points along the checkpoint history for every vxASTRO staker.
+/// This structure stores points along the checkpoint history for every vAMP staker.
 #[cw_serde]
 pub struct Point {
-    /// The staker's vxASTRO voting power
+    /// The staker's vAMP voting power
     pub power: Uint128,
     /// The start period when the staker's voting power start to decrease
     pub start: u64,
@@ -34,10 +34,10 @@ pub struct Point {
     pub fixed: Uint128,
 }
 
-/// This structure stores data about the lockup position for a specific vxASTRO staker.
+/// This structure stores data about the lockup position for a specific vAMP staker.
 #[cw_serde]
 pub struct Lock {
-    /// The total amount of xASTRO tokens that were deposited in the vxASTRO position
+    /// The total amount of ampLP tokens that were deposited in the vAMP position
     pub amount: Uint128,
     /// The start period when the lock was created
     pub start: u64,

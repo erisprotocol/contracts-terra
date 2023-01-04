@@ -3,9 +3,9 @@ use serde::{Deserialize, Serialize};
 
 use astroport::asset::{Asset, AssetInfo};
 
-use cosmwasm_std::{Decimal};
-use cw20::Cw20ReceiveMsg;
 use crate::adapters::router::RouterType;
+use cosmwasm_std::Decimal;
+use cw20::Cw20ReceiveMsg;
 
 /// Maximum assets in the swap route
 pub const MAX_ASSETS: usize = 50;

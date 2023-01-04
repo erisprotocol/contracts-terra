@@ -77,7 +77,7 @@ impl Helper {
                 owner.clone(),
                 &msg,
                 &[],
-                String::from("xASTRO"),
+                String::from("ampLP"),
                 None,
             )
             .unwrap();
@@ -118,7 +118,7 @@ impl Helper {
                 owner.clone(),
                 &msg,
                 &[],
-                String::from("vxASTRO"),
+                String::from("vAMP"),
                 None,
             )
             .unwrap();

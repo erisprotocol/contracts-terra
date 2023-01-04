@@ -22,7 +22,7 @@ eris = { path = "../../packages/eris" }
 itertools = "0.10"
 
 [dev-dependencies]
-cw-multi-test = "0.13.2"
+cw-multi-test = "0.16"
 anyhow = "1"
 eris-tests = { path = "../../packages/eris-tests" }
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }

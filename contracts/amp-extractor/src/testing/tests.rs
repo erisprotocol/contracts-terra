@@ -1,5 +1,4 @@
-
-use std::ops::{Sub};
+use std::ops::Sub;
 use std::str::FromStr;
 
 use crate::contract::{execute, instantiate, reply};
@@ -15,7 +14,7 @@ use cw20_base::msg::InstantiateMsg as Cw20InstantiateMsg;
 
 use eris::amp_extractor::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, LiquidStakingType, QueryMsg, ReceiveMsg,
-    StateResponse, ShareResponse,
+    ShareResponse, StateResponse,
 };
 
 use super::custom_querier::CustomQuerier;
@@ -125,7 +124,12 @@ fn proper_instantiation() {
         }
     );
 
-    let res: StateResponse = query_helper(deps.as_ref(), QueryMsg::State { addr: None});
+    let res: StateResponse = query_helper(
+        deps.as_ref(),
+        QueryMsg::State {
+            addr: None,
+        },
+    );
     assert_eq!(
         res,
         StateResponse {
@@ -347,7 +351,6 @@ fn deposit_withdraw_same() {
     }
 }
 
-
 #[test]
 fn deposit_extract_withdraw() {
     let mut deps = setup_test();
@@ -430,13 +433,21 @@ fn deposit_extract_withdraw() {
     deps.querier.set_cw20_total_supply("lp_token", 100_000000 + 50_000000);
     deps.querier.set_cw20_balance("lp_token", "user_1", 100_000000);
     deps.querier.set_cw20_balance("lp_token", "user_2", 50_000000);
-    
-    let share: ShareResponse = query_helper(deps.as_ref(), QueryMsg::Share { addr: Some("user_1".to_string()) });
-    assert_eq!(share, ShareResponse { 
-        received_asset: Uint128::new(100_000000), 
-        share: Uint128::new(100_000000), 
-        total_lp: Uint128::new(150_000000) });
 
+    let share: ShareResponse = query_helper(
+        deps.as_ref(),
+        QueryMsg::Share {
+            addr: Some("user_1".to_string()),
+        },
+    );
+    assert_eq!(
+        share,
+        ShareResponse {
+            received_asset: Uint128::new(100_000000),
+            share: Uint128::new(100_000000),
+            total_lp: Uint128::new(150_000000)
+        }
+    );
 
     // value increased by 5 %, 10% extraction parameter
     deps.querier.eris_querier.exchange_rate = Decimal::from_str("1.05").unwrap();
@@ -474,9 +485,9 @@ fn deposit_extract_withdraw() {
             reply_on: ReplyOn::Never,
         }
     );
-    
+
     // 0.238095 ampLUNA
-    let extracted = 
+    let extracted =
         // 5% exchange rate increase (in luna)
         Decimal::from_str("0.05").unwrap()
         // convert to ampLUNA
@@ -500,8 +511,6 @@ fn deposit_extract_withdraw() {
 
             let sub_msg: Cw20ExecuteMsg = from_binary(&msg).unwrap();
 
-            
-
             assert_eq!(
                 sub_msg,
                 Cw20ExecuteMsg::Transfer {
@@ -515,7 +524,7 @@ fn deposit_extract_withdraw() {
     }
 
     let stake_balance = 100_000000 + 50_000000 - received.u128();
-    let total_extracted = Decimal::from_ratio(150u128, 50u128)* extracted;
+    let total_extracted = Decimal::from_ratio(150u128, 50u128) * extracted;
     let stake_available = stake_balance - total_extracted.u128();
     let total_lp = 100000000u128;
 
@@ -523,16 +532,31 @@ fn deposit_extract_withdraw() {
     deps.querier.set_cw20_balance("lp_token", "cosmos2contract", 0_000000);
     deps.querier.set_cw20_balance("stake", "cosmos2contract", stake_balance);
 
-    let share: ShareResponse = query_helper(deps.as_ref(), QueryMsg::Share { addr: Some("user_1".to_string()) });
+    let share: ShareResponse = query_helper(
+        deps.as_ref(),
+        QueryMsg::Share {
+            addr: Some("user_1".to_string()),
+        },
+    );
 
-    assert_eq!(share, ShareResponse { 
-        received_asset: received, 
-        share: Uint128::new(50_000000), 
-        total_lp: Uint128::new(100_000000) });
+    assert_eq!(
+        share,
+        ShareResponse {
+            received_asset: received,
+            share: Uint128::new(50_000000),
+            total_lp: Uint128::new(100_000000)
+        }
+    );
 
-    let state: StateResponse = query_helper(deps.as_ref(), QueryMsg::State { addr: None });
+    let state: StateResponse = query_helper(
+        deps.as_ref(),
+        QueryMsg::State {
+            addr: None,
+        },
+    );
 
-    assert_eq!(state, 
+    assert_eq!(
+        state,
         StateResponse {
             tvl_uluna: Decimal::from_str("1.05").unwrap() * Uint128::new(stake_balance),
             total_lp: Uint128::new(total_lp),
@@ -542,21 +566,15 @@ fn deposit_extract_withdraw() {
             stake_harvested: Uint128::zero(),
             exchange_rate_lp_stake: Decimal::from_ratio(stake_available, total_lp),
             exchange_rate_stake_uluna: Decimal::from_str("1.05").unwrap(),
-            
+
             user_received_asset: None,
             user_share: None
         }
     );
 
-
     // harvest
-    let res = execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info("anyone", &[]),
-        ExecuteMsg::Harvest {  },
-    )
-    .unwrap();
+    let res = execute(deps.as_mut(), mock_env(), mock_info("anyone", &[]), ExecuteMsg::Harvest {})
+        .unwrap();
 
     assert_eq!(res.messages.len(), 1);
     assert_eq!(
@@ -576,31 +594,59 @@ fn deposit_extract_withdraw() {
             reply_on: ReplyOn::Never,
         }
     );
-    
-    deps.querier.set_cw20_balance("stake", "cosmos2contract", 100_000000 + 50_000000 - received.u128() - total_extracted.u128());
+
+    deps.querier.set_cw20_balance(
+        "stake",
+        "cosmos2contract",
+        100_000000 + 50_000000 - received.u128() - total_extracted.u128(),
+    );
 
     // no change in the share after harvest, only if exchange rate would have changed.
-    let share: ShareResponse = query_helper(deps.as_ref(), QueryMsg::Share { addr: Some("user_1".to_string()) });
+    let share: ShareResponse = query_helper(
+        deps.as_ref(),
+        QueryMsg::Share {
+            addr: Some("user_1".to_string()),
+        },
+    );
 
-    assert_eq!(share, ShareResponse { 
-        received_asset: received, 
-        share: Uint128::new(50_000000), 
-        total_lp: Uint128::new(100_000000) });
+    assert_eq!(
+        share,
+        ShareResponse {
+            received_asset: received,
+            share: Uint128::new(50_000000),
+            total_lp: Uint128::new(100_000000)
+        }
+    );
 
-        
     // no change in the share after harvest, only if exchange rate would have changed.
-    let share: ShareResponse = query_helper(deps.as_ref(), QueryMsg::Share { addr: None });
+    let share: ShareResponse = query_helper(
+        deps.as_ref(),
+        QueryMsg::Share {
+            addr: None,
+        },
+    );
 
-    assert_eq!(share, ShareResponse { 
-        received_asset: Uint128::new(0), 
-        share: Uint128::new(0), 
-        total_lp: Uint128::new(100_000000) });
+    assert_eq!(
+        share,
+        ShareResponse {
+            received_asset: Uint128::new(0),
+            share: Uint128::new(0),
+            total_lp: Uint128::new(100_000000)
+        }
+    );
 
-    let state: StateResponse = query_helper(deps.as_ref(), QueryMsg::State { addr: None });
+    let state: StateResponse = query_helper(
+        deps.as_ref(),
+        QueryMsg::State {
+            addr: None,
+        },
+    );
 
-    assert_eq!(state, 
+    assert_eq!(
+        state,
         StateResponse {
-            tvl_uluna: Decimal::from_str("1.05").unwrap() * Uint128::new(stake_balance - total_extracted.u128()),
+            tvl_uluna: Decimal::from_str("1.05").unwrap()
+                * Uint128::new(stake_balance - total_extracted.u128()),
             total_lp: Uint128::new(total_lp),
             stake_balance: Uint128::new(stake_balance - total_extracted.u128()),
             stake_extracted: Uint128::new(0),
@@ -608,17 +654,24 @@ fn deposit_extract_withdraw() {
             stake_harvested: total_extracted,
             exchange_rate_lp_stake: Decimal::from_ratio(stake_available, total_lp),
             exchange_rate_stake_uluna: Decimal::from_str("1.05").unwrap(),
-            
+
             user_received_asset: None,
             user_share: None
         }
     );
 
-    let state: StateResponse = query_helper(deps.as_ref(), QueryMsg::State { addr: Some("user_1".to_string()) });
+    let state: StateResponse = query_helper(
+        deps.as_ref(),
+        QueryMsg::State {
+            addr: Some("user_1".to_string()),
+        },
+    );
 
-    assert_eq!(state, 
-        StateResponse {            
-            tvl_uluna: Decimal::from_str("1.05").unwrap() * Uint128::new(stake_balance - total_extracted.u128()),
+    assert_eq!(
+        state,
+        StateResponse {
+            tvl_uluna: Decimal::from_str("1.05").unwrap()
+                * Uint128::new(stake_balance - total_extracted.u128()),
             total_lp: Uint128::new(total_lp),
             stake_balance: Uint128::new(stake_balance - total_extracted.u128()),
             stake_extracted: Uint128::new(0),
@@ -626,21 +679,19 @@ fn deposit_extract_withdraw() {
             stake_harvested: total_extracted,
             exchange_rate_lp_stake: Decimal::from_ratio(stake_available, total_lp),
             exchange_rate_stake_uluna: Decimal::from_str("1.05").unwrap(),
-            
+
             user_received_asset: Some(received),
             user_share: Some(Uint128::new(50_000000))
         }
     );
-
 }
-
 
 #[test]
 fn test_query_state() {
     let mut deps = setup_test();
 
     deps.querier.eris_querier.exchange_rate = Decimal::from_ratio(10u128, 1u128);
-    
+
     deps.querier.set_cw20_total_supply("lp_token", 0);
     deps.querier.set_cw20_balance("lp_token", "cosmos2contract", 0);
     deps.querier.set_cw20_balance("stake", "cosmos2contract", 100_000000);
@@ -664,80 +715,99 @@ fn test_query_state() {
 
     let exchange_rate = state.last_exchange_rate.load(deps.as_ref().storage).unwrap();
     assert_eq!(exchange_rate, Decimal::from_ratio(10u128, 1u128));
-    
-    let res: StateResponse = query_helper(deps.as_ref(), QueryMsg::State { addr: Some("user_1".to_string()) });
+
+    let res: StateResponse = query_helper(
+        deps.as_ref(),
+        QueryMsg::State {
+            addr: Some("user_1".to_string()),
+        },
+    );
 
     // 1000 LUNA -> 1000 LUNA
     // 100 ampLUNA -> 100 ampLUNA
     // 0.1 Extract * 0 LUNA (diff) = 0 LUNA = 0 ampLUNA
     // user has 100 - 0 = 100 ampLUNA = 1000
-    assert_eq!(res, StateResponse {
-        exchange_rate_lp_stake: Decimal::one(),
-        exchange_rate_stake_uluna: Decimal::from_ratio(10u128, 1u128),
-        stake_available: Uint128::from(100_000000u128),
-        stake_balance: Uint128::from(100_000000u128),
-        stake_extracted: Uint128::zero(),
-        stake_harvested: Uint128::zero(),
-        total_lp: Uint128::from(100_000000u128),
-        tvl_uluna: Uint128::from(1000_000000u128),
-        user_received_asset: Some(Uint128::from(100_000000u128)),
-        user_share: Some(Uint128::from(100_000000u128))
-    });
+    assert_eq!(
+        res,
+        StateResponse {
+            exchange_rate_lp_stake: Decimal::one(),
+            exchange_rate_stake_uluna: Decimal::from_ratio(10u128, 1u128),
+            stake_available: Uint128::from(100_000000u128),
+            stake_balance: Uint128::from(100_000000u128),
+            stake_extracted: Uint128::zero(),
+            stake_harvested: Uint128::zero(),
+            total_lp: Uint128::from(100_000000u128),
+            tvl_uluna: Uint128::from(1000_000000u128),
+            user_received_asset: Some(Uint128::from(100_000000u128)),
+            user_share: Some(Uint128::from(100_000000u128))
+        }
+    );
 
     // exchange_rate has increased
     deps.querier.eris_querier.exchange_rate = Decimal::from_ratio(20u128, 1u128);
-    let res: StateResponse = query_helper(deps.as_ref(), QueryMsg::State { addr: Some("user_1".to_string()) });
+    let res: StateResponse = query_helper(
+        deps.as_ref(),
+        QueryMsg::State {
+            addr: Some("user_1".to_string()),
+        },
+    );
 
     // 1000 LUNA -> 2000 LUNA
     // 100 ampLUNA -> 100 ampLUNA
     // 0.1 Extract * 1000 LUNA (diff) = 100 LUNA = 5 ampLUNA
     // user has 100 - 5 = 95 ampLUNA = 1900
-    assert_eq!(res, StateResponse {
-        exchange_rate_lp_stake: Decimal::from_ratio(95u128, 100u128),
-        exchange_rate_stake_uluna: Decimal::from_ratio(20u128, 1u128),
-        stake_available: Uint128::from(95_000000u128),
-        stake_balance: Uint128::from(100_000000u128),
-        stake_extracted: Uint128::from(5_000000u128),
-        stake_harvested: Uint128::zero(),
-        total_lp: Uint128::from(100_000000u128),
-        tvl_uluna: Uint128::from(2000_000000u128),
-        user_received_asset: Some(Uint128::from(95_000000u128)),
-        user_share: Some(Uint128::from(100_000000u128))
-    });
+    assert_eq!(
+        res,
+        StateResponse {
+            exchange_rate_lp_stake: Decimal::from_ratio(95u128, 100u128),
+            exchange_rate_stake_uluna: Decimal::from_ratio(20u128, 1u128),
+            stake_available: Uint128::from(95_000000u128),
+            stake_balance: Uint128::from(100_000000u128),
+            stake_extracted: Uint128::from(5_000000u128),
+            stake_harvested: Uint128::zero(),
+            total_lp: Uint128::from(100_000000u128),
+            tvl_uluna: Uint128::from(2000_000000u128),
+            user_received_asset: Some(Uint128::from(95_000000u128)),
+            user_share: Some(Uint128::from(100_000000u128))
+        }
+    );
 
-    
     // exchange_rate has increased
     deps.querier.eris_querier.exchange_rate = Decimal::from_ratio(25u128, 1u128);
-    let res: StateResponse = query_helper(deps.as_ref(), QueryMsg::State { addr: Some("user_1".to_string()) });
+    let res: StateResponse = query_helper(
+        deps.as_ref(),
+        QueryMsg::State {
+            addr: Some("user_1".to_string()),
+        },
+    );
 
     // 2000 LUNA -> 2500 LUNA
     // 100 ampLUNA -> 100 ampLUNA
     // 0.1 Extract * 1500 LUNA (diff) = 150 LUNA = 6 ampLUNA
     // user has 100 - 6 = 94 ampLUNA = 2350
-    assert_eq!(res, StateResponse {
-        exchange_rate_lp_stake: Decimal::from_ratio(94u128, 100u128),
-        exchange_rate_stake_uluna: Decimal::from_ratio(25u128, 1u128),
-        stake_available: Uint128::from(94_000000u128),
-        stake_balance: Uint128::from(100_000000u128),
-        stake_extracted: Uint128::from(6_000000u128),
-        stake_harvested: Uint128::zero(),
-        total_lp: Uint128::from(100_000000u128),
-        tvl_uluna: Uint128::from(2500_000000u128),
-        user_received_asset: Some(Uint128::from(94_000000u128)),
-        user_share: Some(Uint128::from(100_000000u128))
-    });
-
+    assert_eq!(
+        res,
+        StateResponse {
+            exchange_rate_lp_stake: Decimal::from_ratio(94u128, 100u128),
+            exchange_rate_stake_uluna: Decimal::from_ratio(25u128, 1u128),
+            stake_available: Uint128::from(94_000000u128),
+            stake_balance: Uint128::from(100_000000u128),
+            stake_extracted: Uint128::from(6_000000u128),
+            stake_harvested: Uint128::zero(),
+            total_lp: Uint128::from(100_000000u128),
+            tvl_uluna: Uint128::from(2500_000000u128),
+            user_received_asset: Some(Uint128::from(94_000000u128)),
+            user_share: Some(Uint128::from(100_000000u128))
+        }
+    );
 }
-
 
 #[test]
 fn deposit_test_real() {
-    
-    
     let mut deps = setup_test();
 
     deps.querier.eris_querier.exchange_rate = Decimal::from_ratio(10u128, 1u128);
-    
+
     deps.querier.set_cw20_total_supply("lp_token", 0);
     deps.querier.set_cw20_balance("lp_token", "cosmos2contract", 0);
     deps.querier.set_cw20_balance("stake", "cosmos2contract", 100_000000);
@@ -761,47 +831,63 @@ fn deposit_test_real() {
 
     let exchange_rate = state.last_exchange_rate.load(deps.as_ref().storage).unwrap();
     assert_eq!(exchange_rate, Decimal::from_ratio(10u128, 1u128));
-    
-    let res: StateResponse = query_helper(deps.as_ref(), QueryMsg::State { addr: Some("user_1".to_string()) });
+
+    let res: StateResponse = query_helper(
+        deps.as_ref(),
+        QueryMsg::State {
+            addr: Some("user_1".to_string()),
+        },
+    );
 
     // 1000 LUNA -> 1000 LUNA
     // 100 ampLUNA -> 100 ampLUNA
     // 0.1 Extract * 0 LUNA (diff) = 0 LUNA = 0 ampLUNA
     // user has 100 - 0 = 100 ampLUNA = 1000
-    assert_eq!(res, StateResponse {
-        exchange_rate_lp_stake: Decimal::one(),
-        exchange_rate_stake_uluna: Decimal::from_ratio(10u128, 1u128),
-        stake_available: Uint128::from(100_000000u128),
-        stake_balance: Uint128::from(100_000000u128),
-        stake_extracted: Uint128::zero(),
-        stake_harvested: Uint128::zero(),
-        total_lp: Uint128::from(100_000000u128),
-        tvl_uluna: Uint128::from(1000_000000u128),
-        user_received_asset: Some(Uint128::from(100_000000u128)),
-        user_share: Some(Uint128::from(100_000000u128))
-    });
+    assert_eq!(
+        res,
+        StateResponse {
+            exchange_rate_lp_stake: Decimal::one(),
+            exchange_rate_stake_uluna: Decimal::from_ratio(10u128, 1u128),
+            stake_available: Uint128::from(100_000000u128),
+            stake_balance: Uint128::from(100_000000u128),
+            stake_extracted: Uint128::zero(),
+            stake_harvested: Uint128::zero(),
+            total_lp: Uint128::from(100_000000u128),
+            tvl_uluna: Uint128::from(1000_000000u128),
+            user_received_asset: Some(Uint128::from(100_000000u128)),
+            user_share: Some(Uint128::from(100_000000u128))
+        }
+    );
 
     // exchange_rate has increased
     deps.querier.eris_querier.exchange_rate = Decimal::from_ratio(20u128, 1u128);
 
-    let res: StateResponse = query_helper(deps.as_ref(), QueryMsg::State { addr: Some("user_1".to_string()) });
+    let res: StateResponse = query_helper(
+        deps.as_ref(),
+        QueryMsg::State {
+            addr: Some("user_1".to_string()),
+        },
+    );
 
     // 1000 LUNA -> 2000 LUNA
     // 100 ampLUNA -> 100 ampLUNA
     // 0.1 Extract * 1000 LUNA (diff) = 100 LUNA = 5 ampLUNA
     // user has 100 - 5 = 95 ampLUNA = 1900
-    assert_eq!(res, StateResponse {
-        exchange_rate_lp_stake: Decimal::from_ratio(95u128, 100u128),
-        exchange_rate_stake_uluna: Decimal::from_ratio(20u128, 1u128),
-        stake_available: Uint128::from(95_000000u128),
-        stake_balance: Uint128::from(100_000000u128),
-        stake_extracted: Uint128::from(5_000000u128),
-        stake_harvested: Uint128::zero(),
-        total_lp: Uint128::from(100_000000u128),
-        tvl_uluna: Uint128::from(2000_000000u128),
-        user_received_asset: Some(Uint128::from(95_000000u128)),
-        user_share: Some(Uint128::from(100_000000u128))
-    });
+    assert_eq!(
+        res,
+        StateResponse {
+            exchange_rate_lp_stake: Decimal::from_ratio(95u128, 100u128),
+            exchange_rate_stake_uluna: Decimal::from_ratio(20u128, 1u128),
+            stake_available: Uint128::from(95_000000u128),
+            stake_balance: Uint128::from(100_000000u128),
+            stake_extracted: Uint128::from(5_000000u128),
+            stake_harvested: Uint128::zero(),
+            total_lp: Uint128::from(100_000000u128),
+            tvl_uluna: Uint128::from(2000_000000u128),
+            user_received_asset: Some(Uint128::from(95_000000u128)),
+            user_share: Some(Uint128::from(100_000000u128))
+        }
+    );
 
     // another user deposits 100 stake
     deps.querier.set_cw20_balance("stake", "cosmos2contract", 200_000000);
@@ -823,54 +909,75 @@ fn deposit_test_real() {
     deps.querier.set_cw20_total_supply("lp_token", total_lp.u128());
     deps.querier.set_cw20_balance("lp_token", "user_2", added.u128());
 
+    let res: StateResponse = query_helper(
+        deps.as_ref(),
+        QueryMsg::State {
+            addr: Some("user_2".to_string()),
+        },
+    );
 
-    
-    let res: StateResponse = query_helper(deps.as_ref(), QueryMsg::State { addr: Some("user_2".to_string()) });
+    assert_eq!(
+        res,
+        StateResponse {
+            exchange_rate_lp_stake: Decimal::from_ratio(
+                950000004141025659u128,
+                1000000000000000000u128
+            ),
+            exchange_rate_stake_uluna: Decimal::from_ratio(20u128, 1u128),
+            stake_available: Uint128::from(195_000000u128),
+            stake_balance: Uint128::from(200_000000u128),
+            stake_extracted: Uint128::from(5_000000u128),
+            stake_harvested: Uint128::zero(),
+            total_lp,
+            tvl_uluna: Uint128::from(4000_000000u128),
+            user_received_asset: Some(Uint128::from(99999999u128)),
+            user_share: Some(added)
+        }
+    );
 
-    assert_eq!(res, StateResponse {
-        exchange_rate_lp_stake: Decimal::from_ratio(950000004141025659u128, 1000000000000000000u128),
-        exchange_rate_stake_uluna: Decimal::from_ratio(20u128, 1u128),
-        stake_available: Uint128::from(195_000000u128),
-        stake_balance: Uint128::from(200_000000u128),
-        stake_extracted: Uint128::from(5_000000u128),
-        stake_harvested: Uint128::zero(),
-        total_lp,
-        tvl_uluna: Uint128::from(4000_000000u128),
-        user_received_asset: Some(Uint128::from(99999999u128)),
-        user_share: Some(added)
-    });
-
-
-    // NO CHANGE TO USER 1 when the same exchange rate    
-    let res: StateResponse = query_helper(deps.as_ref(), QueryMsg::State { addr: Some("user_1".to_string()) });
+    // NO CHANGE TO USER 1 when the same exchange rate
+    let res: StateResponse = query_helper(
+        deps.as_ref(),
+        QueryMsg::State {
+            addr: Some("user_1".to_string()),
+        },
+    );
 
     // 1000 LUNA -> 2000 LUNA
     // 100 ampLUNA -> 100 ampLUNA
     // 0.1 Extract * 1000 LUNA (diff) = 100 LUNA = 5 ampLUNA
     // user has 100 - 5 = 95 ampLUNA = 1900
-    assert_eq!(res, StateResponse {
-        exchange_rate_lp_stake: Decimal::from_ratio(950000004141025659u128, 1000000000000000000u128),
-        exchange_rate_stake_uluna: Decimal::from_ratio(20u128, 1u128),
-        stake_available: Uint128::from(195_000000u128),
-        stake_balance: Uint128::from(200_000000u128),
-        stake_extracted: Uint128::from(5_000000u128),
-        stake_harvested: Uint128::zero(),
-        total_lp,
-        tvl_uluna: Uint128::from(4000_000000u128),
-        user_received_asset: Some(Uint128::from(95_000000u128)),
-        user_share: Some(Uint128::from(100_000000u128))
-    });
+    assert_eq!(
+        res,
+        StateResponse {
+            exchange_rate_lp_stake: Decimal::from_ratio(
+                950000004141025659u128,
+                1000000000000000000u128
+            ),
+            exchange_rate_stake_uluna: Decimal::from_ratio(20u128, 1u128),
+            stake_available: Uint128::from(195_000000u128),
+            stake_balance: Uint128::from(200_000000u128),
+            stake_extracted: Uint128::from(5_000000u128),
+            stake_harvested: Uint128::zero(),
+            total_lp,
+            tvl_uluna: Uint128::from(4000_000000u128),
+            user_received_asset: Some(Uint128::from(95_000000u128)),
+            user_share: Some(Uint128::from(100_000000u128))
+        }
+    );
 
-
-    
     // exchange_rate has increased
     deps.querier.eris_querier.exchange_rate = Decimal::from_ratio(25u128, 1u128);
-    let res: StateResponse = query_helper(deps.as_ref(), QueryMsg::State { addr: Some("user_1".to_string()) });
+    let res: StateResponse = query_helper(
+        deps.as_ref(),
+        QueryMsg::State {
+            addr: Some("user_1".to_string()),
+        },
+    );
 
-    
     // when the exchange rate changes again, the user will have less, than with single step
     // it is because the extraction @20 already took some ampLUNA out from the user into the protocol
-    // that means the user is "less" invested into luna and will not participate as much in the compounding 
+    // that means the user is "less" invested into luna and will not participate as much in the compounding
 
     //old   new	extracted	total	available	val before	val	    got	    extr.	LUNA (extr.)	diff	ampLUNA extracted
     //10	20	0	        100	    100	        1000	    2000	1000	10%	    100	            0,5	    5
@@ -882,20 +989,24 @@ fn deposit_test_real() {
     // while
     // 10-25 will only lead to an extraction of 6
 
-    assert_eq!(res, StateResponse {
-        exchange_rate_lp_stake: Decimal::from_ratio(931000004058205145u128, 1000000000000000000u128),
-        exchange_rate_stake_uluna: Decimal::from_ratio(25u128, 1u128),
-        stake_available: Uint128::from(191_100000u128),
-        stake_balance: Uint128::from(200_000000u128),
-        stake_extracted: Uint128::from(8_900000u128),
-        stake_harvested: Uint128::zero(),
-        total_lp,
-        tvl_uluna: Uint128::from(5000_000000u128),
-        user_received_asset: Some(Uint128::from(93_100000u128)),
-        user_share: Some(Uint128::from(100_000000u128))
-    });
-
-
+    assert_eq!(
+        res,
+        StateResponse {
+            exchange_rate_lp_stake: Decimal::from_ratio(
+                931000004058205145u128,
+                1000000000000000000u128
+            ),
+            exchange_rate_stake_uluna: Decimal::from_ratio(25u128, 1u128),
+            stake_available: Uint128::from(191_100000u128),
+            stake_balance: Uint128::from(200_000000u128),
+            stake_extracted: Uint128::from(8_900000u128),
+            stake_harvested: Uint128::zero(),
+            total_lp,
+            tvl_uluna: Uint128::from(5000_000000u128),
+            user_received_asset: Some(Uint128::from(93_100000u128)),
+            user_share: Some(Uint128::from(100_000000u128))
+        }
+    );
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -954,8 +1065,6 @@ fn transferring_ownership() {
     assert_eq!(owner, Addr::unchecked("jake"));
 }
 
-
-
 #[test]
 fn update_config() {
     let mut deps = setup_test();
@@ -973,8 +1082,6 @@ fn update_config() {
 
     assert_eq!(err, StdError::generic_err("unauthorized: sender is not owner"));
 
-    
-    
     let res = execute(
         deps.as_mut(),
         mock_env(),
@@ -986,9 +1093,11 @@ fn update_config() {
     .unwrap();
 
     assert_eq!(res.messages.len(), 0);
-    assert_eq!(state.extract_config.load(deps.as_ref().storage).unwrap().yield_extract_addr, Addr::unchecked("new".to_string()));
+    assert_eq!(
+        state.extract_config.load(deps.as_ref().storage).unwrap().yield_extract_addr,
+        Addr::unchecked("new".to_string())
+    );
 }
-
 
 //--------------------------------------------------------------------------------------------------
 // Queries

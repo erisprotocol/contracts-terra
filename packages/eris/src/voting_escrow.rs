@@ -17,7 +17,7 @@ pub const DEFAULT_LIMIT: u32 = 10;
 
 pub const DEFAULT_PERIODS_LIMIT: u64 = 20;
 
-/// This structure stores marketing information for vxASTRO.
+/// This structure stores marketing information for voting escrow.
 #[cw_serde]
 pub struct UpdateMarketingInfo {
     /// Project URL
@@ -30,16 +30,16 @@ pub struct UpdateMarketingInfo {
     pub logo: Option<Logo>,
 }
 
-/// This structure stores general parameters for the vxASTRO contract.
+/// This structure stores general parameters for the voting escrow contract.
 #[cw_serde]
 pub struct InstantiateMsg {
-    /// The vxASTRO contract owner
+    /// The voting escrow contract owner
     pub owner: String,
     /// Address that's allowed to black or whitelist contracts
     pub guardian_addr: Option<String>,
-    /// xASTRO token address
+    /// ampLP token address
     pub deposit_token_addr: String,
-    /// Marketing info for vxASTRO
+    /// Marketing info for the voting power (vAMP)
     pub marketing: Option<UpdateMarketingInfo>,
     /// The list of whitelisted logo urls prefixes
     pub logo_urls_whitelist: Vec<String>,
@@ -48,14 +48,14 @@ pub struct InstantiateMsg {
 /// This structure describes the execute functions in the contract.
 #[cw_serde]
 pub enum ExecuteMsg {
-    /// Extend the lockup time for your staked xASTRO
+    /// Extend the lockup time for your staked ampLP
     ExtendLockTime {
         time: u64,
     },
     /// Receives a message of type [`Cw20ReceiveMsg`] and processes it depending on the received
     /// template.
     Receive(Cw20ReceiveMsg),
-    /// Withdraw xASTRO from the vxASTRO contract
+    /// Withdraw ampLP from the voting escrow contract
     Withdraw {},
     /// Propose a new owner for the contract
     ProposeNewOwner {
@@ -71,7 +71,7 @@ pub enum ExecuteMsg {
         append_addrs: Option<Vec<String>>,
         remove_addrs: Option<Vec<String>>,
     },
-    /// Update the marketing info for the vxASTRO contract
+    /// Update the marketing info for the voting escrow contract
     UpdateMarketing {
         /// A URL pointing to the project behind this token
         project: Option<String>,
@@ -80,7 +80,7 @@ pub enum ExecuteMsg {
         /// The address (if any) that can update this data structure
         marketing: Option<String>,
     },
-    /// Upload a logo for vxASTRO
+    /// Upload a logo for voting escrow
     UploadLogo(Logo),
     /// Update config
     UpdateConfig {
@@ -104,15 +104,15 @@ pub enum PushExecuteMsg {
 /// This structure describes a CW20 hook message.
 #[cw_serde]
 pub enum Cw20HookMsg {
-    /// Create a vxASTRO position and lock xASTRO for `time` amount of time
+    /// Create a vAMP position and lock ampLP for `time` amount of time
     CreateLock {
         time: u64,
     },
-    /// Deposit xASTRO in another user's vxASTRO position
+    /// Deposit ampLP in another user's vAMP position
     DepositFor {
         user: String,
     },
-    /// Add more xASTRO to your vxASTRO position
+    /// Add more ampLP to your vAMP position
     ExtendLockAmount {},
 }
 
@@ -155,24 +155,24 @@ pub enum QueryMsg {
         start_after: Option<String>,
         limit: Option<u32>,
     },
-    /// Return the user's vxASTRO balance
+    /// Return the user's vAMP balance
     #[returns(BalanceResponse)]
     Balance {
         address: String,
     },
-    /// Fetch the vxASTRO token information
+    /// Fetch the vAMP token information
     #[returns(TokenInfoResponse)]
     TokenInfo {},
-    /// Fetch vxASTRO's marketing information
+    /// Fetch vAMP's marketing information
     #[returns(MarketingInfoResponse)]
     MarketingInfo {},
-    /// Download the vxASTRO logo
+    /// Download the vAMP logo
     #[returns(DownloadLogoResponse)]
     DownloadLogo {},
-    /// Return the current total amount of vxASTRO
+    /// Return the current total amount of vAMP
     #[returns(VotingPowerResponse)]
     TotalVamp {},
-    /// Return the total amount of vxASTRO at some point in the past
+    /// Return the total amount of vAMP at some point in the past
     #[returns(VotingPowerResponse)]
     TotalVampAt {
         time: u64,
@@ -182,12 +182,12 @@ pub enum QueryMsg {
     TotalVampAtPeriod {
         period: u64,
     },
-    /// Return the user's current voting power (vxASTRO balance)
+    /// Return the user's current voting power (vAMP balance)
     #[returns(VotingPowerResponse)]
     UserVamp {
         user: String,
     },
-    /// Return the user's vxASTRO balance at some point in the past
+    /// Return the user's vAMP balance at some point in the past
     #[returns(VotingPowerResponse)]
     UserVampAt {
         user: String,
@@ -204,36 +204,36 @@ pub enum QueryMsg {
     LockInfo {
         user: String,
     },
-    /// Return user's locked xASTRO balance at the given block height
+    /// Return user's locked ampLP balance at the given block height
     #[returns(Uint128)]
     UserDepositAtHeight {
         user: String,
         height: u64,
     },
-    /// Return the  vxASTRO contract configuration
+    /// Return the vAMP contract configuration
     #[returns(ConfigResponse)]
     Config {},
 }
 
-/// This structure is used to return a user's amount of vxASTRO.
+/// This structure is used to return a user's amount of vAMP.
 #[cw_serde]
 pub struct VotingPowerResponse {
-    /// The vxASTRO balance
+    /// The vAMP balance
     pub vamp: Uint128,
 }
 
-/// This structure is used to return the lock information for a vxASTRO position.
+/// This structure is used to return the lock information for a vAMP position.
 #[cw_serde]
 pub struct LockInfoResponse {
-    /// The amount of xASTRO locked in the position
+    /// The amount of ampLP locked in the position
     pub amount: Uint128,
     /// This is the initial boost for the lock position
     pub coefficient: Decimal,
-    /// Start time for the vxASTRO position decay
+    /// Start time for the vAMP position decay
     pub start: u64,
-    /// End time for the vxASTRO position decay
+    /// End time for the vAMP position decay
     pub end: u64,
-    /// Slope at which a staker's vxASTRO balance decreases over time
+    /// Slope at which a staker's vAMP balance decreases over time
     pub slope: Uint128,
 
     /// fixed sockel
@@ -247,9 +247,9 @@ pub struct LockInfoResponse {
 pub struct ConfigResponse {
     /// Address that's allowed to change contract parameters
     pub owner: String,
-    /// Address that can only blacklist vxASTRO stakers and remove their governance power
+    /// Address that can only blacklist vAMP stakers and remove their governance power
     pub guardian_addr: Option<Addr>,
-    /// The xASTRO token contract address
+    /// The ampLP token contract address
     pub deposit_token_addr: String,
     /// The list of whitelisted logo urls prefixes
     pub logo_urls_whitelist: Vec<String>,
@@ -263,7 +263,7 @@ pub struct MigrateMsg {}
 
 /// Queries current user's voting power from the voting escrow contract.
 ///
-/// * **user** staker for which we calculate the latest vxASTRO voting power.
+/// * **user** staker for which we calculate the latest vAMP voting power.
 pub fn get_voting_power(
     querier: &QuerierWrapper,
     escrow_addr: impl Into<String>,

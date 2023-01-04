@@ -8,6 +8,6 @@ pub mod queries;
 pub mod state;
 pub mod types;
 
+mod constants;
 #[cfg(test)]
 mod testing;
-mod constants;

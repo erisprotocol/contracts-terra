@@ -71,13 +71,16 @@ impl SwapOperation {
     pub fn get_offer_asset_info(&self) -> AssetInfo {
         match self {
             SwapOperation::AstroSwap {
-                offer_asset_info, ..
+                offer_asset_info,
+                ..
             } => offer_asset_info.clone(),
             SwapOperation::TerraSwap {
-                offer_asset_info, ..
+                offer_asset_info,
+                ..
             } => offer_asset_info.clone(),
             SwapOperation::TokenSwap {
-                offer_asset_info, ..
+                offer_asset_info,
+                ..
             } => offer_asset_info.clone(),
         }
     }
@@ -147,7 +150,9 @@ impl Router {
         max_spread: Option<Decimal>,
     ) -> StdResult<CosmosMsg> {
         let wasm_msg = match &offer_asset.info {
-            AssetInfo::Token { contract_addr } => WasmMsg::Execute {
+            AssetInfo::Token {
+                contract_addr,
+            } => WasmMsg::Execute {
                 contract_addr: contract_addr.to_string(),
                 msg: to_binary(&Cw20ExecuteMsg::Send {
                     contract: self.0.to_string(),
@@ -161,7 +166,9 @@ impl Router {
                 })?,
                 funds: vec![],
             },
-            AssetInfo::NativeToken { denom } => WasmMsg::Execute {
+            AssetInfo::NativeToken {
+                denom,
+            } => WasmMsg::Execute {
                 contract_addr: self.0.to_string(),
                 msg: to_binary(&ExecuteMsg::ExecuteSwapOperations {
                     operations,

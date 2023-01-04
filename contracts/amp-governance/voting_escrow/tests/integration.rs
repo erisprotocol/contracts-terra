@@ -17,7 +17,7 @@ fn lock_unlock_logic() {
     let owner = Addr::unchecked("owner");
     let helper = Helper::init(router_ref, owner);
 
-    // Mint ASTRO, stake it and mint xASTRO
+    // Mint ASTRO, stake it and mint ampLP
     helper.mint_xastro(router_ref, "user", 100);
     helper.check_xastro_balance(router_ref, "user", 100);
 
@@ -46,7 +46,7 @@ fn lock_unlock_logic() {
     let err = helper.withdraw(router_ref, "user").unwrap_err();
     assert_eq!(err.root_cause().to_string(), "Lock does not exist");
 
-    // Try to deposit more xASTRO in a position that does not already exist
+    // Try to deposit more ampLP in a position that does not already exist
     let err = helper.extend_lock_amount(router_ref, "user", 1f32).unwrap_err();
     assert_eq!(err.root_cause().to_string(), "Lock does not exist");
 
@@ -60,11 +60,11 @@ fn lock_unlock_logic() {
 
     helper.create_lock(router_ref, "user", WEEK * 3, 90f32).unwrap();
 
-    // Check that 90 xASTRO were actually debited
+    // Check that 90 ampLP were actually debited
     helper.check_xastro_balance(router_ref, "user", 10);
     helper.check_xastro_balance(router_ref, helper.voting_instance.as_str(), 90);
 
-    // A user can have a single vxASTRO position
+    // A user can have a single vAMP position
     let err = helper.create_lock(router_ref, "user", MAX_LOCK_TIME, 1f32).unwrap_err();
     assert_eq!(err.root_cause().to_string(), "Lock already exists");
 
@@ -83,7 +83,7 @@ fn lock_unlock_logic() {
         "Lock time must be within limits (week <= lock time < 2 years)"
     );
 
-    // Add more xASTRO to the existing position
+    // Add more ampLP to the existing position
     helper.extend_lock_amount(router_ref, "user", 9f32).unwrap();
     helper.check_xastro_balance(router_ref, "user", 1);
     helper.check_xastro_balance(router_ref, helper.voting_instance.as_str(), 99);
@@ -104,7 +104,7 @@ fn lock_unlock_logic() {
     router_ref.update_block(next_block);
     router_ref.update_block(|block| block.time = block.time.plus_seconds(2 * WEEK));
 
-    // Try to add more xASTRO to an expired position
+    // Try to add more ampLP to an expired position
     let err = helper.extend_lock_amount(router_ref, "user", 1f32).unwrap_err();
     assert_eq!(err.root_cause().to_string(), "The lock expired. Withdraw and create new lock");
     // Try to increase the lock time for an expired position
@@ -189,7 +189,7 @@ fn extending_lock_less_than_3_periods() {
     let router_ref = &mut router;
     let helper = Helper::init(router_ref, Addr::unchecked("owner"));
 
-    // Mint ASTRO, stake it and mint xASTRO
+    // Mint ASTRO, stake it and mint ampLP
     helper.mint_xastro(router_ref, "user", 100);
     helper.mint_xastro(router_ref, "user2", 100);
 
@@ -214,7 +214,7 @@ fn new_lock_after_lock_expired() {
     let router_ref = &mut router;
     let helper = Helper::init(router_ref, Addr::unchecked("owner"));
 
-    // Mint ASTRO, stake it and mint xASTRO
+    // Mint ASTRO, stake it and mint ampLP
     helper.mint_xastro(router_ref, "user", 100);
     helper.mint_xastro(router_ref, "user2", 100);
 
@@ -298,7 +298,7 @@ fn voting_constant_decay() {
     let router_ref = &mut router;
     let helper = Helper::init(router_ref, Addr::unchecked("owner"));
 
-    // Mint ASTRO, stake it and mint xASTRO
+    // Mint ASTRO, stake it and mint ampLP
     helper.mint_xastro(router_ref, "user", 100);
     helper.mint_xastro(router_ref, "user2", 50);
 
@@ -309,7 +309,7 @@ fn voting_constant_decay() {
     let vp = helper.query_total_vp(router_ref).unwrap();
     assert_eq!(vp, 55.96153);
 
-    // Since user2 did not lock their xASTRO, the contract does not have any information
+    // Since user2 did not lock their ampLP, the contract does not have any information
     let vp = helper.query_user_vp(router_ref, "user2").unwrap();
     assert_eq!(vp, 0.0);
 
@@ -384,7 +384,7 @@ fn voting_variable_decay() {
     let router_ref = &mut router;
     let helper = Helper::init(router_ref, Addr::unchecked("owner"));
 
-    // Mint ASTRO, stake it and mint xASTRO
+    // Mint ASTRO, stake it and mint ampLP
     helper.mint_xastro(router_ref, "user", 100);
     helper.mint_xastro(router_ref, "user2", 100);
 
@@ -449,13 +449,13 @@ fn check_queries() {
     let owner = Addr::unchecked("owner");
     let helper = Helper::init(router_ref, owner);
 
-    // Mint ASTRO, stake it and mint xASTRO
+    // Mint ASTRO, stake it and mint ampLP
     helper.mint_xastro(router_ref, "user", 100);
     helper.check_xastro_balance(router_ref, "user", 100);
 
     // Create valid voting escrow lock
     helper.create_lock(router_ref, "user", WEEK * 3, 90f32).unwrap();
-    // Check that 90 xASTRO were actually debited
+    // Check that 90 ampLP were actually debited
     helper.check_xastro_balance(router_ref, "user", 10);
     helper.check_xastro_balance(router_ref, helper.voting_instance.as_str(), 90);
 
@@ -492,7 +492,7 @@ fn check_queries() {
         .unwrap();
     assert_eq!(user_vp_at_period, user_vp);
 
-    // Check users' locked xASTRO balance history
+    // Check users' locked ampLP balance history
     helper.mint_xastro(router_ref, "user", 90);
     // SnapshotMap checkpoints the data at the next block
     let start_height = router_ref.block_info().height + 1;
@@ -511,7 +511,7 @@ fn check_queries() {
     assert_eq!(balance, 90f32);
     let balance = helper.query_locked_balance_at(router_ref, "user", start_height + 2).unwrap();
     assert_eq!(balance, 190f32);
-    // The user still has 190 xASTRO locked
+    // The user still has 190 ampLP locked
     let balance =
         helper.query_locked_balance_at(router_ref, "user", router_ref.block_info().height).unwrap();
     assert_eq!(balance, 190f32);
@@ -524,7 +524,7 @@ fn check_queries() {
     // Now the users' balance is zero
     let cur_height = router_ref.block_info().height + 1;
     let balance = helper.query_locked_balance_at(router_ref, "user", cur_height).unwrap();
-    // But one block before it had 190 xASTRO locked
+    // But one block before it had 190 ampLP locked
     assert_eq!(balance, 0f32);
     let balance = helper.query_locked_balance_at(router_ref, "user", cur_height - 1).unwrap();
     assert_eq!(balance, 190f32);
@@ -629,7 +629,7 @@ fn check_deposit_for() {
     let owner = Addr::unchecked("owner");
     let helper = Helper::init(router_ref, owner);
 
-    // Mint ASTRO, stake it and mint xASTRO
+    // Mint ASTRO, stake it and mint ampLP
     helper.mint_xastro(router_ref, "user1", 100);
     helper.check_xastro_balance(router_ref, "user1", 100);
     helper.mint_xastro(router_ref, "user2", 100);
@@ -715,7 +715,7 @@ fn check_blacklist() {
     let owner = Addr::unchecked("owner");
     let helper = Helper::init(router_ref, owner);
 
-    // Mint ASTRO, stake it and mint xASTRO
+    // Mint ASTRO, stake it and mint ampLP
     helper.mint_xastro(router_ref, "user1", 100);
     helper.mint_xastro(router_ref, "user2", 100);
     helper.mint_xastro(router_ref, "user3", 100);
@@ -736,7 +736,7 @@ fn check_blacklist() {
     let err = helper.deposit_for(router_ref, "user2", "user3", 50f32).unwrap_err();
     assert_eq!(err.root_cause().to_string(), "The user2 address is blacklisted");
 
-    // Since user2 is blacklisted, their xASTRO balance was left unchanged
+    // Since user2 is blacklisted, their ampLP balance was left unchanged
     helper.check_xastro_balance(router_ref, "user2", 100);
     // And they did not create a lock, thus we have no information to query
     let vp = helper.query_user_vp(router_ref, "user2").unwrap();
@@ -778,7 +778,7 @@ fn check_blacklist() {
         .query_user_vp_at(router_ref, "user1", router_ref.block_info().time.seconds() - WEEK)
         .unwrap();
     assert_eq!(vp, 88.94231);
-    // Total voting power should be zero as well since there was only one vxASTRO position created by user1
+    // Total voting power should be zero as well since there was only one vAMP position created by user1
     let vp = helper.query_total_vp(router_ref).unwrap();
     assert_eq!(vp, 0.0);
 

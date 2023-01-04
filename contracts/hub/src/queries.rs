@@ -110,7 +110,7 @@ pub fn wanted_delegations(deps: Deps, env: Env) -> StdResult<WantedDelegationsRe
     )?;
 
     Ok(WantedDelegationsResponse {
-        delegations: delegations.into_iter().sorted_by(|(_, a), (_, b)| b.cmp(a)).collect(), // Sort in descending order
+        delegations: sort_delegations(delegations),
         tune_time_period: share.map(|s| (s.tune_time, s.tune_period)),
     })
 }
@@ -143,9 +143,25 @@ pub fn simulate_wanted_delegations(
     )?;
 
     Ok(WantedDelegationsResponse {
-        delegations: delegations.into_iter().sorted_by(|(_, a), (_, b)| b.cmp(a)).collect(), // Sort in descending order
+        delegations: sort_delegations(delegations), // Sort in descending order
         tune_time_period: share.map(|s| (s.tune_time, s.tune_period)),
     })
+}
+
+/// Sort delegations by amount descending and then by address ascending
+fn sort_delegations(
+    delegations: std::collections::HashMap<String, Uint128>,
+) -> Vec<(String, Uint128)> {
+    delegations
+        .into_iter()
+        .sorted_by(|(vala, a), (valb, b)| {
+            let result = b.cmp(a);
+            if result == std::cmp::Ordering::Equal {
+                return vala.cmp(valb);
+            }
+            result
+        })
+        .collect()
 }
 
 pub fn pending_batch(deps: Deps) -> StdResult<PendingBatch> {

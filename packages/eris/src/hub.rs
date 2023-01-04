@@ -154,6 +154,10 @@ pub enum CallbackMsg {
     // Swap {},
     /// Following the swaps, stake the Luna acquired to the whitelisted validators
     Reinvest {},
+
+    CheckReceivedCoin {
+        snapshot: Coin,
+    },
 }
 
 impl CallbackMsg {

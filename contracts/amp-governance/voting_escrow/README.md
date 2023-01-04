@@ -1,13 +1,13 @@
-# Vote Escrowed Staked ASTRO
+# vAMP = Vote Escrowed (LUNA-ampLUNA) ampLP
 
-The vxASTRO contract allows xASTRO token holders to stake their tokens in order to boost their governance power as well as the amount of ASTRO they can get from Generator emissions. Voting power is boosted according to how long someone locks their xASTRO for.
+The vAMP contract allows ampLP token holders to stake their tokens in order to boost their governance and delegation power. Voting power is boosted according to how long someone locks their ampLP for.
 
-Maximum lock time is 2 years, which gives the maximum possible boost of 2.5. For example, if a token holder locks 100 xASTRO for 2 years, they
-get 250 vxASTRO. Their vxASTRO balance then goes down every week for the next 2 years (unless they relock) until it reaches zero.
+Maximum lock time is 2 years, which gives the maximum possible boost of 10. For example, if a token holder locks 100 ampLP for 2 years, they
+get 1000 vAMP. Their vAMP balance then goes down every week for the next 2 years (unless they relock) until it reaches one (100 vAMP).
 
 ## InstantiateMsg
 
-Initialize the contract with the initial owner and the address of the xASTRO token.
+Initialize the contract with the initial owner and the address of the ampLP token.
 
 ```json
 {
@@ -20,7 +20,7 @@ Initialize the contract with the initial owner and the address of the xASTRO tok
 
 ### `receive`
 
-Create new lock/vxASTRO position, deposit more xASTRO in the user's vxASTRO position or deposit on behalf of another address.
+Create new lock/vAMP position, deposit more ampLP in the user's vAMP position or deposit on behalf of another address.
 
 ```json
 {
@@ -34,7 +34,7 @@ Create new lock/vxASTRO position, deposit more xASTRO in the user's vxASTRO posi
 
 ### `extend_lock_time`
 
-An example of extending the lock time for a vxASTRO position by 1 week.
+An example of extending the lock time for a vAMP position by 1 week.
 
 ```json
 {
@@ -46,7 +46,7 @@ An example of extending the lock time for a vxASTRO position by 1 week.
 
 ### `withdraw`
 
-Withdraw the whole amount of xASTRO if the lock for a vxASTRO position expired.
+Withdraw the whole amount of ampLP if the lock for a vAMP position expired.
 
 ```json
 {
@@ -90,7 +90,7 @@ Used to claim contract ownership. Only the newly proposed contract owner can exe
 
 ### `update_blacklist`
 
-Updates the list of addresses that are prohibited from staking in vxASTRO or if they are already staked, from voting with their vxASTRO in the Astral Assembly. Only the contract owner can execute this method.
+Updates the list of addresses that are prohibited from staking in vAMP or if they are already staked, from voting with their vAMP. Only the contract owner can execute this method.
 
 ```json
 {
@@ -115,7 +115,7 @@ All query messages are described below. A custom struct is defined for each quer
 
 ### `total_voting_power`
 
-Returns the total supply of vxASTRO at the current block.
+Returns the total supply of vAMP at the current block.
 
 ```json
 {
@@ -127,7 +127,7 @@ Returns the total supply of vxASTRO at the current block.
 
 ### `user_voting_power`
 
-Returns a user's vxASTRO balance at the current block.
+Returns a user's vAMP balance at the current block.
 
 Request:
 
@@ -151,7 +151,7 @@ Response:
 
 ### `total_voting_power_at`
 
-Returns the total vxASTRO supply at a specific timestamp (in seconds).
+Returns the total vAMP supply at a specific timestamp (in seconds).
 
 Request:
 
@@ -175,7 +175,7 @@ Response:
 
 ### `user_voting_power_at`
 
-Returns the user's vxASTRO balance at a specific timestamp (in seconds).
+Returns the user's vAMP balance at a specific timestamp (in seconds).
 
 Request:
 
@@ -200,7 +200,7 @@ Response:
 
 ### `lock_info`
 
-Returns the information about a user's vxASTRO position.
+Returns the information about a user's vAMP position.
 
 Request:
 
@@ -233,7 +233,7 @@ Returns the contract's config.
 {
   "config_response": {
     "owner": "terra...",
-    "deposit_token_addr" : "terra..."
+    "deposit_token_addr": "terra..."
   }
 }
 ```

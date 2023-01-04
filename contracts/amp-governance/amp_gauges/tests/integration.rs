@@ -1,5 +1,4 @@
-use anyhow::{Ok, Result};
-use cosmwasm_std::{attr, Uint128};
+use cosmwasm_std::{attr, StdResult, Uint128};
 use eris::governance_helper::WEEK;
 use eris_tests::gov_helper::EscrowHelper;
 use eris_tests::{mock_app, EventChecker, TerraAppExtension};
@@ -8,9 +7,9 @@ use std::vec;
 use eris::amp_gauges::{ConfigResponse, ExecuteMsg};
 
 #[test]
-fn update_configs() -> Result<()> {
+fn update_configs() -> StdResult<()> {
     let mut router = mock_app();
-    let helper = EscrowHelper::init(&mut router);
+    let helper = EscrowHelper::init(&mut router, false);
 
     let config = helper.amp_query_config(&mut router).unwrap();
     assert_eq!(config.validators_limit, 30);
@@ -43,9 +42,9 @@ fn update_configs() -> Result<()> {
 }
 
 #[test]
-fn vote() -> Result<()> {
+fn vote() -> StdResult<()> {
     let mut router = mock_app();
-    let helper = EscrowHelper::init(&mut router);
+    let helper = EscrowHelper::init(&mut router, false);
 
     helper.ve_lock_lp(&mut router, "user1", 100000, 3 * WEEK).unwrap();
     helper.ve_lock_lp(&mut router, "user2", 50000, 104 * WEEK).unwrap();
@@ -126,7 +125,7 @@ fn vote() -> Result<()> {
     );
 
     let result = helper.ve_withdraw(&mut router, "user1").unwrap();
-    result.assert_attribute("wasm", attr("action", "update_vote_removed")).unwrap();
+    result.assert_attribute("wasm", attr("action", "vamp/update_vote_removed")).unwrap();
 
     helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {}).unwrap();
     let info = helper.amp_query_tune_info(&mut router).unwrap();
@@ -151,9 +150,9 @@ fn vote() -> Result<()> {
 }
 
 #[test]
-fn update_vote_extend_locktime() -> Result<()> {
+fn update_vote_extend_locktime() -> StdResult<()> {
     let mut router = mock_app();
-    let helper = EscrowHelper::init(&mut router);
+    let helper = EscrowHelper::init(&mut router, false);
 
     helper.ve_lock_lp(&mut router, "user1", 100000, 3 * WEEK).unwrap();
 
@@ -215,9 +214,9 @@ fn update_vote_extend_locktime() -> Result<()> {
 }
 
 #[test]
-fn update_vote_extend_amount() -> Result<()> {
+fn update_vote_extend_amount() -> StdResult<()> {
     let mut router = mock_app();
-    let helper = EscrowHelper::init(&mut router);
+    let helper = EscrowHelper::init(&mut router, false);
 
     helper.ve_lock_lp(&mut router, "user1", 100000, 3 * WEEK).unwrap();
 
@@ -305,9 +304,9 @@ fn update_vote_extend_amount() -> Result<()> {
 }
 
 #[test]
-fn check_update_owner() -> Result<()> {
+fn check_update_owner() -> StdResult<()> {
     let mut router = mock_app();
-    let helper = EscrowHelper::init(&mut router);
+    let helper = EscrowHelper::init(&mut router, false);
 
     let new_owner = String::from("new_owner");
 

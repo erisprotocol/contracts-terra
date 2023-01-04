@@ -3,7 +3,6 @@ pub mod error;
 pub mod state;
 pub mod utils;
 
-
 #[cfg(test)]
 mod mock_querier;
 
