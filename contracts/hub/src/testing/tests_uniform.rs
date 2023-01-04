@@ -1710,6 +1710,7 @@ fn querying_unbond_requests_details() {
 // Delegations
 //--------------------------------------------------------------------------------------------------
 
+#[test]
 fn computing_undelegations() -> StdResult<()> {
     let deps = mock_dependencies();
     let state = State::default();
@@ -1738,6 +1739,7 @@ fn computing_undelegations() -> StdResult<()> {
     assert_eq!(new_undelegations, expected);
     Ok(())
 }
+
 #[test]
 fn computing_redelegations_for_removal() -> StdResult<()> {
     let deps = mock_dependencies();

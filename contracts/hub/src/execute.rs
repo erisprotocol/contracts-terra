@@ -660,9 +660,16 @@ pub fn rebalance(
 
     let event = Event::new("erishub/rebalanced").add_attribute("uluna_moved", amount.to_string());
 
+    let check_msg = if !redelegate_msgs.is_empty() {
+        // only check coins if a redelegation is happening
+        Some(check_received_coin_msg(&deps, &env, None)?)
+    } else {
+        None
+    };
+
     Ok(Response::new()
         .add_messages(redelegate_msgs)
-        .add_message(check_received_coin_msg(&deps, &env, None)?)
+        .add_optional_message(check_msg)
         .add_event(event)
         .add_attribute("action", "erishub/rebalance"))
 }
@@ -732,9 +739,16 @@ pub fn remove_validator(
 
     let event = Event::new("erishub/validator_removed").add_attribute("validator", validator);
 
+    let check_msg = if !redelegate_msgs.is_empty() {
+        // only check coins if a redelegation is happening
+        Some(check_received_coin_msg(&deps, &env, None)?)
+    } else {
+        None
+    };
+
     Ok(Response::new()
         .add_messages(redelegate_msgs)
-        .add_message(check_received_coin_msg(&deps, &env, None)?)
+        .add_optional_message(check_msg)
         .add_event(event)
         .add_attribute("action", "erishub/remove_validator"))
 }

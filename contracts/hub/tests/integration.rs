@@ -453,9 +453,9 @@ fn config_does_not_change_exchange_rate_emps() -> Result<()> {
             // 30% * 50% (vAMP) + 33,33% * 50% (EMP)
             delegation(&helper, "val2", 567_391247),
             // 33,33% * 50% (EMP)
-            delegation(&helper, "val2", 298_626972),
+            delegation(&helper, "val3", 298_626972),
             // 33,33% * 50% (EMP)
-            delegation(&helper, "val2", 298_626972),
+            delegation(&helper, "val4", 298_626972),
         ]
     );
 

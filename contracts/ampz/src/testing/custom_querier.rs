@@ -1,13 +1,10 @@
 use std::collections::HashMap;
 
-use cosmwasm_std::testing::{BankQuerier, StakingQuerier, MOCK_CONTRACT_ADDR};
+use cosmwasm_std::testing::{BankQuerier, StakingQuerier};
 use cosmwasm_std::{
-    from_binary, from_slice, Addr, Coin, Empty, FullDelegation, Querier, QuerierResult,
-    QueryRequest, SystemError, WasmQuery,
+    from_binary, from_slice, Empty, Querier, QuerierResult, QueryRequest, SystemError, WasmQuery,
 };
 use cw20::Cw20QueryMsg;
-
-use crate::types::Delegation;
 
 use super::cw20_querier::Cw20Querier;
 use super::helpers::err_unsupported_query;
@@ -50,28 +47,28 @@ impl CustomQuerier {
         };
     }
 
-    pub fn set_cw20_total_supply(&mut self, token: &str, total_supply: u128) {
-        self.cw20_querier.total_supplies.insert(token.to_string(), total_supply);
-    }
+    // pub fn set_cw20_total_supply(&mut self, token: &str, total_supply: u128) {
+    //     self.cw20_querier.total_supplies.insert(token.to_string(), total_supply);
+    // }
 
-    pub fn set_bank_balances(&mut self, balances: &[Coin]) {
-        self.bank_querier = BankQuerier::new(&[(MOCK_CONTRACT_ADDR, balances)])
-    }
+    // pub fn set_bank_balances(&mut self, balances: &[Coin]) {
+    //     self.bank_querier = BankQuerier::new(&[(MOCK_CONTRACT_ADDR, balances)])
+    // }
 
-    pub fn set_staking_delegations(&mut self, delegations: &[Delegation]) {
-        let fds = delegations
-            .iter()
-            .map(|d| FullDelegation {
-                delegator: Addr::unchecked(MOCK_CONTRACT_ADDR),
-                validator: d.validator.clone(),
-                amount: Coin::new(d.amount, "uluna"),
-                can_redelegate: Coin::new(0, "uluna"),
-                accumulated_rewards: vec![],
-            })
-            .collect::<Vec<_>>();
+    // pub fn set_staking_delegations(&mut self, delegations: &[Delegation]) {
+    //     let fds = delegations
+    //         .iter()
+    //         .map(|d| FullDelegation {
+    //             delegator: Addr::unchecked(MOCK_CONTRACT_ADDR),
+    //             validator: d.validator.clone(),
+    //             amount: Coin::new(d.amount, "uluna"),
+    //             can_redelegate: Coin::new(0, "uluna"),
+    //             accumulated_rewards: vec![],
+    //         })
+    //         .collect::<Vec<_>>();
 
-        self.staking_querier = StakingQuerier::new("uluna", &[], &fds);
-    }
+    //     self.staking_querier = StakingQuerier::new("uluna", &[], &fds);
+    // }
 
     pub fn handle_query(&self, request: &QueryRequest<Empty>) -> QuerierResult {
         match request {
