@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::compound_proxy::{ExecuteMsg, LpStateResponse, QueryMsg};
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Compounder(pub Addr);
 
 impl Compounder {

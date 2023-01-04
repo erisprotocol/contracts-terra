@@ -20,7 +20,7 @@ pub struct InstantiateMsg {
     pub boost_fee: Decimal,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Config {
     pub generator: Generator,
     pub astro_gov: AstroGov,

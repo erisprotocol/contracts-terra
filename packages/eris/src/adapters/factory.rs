@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use super::pair::Pair;
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Factory(pub Addr);
 
 impl Factory {
