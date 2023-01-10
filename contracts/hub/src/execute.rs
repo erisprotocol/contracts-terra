@@ -145,8 +145,6 @@ pub fn bond(
     };
 
     let event = Event::new("erishub/bonded")
-        .add_attribute("time", env.block.time.seconds().to_string())
-        .add_attribute("height", env.block.height.to_string())
         .add_attribute("receiver", receiver.clone())
         .add_attribute("uluna_bonded", token_to_bond)
         .add_attribute("ustake_minted", ustake_to_mint);
@@ -241,8 +239,6 @@ pub fn reinvest(deps: DepsMut, env: Env) -> StdResult<Response> {
     state.unlocked_coins.save(deps.storage, &unlocked_coins)?;
 
     let event = Event::new("erishub/harvested")
-        .add_attribute("time", env.block.time.seconds().to_string())
-        .add_attribute("height", env.block.height.to_string())
         .add_attribute("uluna_bonded", uluna_to_bond)
         .add_attribute("uluna_protocol_fee", protocol_fee_amount);
 
@@ -262,26 +258,25 @@ pub fn reinvest(deps: DepsMut, env: Env) -> StdResult<Response> {
 pub fn callback_received_coin(deps: DepsMut, env: Env, snapshot: Coin) -> StdResult<Response> {
     // in some cosmwasm versions the events are not received in the callback
     // so each time the contract can receive some coins from rewards we also need to check after receiving some and add them to the unlocked_coins
-
-    let mut received_coins = Coins(vec![]);
-    let mut event = Event::new("erishub/callback_received_coins");
     let current_balance =
         deps.querier.query_balance(env.contract.address, snapshot.denom.to_string())?.amount;
 
     if current_balance > snapshot.amount {
         let amount = current_balance.checked_sub(snapshot.amount)?;
-        event = event.add_attribute("received_coin", amount.to_string() + snapshot.denom.as_str());
-        received_coins.add(&Coin::new(amount.u128(), snapshot.denom))?;
+        let event = Event::new("erishub/received")
+            .add_attribute("received_coin", amount.to_string() + snapshot.denom.as_str());
+
+        let state = State::default();
+        state.unlocked_coins.update(deps.storage, |coins| -> StdResult<_> {
+            let mut coins = Coins(coins);
+            coins.add(&Coin::new(amount.u128(), snapshot.denom))?;
+            Ok(coins.0)
+        })?;
+
+        return Ok(Response::new().add_event(event).add_attribute("action", "erishub/received"));
     }
 
-    let state = State::default();
-    state.unlocked_coins.update(deps.storage, |coins| -> StdResult<_> {
-        let mut coins = Coins(coins);
-        coins.add_many(&received_coins)?;
-        Ok(coins.0)
-    })?;
-
-    Ok(Response::new().add_event(event).add_attribute("action", "erishub/callback_received_coins"))
+    Ok(Response::new().add_attribute("action", "erishub/received"))
 }
 
 /// searches for the validator with the least amount of delegations
@@ -372,16 +367,14 @@ pub fn queue_unbond(
     if env.block.time.seconds() >= pending_batch.est_unbond_start_time {
         start_time = "immediate".to_string();
         msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: env.contract.address.clone().into(),
+            contract_addr: env.contract.address.into(),
             msg: to_binary(&ExecuteMsg::SubmitBatch {})?,
             funds: vec![],
         }));
     }
 
     let event = Event::new("erishub/unbond_queued")
-        .add_attribute("time", env.block.time.seconds().to_string())
         .add_attribute("est_unbond_start_time", start_time)
-        .add_attribute("height", env.block.height.to_string())
         .add_attribute("id", pending_batch.id.to_string())
         .add_attribute("receiver", receiver)
         .add_attribute("ustake_to_burn", ustake_to_burn);
@@ -448,8 +441,6 @@ pub fn submit_batch(deps: DepsMut, env: Env) -> StdResult<Response> {
     });
 
     let event = Event::new("erishub/unbond_submitted")
-        .add_attribute("time", env.block.time.seconds().to_string())
-        .add_attribute("height", env.block.height.to_string())
         .add_attribute("id", pending_batch.id.to_string())
         .add_attribute("uluna_unbonded", uluna_to_unbond)
         .add_attribute("ustake_burned", pending_batch.ustake_to_burn);
@@ -590,8 +581,6 @@ pub fn withdraw_unbonded(
     });
 
     let event = Event::new("erishub/unbonded_withdrawn")
-        .add_attribute("time", env.block.time.seconds().to_string())
-        .add_attribute("height", env.block.height.to_string())
         .add_attribute("ids", ids.join(","))
         .add_attribute("user", user)
         .add_attribute("receiver", receiver)
