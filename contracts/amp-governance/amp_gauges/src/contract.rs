@@ -10,15 +10,17 @@ use cosmwasm_std::{
     StdError, StdResult, Storage, Uint128,
 };
 use cw2::{get_contract_version, set_contract_version};
+use cw_storage_plus::Bound;
 use eris::hub::get_hub_validators;
 use itertools::Itertools;
 
 use eris::amp_gauges::{
-    ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, UserInfoResponse, VotedValidatorInfoResponse,
+    ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, UserInfoResponse, UserInfosResponse,
+    VotedValidatorInfoResponse,
 };
 use eris::governance_helper::{calc_voting_power, get_period};
 use eris::helpers::bps::BasicPoints;
-use eris::voting_escrow::{get_lock_info, LockInfoResponse};
+use eris::voting_escrow::{get_lock_info, LockInfoResponse, DEFAULT_LIMIT, MAX_LIMIT};
 
 use crate::error::ContractError;
 use crate::state::{
@@ -486,6 +488,10 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::UserInfo {
             user,
         } => to_binary(&user_info(deps, user)?),
+        QueryMsg::UserInfos {
+            start_after,
+            limit,
+        } => to_binary(&user_infos(deps, start_after, limit)?),
         QueryMsg::TuneInfo {} => to_binary(&TUNE_INFO.load(deps.storage)?),
         QueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
         QueryMsg::ValidatorInfo {
@@ -511,6 +517,37 @@ fn user_info(deps: Deps, user: String) -> StdResult<UserInfoResponse> {
         .ok_or_else(|| StdError::generic_err("User not found"))
 }
 
+// returns all user votes
+fn user_infos(
+    deps: Deps,
+    start_after: Option<String>,
+    limit: Option<u32>,
+) -> StdResult<UserInfosResponse> {
+    let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
+
+    let mut start: Option<Bound<&Addr>> = None;
+    let addr: Addr;
+    if let Some(start_after) = start_after {
+        if let Ok(start_after_addr) = deps.api.addr_validate(&start_after) {
+            addr = start_after_addr;
+            start = Some(Bound::exclusive(&addr));
+        }
+    }
+
+    let users = USER_INFO
+        .range(deps.storage, start, None, Order::Ascending)
+        .take(limit)
+        .map(|item| {
+            let (user, v) = item?;
+            Ok((user, UserInfo::into_response(v)))
+        })
+        .collect::<StdResult<Vec<(Addr, UserInfoResponse)>>>()?;
+
+    Ok(UserInfosResponse {
+        users,
+    })
+}
+
 /// Returns all active validators info at a specified period.
 fn validator_infos(
     deps: Deps,
@@ -518,8 +555,7 @@ fn validator_infos(
     validator_addrs: Option<Vec<String>>,
     period: Option<u64>,
 ) -> StdResult<Vec<(String, VotedValidatorInfoResponse)>> {
-    let block_period = get_period(env.block.time.seconds())?;
-    let period = period.unwrap_or(block_period);
+    let period = period.unwrap_or(get_period(env.block.time.seconds())?);
 
     // use active validators as fallback
     let validator_addrs = validator_addrs.unwrap_or_else(|| {

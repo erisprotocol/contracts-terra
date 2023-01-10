@@ -65,6 +65,11 @@ pub enum QueryMsg {
     UserInfo {
         user: String,
     },
+    #[returns(UserInfosResponse)]
+    UserInfos {
+        start_after: Option<String>,
+        limit: Option<u32>,
+    },
     /// TuneInfo returns information about the latest generators that were voted to receive ASTRO emissions
     #[returns(GaugeInfoResponse)]
     TuneInfo {},
@@ -161,6 +166,12 @@ pub struct UserInfoResponse {
     pub votes: Vec<(String, u16)>,
     /// fixed amount available
     pub fixed_amount: Uint128,
+}
+
+#[cw_serde]
+#[derive(Default)]
+pub struct UserInfosResponse {
+    pub users: Vec<(Addr, UserInfoResponse)>,
 }
 
 /// Queries amp tune info.
