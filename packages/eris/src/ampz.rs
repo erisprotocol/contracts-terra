@@ -1,6 +1,6 @@
 use astroport::asset::{Asset, AssetInfo};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{to_binary, Addr, Api, Coin, CosmosMsg, StdError, StdResult, WasmMsg};
+use cosmwasm_std::{to_binary, Addr, Api, Coin, CosmosMsg, StdError, StdResult, Uint128, WasmMsg};
 
 use crate::{adapters::generator::Generator, helpers::bps::BasicPoints};
 
@@ -29,6 +29,7 @@ pub enum Source {
     },
     Wallet {
         over: Asset,
+        max_amount: Option<Uint128>,
     },
 }
 
@@ -188,6 +189,7 @@ pub enum Destination {
 pub enum CallbackMsg {
     AuthzDeposit {
         user_balance_start: Vec<Asset>,
+        max_amount: Option<Vec<Asset>>,
     },
 
     Swap {

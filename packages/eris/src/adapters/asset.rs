@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use astroport::asset::{Asset, AssetInfo, AssetInfoExt};
 use cosmwasm_std::{
     to_binary, Addr, BankMsg, Coin, CosmosMsg, MessageInfo, QuerierWrapper, StdError, StdResult,
@@ -29,18 +31,44 @@ impl AssetInfosEx for Vec<AssetInfo> {
 }
 
 pub trait AssetsEx {
-    fn query_balance_diff(self, querier: &QuerierWrapper, address: &Addr) -> StdResult<Vec<Asset>>;
+    fn query_balance_diff(
+        self,
+        querier: &QuerierWrapper,
+        address: &Addr,
+        max_amount: Option<Vec<Asset>>,
+    ) -> StdResult<Vec<Asset>>;
 }
 
 impl AssetsEx for Vec<Asset> {
-    fn query_balance_diff(self, querier: &QuerierWrapper, address: &Addr) -> StdResult<Vec<Asset>> {
+    fn query_balance_diff(
+        self,
+        querier: &QuerierWrapper,
+        address: &Addr,
+        max_amount: Option<Vec<Asset>>,
+    ) -> StdResult<Vec<Asset>> {
+        let hash_map = max_amount.map(|max| {
+            let hash: HashMap<AssetInfo, Uint128> =
+                max.into_iter().map(|asset| (asset.info, asset.amount)).collect();
+            hash
+        });
+
         let assets: Vec<Asset> = self
             .into_iter()
             .map(|asset| {
                 let result = asset.info.query_pool(querier, address)?;
+                let mut amount = result.checked_sub(asset.amount)?;
+
+                if let Some(hash_map) = &hash_map {
+                    if let Some(max) = hash_map.get(&asset.info) {
+                        if !max.is_zero() {
+                            amount = std::cmp::min(amount, *max);
+                        }
+                    }
+                }
+
                 Ok(Asset {
                     info: asset.info,
-                    amount: result.checked_sub(asset.amount)?,
+                    amount,
                 })
             })
             .collect::<StdResult<_>>()?;

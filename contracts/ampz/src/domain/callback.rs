@@ -36,9 +36,11 @@ pub fn callback(
     match callback_wrapper.message {
         CallbackMsg::AuthzDeposit {
             user_balance_start,
+            max_amount,
         } => {
             attrs.push(attr("type", "authz_deposit"));
-            let balances = user_balance_start.query_balance_diff(&deps.querier, &user)?;
+            let balances =
+                user_balance_start.query_balance_diff(&deps.querier, &user, max_amount)?;
             let (funds, allowances) =
                 funds_or_allowance(&env, &env.contract.address, &balances, None)?;
 

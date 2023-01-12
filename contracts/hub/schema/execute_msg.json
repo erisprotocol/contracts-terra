@@ -299,8 +299,43 @@
             }
           },
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "check_received_coin"
+          ],
+          "properties": {
+            "check_received_coin": {
+              "type": "object",
+              "required": [
+                "snapshot"
+              ],
+              "properties": {
+                "snapshot": {
+                  "$ref": "#/definitions/Coin"
+                }
+              }
+            }
+          },
+          "additionalProperties": false
         }
       ]
+    },
+    "Coin": {
+      "type": "object",
+      "required": [
+        "amount",
+        "denom"
+      ],
+      "properties": {
+        "amount": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "denom": {
+          "type": "string"
+        }
+      }
     },
     "Cw20ReceiveMsg": {
       "description": "Cw20ReceiveMsg should be de/serialized under `Receive()` variant in a ExecuteMsg",

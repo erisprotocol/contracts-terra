@@ -1,6 +1,6 @@
 use std::vec;
 
-use astroport::asset::{native_asset_info, Asset, AssetInfo};
+use astroport::asset::{native_asset_info, Asset, AssetInfo, AssetInfoExt};
 use cosmwasm_std::{CosmosMsg, DepsMut, Env, MessageInfo, Response, StdError, StdResult};
 
 use crate::constants::CONTRACT_DENOM;
@@ -63,6 +63,7 @@ pub fn execute_id(
     let mut msgs: Vec<CosmosMsg> = vec![];
     let asset_infos: Vec<AssetInfo>;
     let user_balance_start: Vec<Asset>;
+    let mut deposit_max_amount: Option<Vec<Asset>> = None;
 
     let mut requires_swap = false;
 
@@ -101,6 +102,7 @@ pub fn execute_id(
         },
         eris::ampz::Source::Wallet {
             over,
+            max_amount,
         } => {
             let current = over.info.query_pool(&deps.querier, &user)?;
             if current <= over.amount {
@@ -117,6 +119,8 @@ pub fn execute_id(
             }
 
             asset_infos = vec![over.info.clone()];
+            deposit_max_amount =
+                max_amount.map(|max_amount| vec![over.info.with_balance(max_amount)]);
             user_balance_start = vec![over];
         },
     }
@@ -126,6 +130,7 @@ pub fn execute_id(
     msgs.push(
         CallbackMsg::AuthzDeposit {
             user_balance_start,
+            max_amount: deposit_max_amount,
         }
         .into_cosmos_msg(&env.contract.address, id, &user)?,
     );
