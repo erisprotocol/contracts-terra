@@ -166,6 +166,8 @@ pub struct UserInfoResponse {
     pub votes: Vec<(String, u16)>,
     /// fixed amount available
     pub fixed_amount: Uint128,
+    /// Current voting power at the current
+    pub current_power: Uint128,
 }
 
 #[cw_serde]
