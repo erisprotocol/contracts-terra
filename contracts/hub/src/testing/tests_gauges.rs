@@ -437,7 +437,7 @@ fn registering_unlocked_coins() {
 
     assert_eq!(
         res.events,
-        vec![Event::new("erishub/callback_received_coins")
+        vec![Event::new("erishub/received")
             .add_attribute("received_coin", 123.to_string() + CONTRACT_DENOM)]
     );
 
