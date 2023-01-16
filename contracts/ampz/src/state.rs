@@ -68,20 +68,6 @@ impl<'a> State<'a> {
         }
     }
 
-    // pub fn assert_controller_owner(&self, storage: &dyn Storage, sender: &Addr) -> StdResult<()> {
-    //     let executor = self.controller.load(storage)?;
-    //     if *sender == executor {
-    //         Ok(())
-    //     } else {
-    //         let owner = self.owner.load(storage)?;
-    //         if *sender == owner {
-    //             Ok(())
-    //         } else {
-    //             Err(StdError::generic_err("unauthorized: sender is neither owner nor controller"))
-    //         }
-    //     }
-    // }
-
     pub fn get_by_id(&self, storage: &dyn Storage, id: u128) -> StdResult<Execution> {
         self.executions
             .load(storage, id)

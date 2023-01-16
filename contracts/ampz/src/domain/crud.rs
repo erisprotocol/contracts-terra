@@ -16,42 +16,61 @@ pub fn add_execution(
     }
 
     let state = State::default();
-    let source: String = execution.source.clone().into();
+    let source = execution.source.try_get_uniq_key();
+    let new_id = state.id.load(deps.storage)?;
 
-    if overwrite {
-        let result = state
-            .execution_user_source
-            .load(deps.storage, (execution.user.to_string(), source.clone()));
-
-        if let Ok(id) = result {
-            state.executions.remove(deps.storage, id)?;
-            state
+    if let Some(source) = source {
+        // if the source has a unique id, each user can only create a single automation with this id.
+        if overwrite {
+            let result = state
                 .execution_user_source
-                .remove(deps.storage, (execution.user.clone(), source.clone()));
-        }
-    } else if state
-        .execution_user_source
-        .has(deps.storage, (execution.user.to_string(), source.clone()))
-    {
-        return Err(StdError::generic_err("source already defined for the user"));
-    }
+                .load(deps.storage, (execution.user.to_string(), source.clone()));
 
-    match &execution.source {
-        eris::ampz::Source::Claim => (),
-        eris::ampz::Source::AstroRewards {
-            ..
-        } => (),
-        eris::ampz::Source::Wallet {
-            over,
-            ..
-        } => {
-            let astro = state.astroport.load(deps.storage)?;
-
-            if !astro.coins.contains(&over.info) {
-                return Err(StdError::generic_err(format!("token {} not supported", over.info)));
+            if let Ok(old_id) = result {
+                state.executions.remove(deps.storage, old_id)?;
+                state
+                    .execution_user_source
+                    .remove(deps.storage, (execution.user.clone(), source.clone()));
             }
-        },
+        } else if state
+            .execution_user_source
+            .has(deps.storage, (execution.user.to_string(), source.clone()))
+        {
+            return Err(StdError::generic_err("source already defined for the user"));
+        }
+
+        state.execution_user_source.save(
+            deps.storage,
+            (execution.user.clone(), source),
+            &new_id,
+        )?;
     }
+
+    // match &execution.source {
+    //     eris::ampz::Source::Claim => (),
+    //     eris::ampz::Source::AstroRewards {
+    //         ..
+    //     } => (),
+    //     eris::ampz::Source::Wallet {
+    //         over,
+    //         ..
+    //     } => {
+
+    //         if let AssetInfo::NativeToken { denom } = over.info {
+    //             if denom == CONTRACT_DENOM {
+    //                 if over.amount < Uint128::new(1e6) {
+    //                     return Err(StdError::generic_err(format!("for the gas token threshold must be higher than 1_000_000", over.info)));
+    //                 }
+    //             }
+    //         }
+
+    //         let astro = state.astroport.load(deps.storage)?;
+
+    //         if !astro.coins.contains(&over.info) {
+    //             return Err(StdError::generic_err(format!("token {} not supported", over.info)));
+    //         }
+    //     },
+    // }
 
     match &execution.destination {
         Destination::DepositAmplifier {} => (),
@@ -66,9 +85,7 @@ pub fn add_execution(
         },
     }
 
-    let id = state.id.load(deps.storage)?;
-    state.executions.save(deps.storage, id, &execution)?;
-    state.execution_user_source.save(deps.storage, (execution.user, source), &id)?;
+    state.executions.save(deps.storage, new_id, &execution)?;
 
     let initial_execution = execution
         .schedule
@@ -77,13 +94,13 @@ pub fn add_execution(
         .checked_sub(execution.schedule.interval_s)
         .unwrap_or_default();
 
-    state.last_execution.save(deps.storage, id, &initial_execution)?;
+    state.last_execution.save(deps.storage, new_id, &initial_execution)?;
 
-    state.id.save(deps.storage, &(id + 1))?;
+    state.id.save(deps.storage, &(new_id + 1))?;
 
     Ok(Response::new()
         .add_attribute("action", "ampz/add_execution")
-        .add_attribute("id", id.to_string()))
+        .add_attribute("id", new_id.to_string()))
 }
 
 pub fn remove_executions(
@@ -105,9 +122,11 @@ pub fn remove_executions(
 
             state.executions.remove(deps.storage, id)?;
             state.last_execution.remove(deps.storage, id);
-            state
-                .execution_user_source
-                .remove(deps.storage, (execution.user, execution.source.into()));
+
+            let source = execution.source.try_get_uniq_key();
+            if let Some(source) = source {
+                state.execution_user_source.remove(deps.storage, (execution.user, source));
+            }
         }
     } else {
         // if nothing specified remove all from user
@@ -115,9 +134,11 @@ pub fn remove_executions(
         for execution in executions {
             state.executions.remove(deps.storage, execution.0)?;
             state.last_execution.remove(deps.storage, execution.0);
-            state
-                .execution_user_source
-                .remove(deps.storage, (execution.1.user, execution.1.source.into()));
+
+            let source = execution.1.source.try_get_uniq_key();
+            if let Some(source) = source {
+                state.execution_user_source.remove(deps.storage, (execution.1.user, source));
+            }
         }
     }
 

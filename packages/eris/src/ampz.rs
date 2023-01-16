@@ -46,27 +46,33 @@ pub struct VestingPeriod {
     pub amount: Vec<Coin>,
 }
 
-impl From<Source> for String {
-    fn from(source: Source) -> Self {
-        match source {
-            Source::Claim => "claim".to_string(),
-            Source::AstroRewards {
-                ..
-            } => "astro_rewards".to_string(),
-            Source::Wallet {
-                over,
-                ..
-            } => format!("wallet_{}", over.info),
-        }
-    }
-}
-
 #[cw_serde]
 pub struct Execution {
     pub user: String,
     pub source: Source,
     pub destination: Destination,
     pub schedule: Schedule,
+}
+
+impl Source {
+    pub fn try_get_uniq_key(&self) -> Option<String> {
+        match self {
+            Source::Claim => Some("claim".to_string()),
+            Source::AstroRewards {
+                ..
+            } => Some("astro_rewards".to_string()),
+            Source::Wallet {
+                over,
+                max_amount,
+            } => {
+                if max_amount.is_some() {
+                    // if max amount specified, we allow an arbitrary amount of executions.
+                    return None;
+                }
+                Some(format!("wallet_{}", over.info))
+            },
+        }
+    }
 }
 
 #[cw_serde]

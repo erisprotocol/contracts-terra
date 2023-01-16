@@ -37,7 +37,6 @@ pub fn execute_id(
     }
 
     let user = deps.api.addr_validate(&execution.user)?;
-    let source: String = execution.source.clone().into();
 
     let last_execution = state.last_execution.load(deps.storage, id)?;
     let next_execution = last_execution
@@ -156,6 +155,5 @@ pub fn execute_id(
     Ok(Response::new()
         .add_attribute("action", "ampz/execute_id")
         .add_attribute("id", id.to_string())
-        .add_attribute("source", source)
         .add_messages(msgs))
 }
