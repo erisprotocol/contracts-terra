@@ -551,8 +551,6 @@ fn bond_and_harvest(
     result.assert_event(
         &Event::new("wasm-erishub/harvested")
             .add_attribute("_contract_addr", "contract1")
-            .add_attribute("time", router_ref.block_info().time.seconds().to_string())
-            .add_attribute("height", router_ref.block_info().height.to_string())
             .add_attribute("uluna_bonded", bonded.to_string())
             .add_attribute("uluna_protocol_fee", fee.to_string()),
     );
