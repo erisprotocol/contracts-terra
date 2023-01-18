@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{coin, to_binary, Addr, CosmosMsg, StdResult, WasmMsg};
+use cosmwasm_std::{coin, to_binary, Addr, CosmosMsg, StdResult, VoteOption, WasmMsg};
 
 use crate::hub::ExecuteMsg;
 
@@ -19,6 +19,17 @@ impl Hub {
                 receiver,
             })?,
             funds: vec![coin(amount, denom)],
+        }))
+    }
+
+    pub fn vote_msg(&self, proposal_id: u64, vote: VoteOption) -> StdResult<CosmosMsg> {
+        Ok(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: self.0.to_string(),
+            msg: to_binary(&ExecuteMsg::Vote {
+                proposal_id,
+                vote,
+            })?,
+            funds: vec![],
         }))
     }
 }

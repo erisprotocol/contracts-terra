@@ -80,6 +80,12 @@
       "items": {
         "type": "string"
       }
+    },
+    "vote_operator": {
+      "type": [
+        "string",
+        "null"
+      ]
     }
   },
   "definitions": {

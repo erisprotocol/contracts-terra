@@ -2,6 +2,7 @@
 pub mod contract;
 
 pub mod execute;
+pub mod gov;
 pub mod helpers;
 pub mod math;
 pub mod queries;

@@ -238,7 +238,7 @@ pub struct LockInfoResponse {
 
     /// fixed sockel
     pub fixed_amount: Uint128,
-    /// includes only decreasing voting_power
+    /// includes only decreasing voting_power, it is the current voting power of the period currently queried.
     pub voting_power: Uint128,
 }
 
@@ -322,6 +322,24 @@ pub fn get_total_voting_power_at(
         escrow_addr,
         &TotalVampAt {
             time: timestamp,
+        },
+    )?;
+
+    Ok(vp.vamp)
+}
+
+/// Queries total voting power from the voting escrow contract by period.
+///
+/// * **timestamp** time at which we fetch the total voting power.
+pub fn get_total_voting_power_at_by_period(
+    querier: &QuerierWrapper,
+    escrow_addr: impl Into<String>,
+    period: u64,
+) -> StdResult<Uint128> {
+    let vp: VotingPowerResponse = querier.query_wasm_smart(
+        escrow_addr,
+        &QueryMsg::TotalVampAtPeriod {
+            period,
         },
     )?;
 

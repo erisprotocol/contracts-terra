@@ -11,6 +11,7 @@ pub mod helper;
 pub mod helpers;
 pub mod hub;
 pub mod pair_proxy;
+pub mod prop_gauges;
 pub mod voting_escrow;
 
 mod extensions {

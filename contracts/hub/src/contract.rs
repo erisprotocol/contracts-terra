@@ -11,7 +11,7 @@ use eris::hub::{CallbackMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, R
 use crate::constants::{CONTRACT_DENOM, CONTRACT_NAME, CONTRACT_VERSION};
 use crate::helpers::parse_received_fund;
 use crate::state::State;
-use crate::{execute, queries};
+use crate::{execute, gov, queries};
 
 #[entry_point]
 pub fn instantiate(
@@ -69,17 +69,23 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
         } => execute::rebalance(deps, env, info.sender, min_redelegation),
         ExecuteMsg::Reconcile {} => execute::reconcile(deps, env),
         ExecuteMsg::SubmitBatch {} => execute::submit_batch(deps, env),
+        ExecuteMsg::Vote {
+            proposal_id,
+            vote,
+        } => gov::vote(deps, env, info, proposal_id, vote),
         ExecuteMsg::Callback(callback_msg) => callback(deps, env, info, callback_msg),
         ExecuteMsg::UpdateConfig {
             protocol_fee_contract,
             protocol_reward_fee,
             delegation_strategy,
+            vote_operator,
         } => execute::update_config(
             deps,
             info.sender,
             protocol_fee_contract,
             protocol_reward_fee,
             delegation_strategy,
+            vote_operator,
         ),
     }
 }
@@ -138,7 +144,7 @@ fn callback(
 pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> StdResult<Response> {
     match reply.id {
         1 => execute::register_stake_token(deps, unwrap_reply(reply)?),
-        id => Err(StdError::generic_err(format!("invalid reply id: {}; must be 1-2", id))),
+        id => Err(StdError::generic_err(format!("invalid reply id: {}; must be 1", id))),
     }
 }
 

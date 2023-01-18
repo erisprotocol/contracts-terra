@@ -1,4 +1,5 @@
 pub mod base;
+mod custom_gov;
 use std::str::FromStr;
 
 use anyhow::{Error, Ok, Result};
@@ -37,6 +38,7 @@ pub fn mock_app_validators(validators: Option<u64>) -> App {
         .with_bank(bank)
         .with_storage(storage)
         .with_staking(staking)
+        // .with_gov(AcceptingModule)
         .build(|router, api, storage| {
             router
                 .bank

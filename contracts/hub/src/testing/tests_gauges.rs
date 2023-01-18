@@ -62,6 +62,7 @@ fn setup_test() -> OwnedDeps<MockStorage, MockApi, CustomQuerier> {
                 max_delegation_bps: 2500,
                 validator_count: 5,
             }),
+            vote_operator: None,
         },
     )
     .unwrap();
@@ -1364,6 +1365,7 @@ fn update_fee() {
             protocol_fee_contract: None,
             protocol_reward_fee: Some(Decimal::from_ratio(11u128, 100u128)),
             delegation_strategy: None,
+            vote_operator: None,
         },
     )
     .unwrap_err();
@@ -1377,6 +1379,7 @@ fn update_fee() {
             protocol_fee_contract: None,
             protocol_reward_fee: Some(Decimal::from_ratio(11u128, 100u128)),
             delegation_strategy: None,
+            vote_operator: None,
         },
     )
     .unwrap_err();
@@ -1390,6 +1393,7 @@ fn update_fee() {
             protocol_fee_contract: Some("fee-new".to_string()),
             protocol_reward_fee: Some(Decimal::from_ratio(10u128, 100u128)),
             delegation_strategy: None,
+            vote_operator: None,
         },
     )
     .unwrap();

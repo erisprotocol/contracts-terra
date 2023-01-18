@@ -35,6 +35,8 @@ pub(crate) struct State<'a> {
     pub delegation_strategy: Item<'a, DelegationStrategy<Addr>>,
     /// Delegation Distribution
     pub delegation_goal: Item<'a, WantedDelegationsShare>,
+    /// Operator who is allowed to vote on props
+    pub vote_operator: Item<'a, Addr>,
 }
 
 impl Default for State<'static> {
@@ -67,6 +69,7 @@ impl Default for State<'static> {
             fee_config: Item::new("fee_config"),
             delegation_strategy: Item::new("delegation_strategy"),
             delegation_goal: Item::new("delegation_goal"),
+            vote_operator: Item::new("vote_operator"),
         }
     }
 }
@@ -78,6 +81,19 @@ impl<'a> State<'a> {
             Ok(())
         } else {
             Err(StdError::generic_err("unauthorized: sender is not owner"))
+        }
+    }
+
+    pub fn assert_vote_operator(&self, storage: &dyn Storage, sender: &Addr) -> StdResult<()> {
+        let vote_operator = self
+            .vote_operator
+            .load(storage)
+            .map_err(|_| StdError::generic_err("No vote operator set."))?;
+
+        if *sender == vote_operator {
+            Ok(())
+        } else {
+            Err(StdError::generic_err("unauthorized: sender is not vote operator"))
         }
     }
 

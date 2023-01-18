@@ -1,5 +1,7 @@
 use anyhow::Result;
-use cosmwasm_std::{attr, coin, to_binary, Addr, Delegation, FullDelegation, StdResult, Uint128};
+use cosmwasm_std::{
+    attr, coin, to_binary, Addr, Delegation, FullDelegation, StdResult, Uint128, VoteOption,
+};
 use cw20::Cw20ExecuteMsg;
 use cw_multi_test::{App, AppResponse, Executor};
 use eris::{emp_gauges::AddEmpInfo, governance_helper::WEEK};
@@ -442,5 +444,76 @@ impl EscrowHelper {
         validator: impl Into<String>,
     ) -> StdResult<Option<FullDelegation>> {
         router_ref.wrap().query_delegation(self.base.hub.get_address_string(), validator)
+    }
+
+    pub fn prop_vote(
+        &self,
+        router_ref: &mut App,
+        user: impl Into<String>,
+        proposal_id: u64,
+        vote: VoteOption,
+    ) -> Result<AppResponse> {
+        self.prop_execute_sender(
+            router_ref,
+            eris::prop_gauges::ExecuteMsg::Vote {
+                proposal_id,
+                vote,
+            },
+            user,
+        )
+    }
+
+    pub fn prop_init(
+        &self,
+        router_ref: &mut App,
+        user: impl Into<String>,
+        proposal_id: u64,
+        end_time_s: u64,
+    ) -> Result<AppResponse> {
+        self.prop_execute_sender(
+            router_ref,
+            eris::prop_gauges::ExecuteMsg::InitProp {
+                proposal_id,
+                end_time_s,
+            },
+            user,
+        )
+    }
+
+    pub fn prop_execute(
+        &self,
+        router_ref: &mut App,
+        execute: eris::prop_gauges::ExecuteMsg,
+    ) -> Result<AppResponse> {
+        router_ref.execute_contract(
+            self.owner.clone(),
+            self.base.prop_gauges.get_address(),
+            &execute,
+            &[],
+        )
+    }
+
+    pub fn prop_execute_sender(
+        &self,
+        router_ref: &mut App,
+        execute: eris::prop_gauges::ExecuteMsg,
+        sender: impl Into<String>,
+    ) -> Result<AppResponse> {
+        router_ref.execute_contract(
+            Addr::unchecked(sender),
+            self.base.prop_gauges.get_address(),
+            &execute,
+            &[],
+        )
+    }
+
+    pub fn prop_query_config(
+        &self,
+        router_ref: &mut App,
+    ) -> StdResult<eris::prop_gauges::ConfigResponse> {
+        router_ref.wrap().query_wasm_smart(
+            self.base.prop_gauges.get_address_string(),
+            &eris::prop_gauges::QueryMsg::Config {},
+        )
     }
 }

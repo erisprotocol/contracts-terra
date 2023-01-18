@@ -3,8 +3,8 @@ use std::vec;
 
 use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    coin, to_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, DistributionMsg, Event, Order,
-    OwnedDeps, Reply, StdError, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
+    coin, to_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, DistributionMsg, Event, GovMsg,
+    Order, OwnedDeps, Reply, StdError, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, MinterResponse};
 use cw20_base::msg::InstantiateMsg as Cw20InstantiateMsg;
@@ -55,6 +55,7 @@ fn setup_test() -> OwnedDeps<MockStorage, MockApi, CustomQuerier> {
             protocol_fee_contract: "fee".to_string(),
             protocol_reward_fee: Decimal::from_ratio(1u128, 100u128),
             delegation_strategy: None,
+            vote_operator: None,
         },
     )
     .unwrap();
@@ -1358,6 +1359,7 @@ fn update_fee() {
             protocol_fee_contract: None,
             protocol_reward_fee: Some(Decimal::from_ratio(11u128, 100u128)),
             delegation_strategy: None,
+            vote_operator: None,
         },
     )
     .unwrap_err();
@@ -1371,6 +1373,7 @@ fn update_fee() {
             protocol_fee_contract: None,
             protocol_reward_fee: Some(Decimal::from_ratio(11u128, 100u128)),
             delegation_strategy: None,
+            vote_operator: None,
         },
     )
     .unwrap_err();
@@ -1384,6 +1387,7 @@ fn update_fee() {
             protocol_fee_contract: Some("fee-new".to_string()),
             protocol_reward_fee: Some(Decimal::from_ratio(10u128, 100u128)),
             delegation_strategy: None,
+            vote_operator: None,
         },
     )
     .unwrap();
@@ -1397,6 +1401,71 @@ fn update_fee() {
             protocol_fee_contract: Addr::unchecked("fee-new"),
             protocol_reward_fee: Decimal::from_ratio(10u128, 100u128)
         }
+    );
+}
+
+//--------------------------------------------------------------------------------------------------
+// Gov
+//--------------------------------------------------------------------------------------------------
+
+#[test]
+fn vote() {
+    let mut deps = setup_test();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("jake", &[]),
+        ExecuteMsg::Vote {
+            proposal_id: 3,
+            vote: cosmwasm_std::VoteOption::Yes,
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, StdError::generic_err("No vote operator set."));
+
+    execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        ExecuteMsg::UpdateConfig {
+            protocol_fee_contract: None,
+            protocol_reward_fee: None,
+            delegation_strategy: None,
+            vote_operator: Some("vote_operator".to_string()),
+        },
+    )
+    .unwrap();
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("jake", &[]),
+        ExecuteMsg::Vote {
+            proposal_id: 3,
+            vote: cosmwasm_std::VoteOption::Yes,
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, StdError::generic_err("unauthorized: sender is not vote operator"));
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("vote_operator", &[]),
+        ExecuteMsg::Vote {
+            proposal_id: 3,
+            vote: cosmwasm_std::VoteOption::Yes,
+        },
+    )
+    .unwrap();
+    assert_eq!(res.messages.len(), 1);
+
+    assert_eq!(
+        res.messages[0],
+        SubMsg::new(CosmosMsg::Gov(GovMsg::Vote {
+            proposal_id: 3,
+            vote: cosmwasm_std::VoteOption::Yes
+        }))
     );
 }
 

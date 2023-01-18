@@ -56,6 +56,7 @@ fn update_configs() -> Result<()> {
                 protocol_reward_fee: Some(Decimal::from_str("0")?),
                 delegation_strategy: None,
                 protocol_fee_contract: None,
+                vote_operator: None,
             },
             Addr::unchecked("user"),
         )
@@ -70,6 +71,7 @@ fn update_configs() -> Result<()> {
                 protocol_reward_fee: Some(Decimal::from_str("0.1")?),
                 protocol_fee_contract: Some("fee_new".to_string()),
                 delegation_strategy: Some(eris::hub::DelegationStrategy::Uniform),
+                vote_operator: None,
             },
         )
         .unwrap();
@@ -247,6 +249,7 @@ fn config_does_not_change_exchange_rate() -> Result<()> {
                 max_delegation_bps: 10000,
                 validator_count: 5,
             }),
+            vote_operator: None,
         },
     )?;
 
@@ -376,6 +379,7 @@ fn config_does_not_change_exchange_rate_emps() -> Result<()> {
                 max_delegation_bps: 10000,
                 validator_count: 5,
             }),
+            vote_operator: None,
         },
     )?;
 
