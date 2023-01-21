@@ -132,6 +132,9 @@ pub enum ExecuteMsg {
         /// Fees that are being applied during reinvest of staking rewards
         protocol_reward_fee: Option<Decimal>, // "1 is 100%, 0.05 is 5%"
 
+        /// Specifies wether donations are allowed.
+        allow_donations: Option<bool>,
+
         /// Strategy how delegations should be handled
         delegation_strategy: Option<DelegationStrategy>,
     },

@@ -74,12 +74,14 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             protocol_fee_contract,
             protocol_reward_fee,
             delegation_strategy,
+            allow_donations,
         } => execute::update_config(
             deps,
             info.sender,
             protocol_fee_contract,
             protocol_reward_fee,
             delegation_strategy,
+            allow_donations,
         ),
     }
 }

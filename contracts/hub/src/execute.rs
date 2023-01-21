@@ -43,6 +43,9 @@ pub fn instantiate(deps: DepsMut, env: Env, msg: InstantiateMsg) -> StdResult<Re
     state.epoch_period.save(deps.storage, &msg.epoch_period)?;
     state.unbond_period.save(deps.storage, &msg.unbond_period)?;
 
+    // by default donations are set to false
+    state.allow_donations.save(deps.storage, &false)?;
+
     let mut validators = msg.validators;
     dedupe(&mut validators);
 
@@ -139,6 +142,13 @@ pub fn bond(
     // Query the current supply of Staking Token and compute the amount to mint
     let ustake_supply = query_cw20_total_supply(&deps.querier, &stake_token)?;
     let ustake_to_mint = if donate {
+        match state.allow_donations.may_load(deps.storage)? {
+            Some(false) => Err(StdError::generic_err("donations are disabled"))?,
+            Some(true) | None => {
+                // if it is not set (backward compatibility) or set to true, donations are allowed
+            },
+        }
+
         Uint128::zero()
     } else {
         compute_mint_amount(ustake_supply, token_to_bond, &delegations)
@@ -777,6 +787,7 @@ pub fn update_config(
     protocol_fee_contract: Option<String>,
     protocol_reward_fee: Option<Decimal>,
     delegation_strategy: Option<DelegationStrategy>,
+    allow_donations: Option<bool>,
 ) -> StdResult<Response> {
     let state = State::default();
 
@@ -801,6 +812,10 @@ pub fn update_config(
 
     if let Some(delegation_strategy) = delegation_strategy {
         state.delegation_strategy.save(deps.storage, &delegation_strategy.validate(deps.api)?)?;
+    }
+
+    if let Some(allow_donations) = allow_donations {
+        state.allow_donations.save(deps.storage, &allow_donations)?;
     }
 
     Ok(Response::new().add_attribute("action", "erishub/update_config"))

@@ -330,6 +330,29 @@ fn donating() {
     );
 
     deps.querier.set_bank_balances(&[coin(100 + 12345, CONTRACT_DENOM)]);
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("user_2", &[Coin::new(12345, CONTRACT_DENOM)]),
+        ExecuteMsg::Donate {},
+    )
+    .unwrap_err();
+    assert_eq!(res, StdError::generic_err("donations are disabled"));
+
+    // enable donations
+    execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        ExecuteMsg::UpdateConfig {
+            protocol_fee_contract: None,
+            protocol_reward_fee: None,
+            allow_donations: Some(true),
+            delegation_strategy: None,
+        },
+    )
+    .unwrap();
+
     // Charlie has the smallest amount of delegation, so the full deposit goes to him
     let res = execute(
         deps.as_mut(),
@@ -1364,6 +1387,7 @@ fn update_fee() {
             protocol_fee_contract: None,
             protocol_reward_fee: Some(Decimal::from_ratio(11u128, 100u128)),
             delegation_strategy: None,
+            allow_donations: None,
         },
     )
     .unwrap_err();
@@ -1377,6 +1401,7 @@ fn update_fee() {
             protocol_fee_contract: None,
             protocol_reward_fee: Some(Decimal::from_ratio(11u128, 100u128)),
             delegation_strategy: None,
+            allow_donations: None,
         },
     )
     .unwrap_err();
@@ -1390,6 +1415,7 @@ fn update_fee() {
             protocol_fee_contract: Some("fee-new".to_string()),
             protocol_reward_fee: Some(Decimal::from_ratio(10u128, 100u128)),
             delegation_strategy: None,
+            allow_donations: None,
         },
     )
     .unwrap();

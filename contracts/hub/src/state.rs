@@ -35,6 +35,8 @@ pub(crate) struct State<'a> {
     pub delegation_strategy: Item<'a, DelegationStrategy<Addr>>,
     /// Delegation Distribution
     pub delegation_goal: Item<'a, WantedDelegationsShare>,
+    /// Specifies wether the contract allows donations
+    pub allow_donations: Item<'a, bool>,
 }
 
 impl Default for State<'static> {
@@ -67,6 +69,7 @@ impl Default for State<'static> {
             fee_config: Item::new("fee_config"),
             delegation_strategy: Item::new("delegation_strategy"),
             delegation_goal: Item::new("delegation_goal"),
+            allow_donations: Item::new("allow_donations"),
         }
     }
 }
