@@ -18,7 +18,7 @@ use cw20_base::contract::{
 };
 use cw20_base::state::{MinterData, TokenInfo, LOGO, MARKETING_INFO, TOKEN_INFO};
 
-use eris::governance_helper::{get_period, get_periods_count, EPOCH_START, WEEK};
+use eris::governance_helper::{get_period, get_periods_count, EPOCH_START, MIN_LOCK_PERIODS, WEEK};
 use eris::helpers::slope::{adjust_vp_and_slope, calc_coefficient};
 use eris::voting_escrow::{
     BlacklistedVotersResponse, ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg,
@@ -417,13 +417,15 @@ fn receive_cw20(
         Cw20HookMsg::CreateLock {
             time,
         } => create_lock(deps, env, sender, cw20_msg.amount, time),
-        Cw20HookMsg::ExtendLockAmount {} => deposit_for(deps, env, cw20_msg.amount, sender),
+        Cw20HookMsg::ExtendLockAmount {
+            extend_to_min_periods,
+        } => deposit_for(deps, env, cw20_msg.amount, sender, extend_to_min_periods),
         Cw20HookMsg::DepositFor {
             user,
         } => {
             let addr = addr_validate_to_lower(deps.api, user)?;
             assert_blacklist(deps.storage, &addr)?;
-            deposit_for(deps, env, cw20_msg.amount, addr)
+            deposit_for(deps, env, cw20_msg.amount, addr, None)
         },
     }
 }
@@ -493,19 +495,35 @@ fn deposit_for(
     env: Env,
     amount: Uint128,
     user: Addr,
+    extend_to_min_periods: Option<bool>,
 ) -> Result<Response, ContractError> {
+    let mut new_end = None;
     LOCKED.update(deps.storage, user.clone(), env.block.height, |lock_opt| match lock_opt {
         Some(mut lock) if !lock.amount.is_zero() => {
-            if lock.end <= get_period(env.block.time.seconds())? {
-                Err(ContractError::LockExpired {})
-            } else {
-                lock.amount += amount;
-                Ok(lock)
+            let block_period = get_period(env.block.time.seconds())?;
+
+            match extend_to_min_periods {
+                Some(true) => {
+                    if lock.end < block_period + MIN_LOCK_PERIODS {
+                        lock.end = block_period + MIN_LOCK_PERIODS;
+                        new_end = Some(lock.end);
+                    }
+                },
+                Some(false) | None => {
+                    if lock.end <= block_period {
+                        Err(ContractError::LockExpired {})?
+                    }
+                    assert_periods_remaining(lock.end - block_period)?
+                },
             }
+
+            lock.amount += amount;
+            Ok(lock)
         },
         _ => Err(ContractError::LockDoesNotExist {}),
     })?;
-    checkpoint(deps.storage, env.clone(), user.clone(), Some(amount), None)?;
+
+    checkpoint(deps.storage, env.clone(), user.clone(), Some(amount), new_end)?;
 
     let config = CONFIG.load(deps.storage)?;
 

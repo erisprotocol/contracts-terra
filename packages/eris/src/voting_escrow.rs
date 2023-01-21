@@ -113,7 +113,10 @@ pub enum Cw20HookMsg {
         user: String,
     },
     /// Add more ampLP to your vAMP position
-    ExtendLockAmount {},
+    ExtendLockAmount {
+        /// Specify that the contract should extend the lock time to the min required periods
+        extend_to_min_periods: Option<bool>,
+    },
 }
 
 /// This enum describes voters status.
