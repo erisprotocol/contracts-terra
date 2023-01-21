@@ -340,13 +340,61 @@ pub(crate) fn reconcile_batches(batches: &mut [Batch], uluna_to_deduct: Uint128)
     let batch_count = batches.len() as u128;
     let uluna_per_batch = uluna_to_deduct.u128() / batch_count;
     let remainder = uluna_to_deduct.u128() % batch_count;
+    let mut underflows: HashMap<usize, Uint128> = HashMap::default();
 
     for (i, batch) in batches.iter_mut().enumerate() {
         let remainder_for_batch: u128 = u128::from((i + 1) as u128 <= remainder);
         let uluna_for_batch = uluna_per_batch + remainder_for_batch;
+        let uluna_for_batch = Uint128::new(uluna_for_batch);
 
-        batch.uluna_unclaimed -= Uint128::new(uluna_for_batch);
+        // check for underflow
+        if batch.uluna_unclaimed < uluna_for_batch && batch_count > 1 {
+            underflows.insert(i, uluna_for_batch - batch.uluna_unclaimed);
+        }
+
+        batch.uluna_unclaimed = batch.uluna_unclaimed.saturating_sub(uluna_for_batch);
         batch.reconciled = true;
+    }
+
+    if !underflows.is_empty() {
+        let batch_count: u128 = batch_count - (underflows.len() as u128);
+        let to_deduct: Uint128 = underflows.iter().map(|v| v.1).sum();
+        let uluna_per_batch = to_deduct.u128() / batch_count;
+        let remainder = to_deduct.u128() % batch_count;
+        let mut remaining_underflow = Uint128::zero();
+        // distribute the underflows uniformly accross non-underflowing batches
+        for (i, batch) in batches.iter_mut().enumerate() {
+            if !batch.uluna_unclaimed.is_zero() {
+                let remainder_for_batch: u128 = u128::from((i + 1) as u128 <= remainder);
+                let uluna_for_batch = uluna_per_batch + remainder_for_batch;
+                let uluna_for_batch = Uint128::new(uluna_for_batch);
+
+                if batch.uluna_unclaimed < uluna_for_batch && batch_count > 1 {
+                    remaining_underflow += uluna_for_batch - batch.uluna_unclaimed;
+                }
+
+                batch.uluna_unclaimed = batch.uluna_unclaimed.saturating_sub(uluna_for_batch);
+            }
+        }
+
+        if !remaining_underflow.is_zero() {
+            // the remaining underflow will be applied by oldest batch first.
+            for (_, batch) in batches.iter_mut().enumerate() {
+                if !batch.uluna_unclaimed.is_zero() && !remaining_underflow.is_zero() {
+                    if batch.uluna_unclaimed >= remaining_underflow {
+                        batch.uluna_unclaimed -= remaining_underflow;
+                        remaining_underflow = Uint128::zero()
+                    } else {
+                        remaining_underflow -= batch.uluna_unclaimed;
+                        batch.uluna_unclaimed = Uint128::zero();
+                    }
+                }
+            }
+
+            if !remaining_underflow.is_zero() {
+                // no way to reconcile right now, need to top up some funds.
+            }
+        }
     }
 }
 
