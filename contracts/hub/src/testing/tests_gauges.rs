@@ -63,6 +63,7 @@ fn setup_test() -> OwnedDeps<MockStorage, MockApi, CustomQuerier> {
                 max_delegation_bps: 2500,
                 validator_count: 5,
             }),
+            vote_operator: None,
         },
     )
     .unwrap();
@@ -350,6 +351,7 @@ fn donating() {
             protocol_reward_fee: None,
             allow_donations: Some(true),
             delegation_strategy: None,
+            vote_operator: None,
         },
     )
     .unwrap();
@@ -1432,6 +1434,7 @@ fn update_fee() {
             protocol_reward_fee: Some(Decimal::from_ratio(11u128, 100u128)),
             delegation_strategy: None,
             allow_donations: None,
+            vote_operator: None,
         },
     )
     .unwrap_err();
@@ -1446,6 +1449,7 @@ fn update_fee() {
             protocol_reward_fee: Some(Decimal::from_ratio(11u128, 100u128)),
             delegation_strategy: None,
             allow_donations: None,
+            vote_operator: None,
         },
     )
     .unwrap_err();
@@ -1460,6 +1464,7 @@ fn update_fee() {
             protocol_reward_fee: Some(Decimal::from_ratio(10u128, 100u128)),
             delegation_strategy: None,
             allow_donations: None,
+            vote_operator: None,
         },
     )
     .unwrap();

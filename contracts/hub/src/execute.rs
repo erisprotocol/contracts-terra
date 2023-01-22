@@ -800,6 +800,7 @@ pub fn update_config(
     protocol_reward_fee: Option<Decimal>,
     delegation_strategy: Option<DelegationStrategy>,
     allow_donations: Option<bool>,
+    vote_operator: Option<String>,
 ) -> ContractResult {
     let state = State::default();
 
@@ -828,6 +829,10 @@ pub fn update_config(
 
     if let Some(allow_donations) = allow_donations {
         state.allow_donations.save(deps.storage, &allow_donations)?;
+    }
+
+    if let Some(vote_operator) = vote_operator {
+        state.vote_operator.save(deps.storage, &deps.api.addr_validate(&vote_operator)?)?;
     }
 
     Ok(Response::new().add_attribute("action", "erishub/update_config"))

@@ -141,6 +141,7 @@ impl BaseErisTestPackage {
             protocol_fee_contract: "fee".to_string(),
             protocol_reward_fee: Decimal::from_ratio(1u128, 100u128),
             delegation_strategy: None,
+            vote_operator: None,
         };
 
         let instance =
@@ -273,6 +274,7 @@ impl BaseErisTestPackage {
                     protocol_reward_fee: None,
                     delegation_strategy,
                     allow_donations: None,
+                    vote_operator: None,
                 },
                 &[],
             )

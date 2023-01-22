@@ -57,6 +57,7 @@ fn update_configs() -> Result<()> {
                 delegation_strategy: None,
                 protocol_fee_contract: None,
                 allow_donations: None,
+                vote_operator: None,
             },
             Addr::unchecked("user"),
         )
@@ -72,6 +73,7 @@ fn update_configs() -> Result<()> {
                 protocol_fee_contract: Some("fee_new".to_string()),
                 delegation_strategy: Some(eris::hub::DelegationStrategy::Uniform),
                 allow_donations: None,
+                vote_operator: None,
             },
         )
         .unwrap();
@@ -250,6 +252,7 @@ fn config_does_not_change_exchange_rate() -> Result<()> {
                 validator_count: 5,
             }),
             allow_donations: None,
+            vote_operator: None,
         },
     )?;
 
@@ -380,6 +383,7 @@ fn config_does_not_change_exchange_rate_emps() -> Result<()> {
                 validator_count: 5,
             }),
             allow_donations: None,
+            vote_operator: None,
         },
     )?;
 

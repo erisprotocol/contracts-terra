@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     to_binary, Addr, Api, Coin, CosmosMsg, Decimal, Empty, QuerierWrapper, StdResult, Timestamp,
-    Uint128, WasmMsg,
+    Uint128, VoteOption, WasmMsg,
 };
 use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
@@ -79,6 +79,8 @@ pub struct InstantiateMsg {
     pub protocol_reward_fee: Decimal, // "1 is 100%, 0.05 is 5%"
     /// Strategy how delegations should be handled
     pub delegation_strategy: Option<DelegationStrategy>,
+    /// Contract address that is allowed to vote
+    pub vote_operator: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -124,6 +126,12 @@ pub enum ExecuteMsg {
     Reconcile {},
     /// Submit the current pending batch of unbonding requests to be unbonded
     SubmitBatch {},
+    /// Vote on a proposal (only allowed by the vote_operator)
+    Vote {
+        proposal_id: u64,
+        vote: VoteOption,
+    },
+
     /// Callbacks; can only be invoked by the contract itself
     Callback(CallbackMsg),
 
@@ -133,12 +141,12 @@ pub enum ExecuteMsg {
         protocol_fee_contract: Option<String>,
         /// Fees that are being applied during reinvest of staking rewards
         protocol_reward_fee: Option<Decimal>, // "1 is 100%, 0.05 is 5%"
-
         /// Specifies wether donations are allowed.
         allow_donations: Option<bool>,
-
         /// Strategy how delegations should be handled
         delegation_strategy: Option<DelegationStrategy>,
+        /// Update the vote_operator
+        vote_operator: Option<String>,
     },
 }
 

@@ -12,7 +12,7 @@ use crate::constants::{CONTRACT_DENOM, CONTRACT_NAME, CONTRACT_VERSION};
 use crate::error::{ContractError, ContractResult};
 use crate::helpers::parse_received_fund;
 use crate::state::State;
-use crate::{execute, queries};
+use crate::{execute, gov, queries};
 
 #[entry_point]
 pub fn instantiate(
@@ -71,12 +71,17 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> C
         } => execute::rebalance(deps, env, info.sender, min_redelegation),
         ExecuteMsg::Reconcile {} => execute::reconcile(deps, env),
         ExecuteMsg::SubmitBatch {} => execute::submit_batch(deps, env),
+        ExecuteMsg::Vote {
+            proposal_id,
+            vote,
+        } => gov::vote(deps, env, info, proposal_id, vote),
         ExecuteMsg::Callback(callback_msg) => callback(deps, env, info, callback_msg),
         ExecuteMsg::UpdateConfig {
             protocol_fee_contract,
             protocol_reward_fee,
             delegation_strategy,
             allow_donations,
+            vote_operator,
         } => execute::update_config(
             deps,
             info.sender,
@@ -84,6 +89,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> C
             protocol_reward_fee,
             delegation_strategy,
             allow_donations,
+            vote_operator,
         ),
     }
 }

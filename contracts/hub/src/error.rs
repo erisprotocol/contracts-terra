@@ -22,6 +22,9 @@ pub enum ContractError {
     #[error("Unauthorized: sender is not new owner")]
     UnauthorizedSenderNotNewOwner {},
 
+    #[error("Unauthorized: sender is not vote operator")]
+    UnauthorizedSenderNotVoteOperator {},
+
     #[error("Expecting stake token, received {0}")]
     ExpectingStakeToken(String),
 
@@ -57,6 +60,9 @@ pub enum ContractError {
 
     #[error("cannot find `_contract_address` attribute")]
     CannotFindContractAddress {},
+
+    #[error("No vote operator set")]
+    NoVoteOperatorSet {},
 
     #[error("Contract can't be migrated!")]
     MigrationError {},
