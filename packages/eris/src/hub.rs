@@ -108,6 +108,8 @@ pub enum ExecuteMsg {
     TransferOwnership {
         new_owner: String,
     },
+    /// Remove the ownership transfer proposal
+    DropOwnershipProposal {},
     /// Accept an ownership transfer
     AcceptOwnership {},
     /// Claim staking rewards, swap all for Luna, and restake

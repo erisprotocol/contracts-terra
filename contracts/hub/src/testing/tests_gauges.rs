@@ -1341,6 +1341,49 @@ fn transferring_ownership() {
 
     let owner = state.owner.load(deps.as_ref().storage).unwrap();
     assert_eq!(owner, Addr::unchecked("owner"));
+    let new_owner = state.new_owner.load(deps.as_ref().storage).unwrap();
+    assert_eq!(new_owner, Addr::unchecked("jake"));
+
+    // Check dropping ownership proposal
+    let err = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("pumpkin", &[]),
+        ExecuteMsg::DropOwnershipProposal {},
+    )
+    .unwrap_err();
+    assert_eq!(err, ContractError::Unauthorized {});
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        ExecuteMsg::DropOwnershipProposal {},
+    )
+    .unwrap();
+    assert_eq!(res.messages.len(), 0);
+
+    let owner = state.owner.load(deps.as_ref().storage).unwrap();
+    assert_eq!(owner, Addr::unchecked("owner"));
+    let new_owner = state.new_owner.may_load(deps.as_ref().storage).unwrap();
+    assert_eq!(new_owner, None);
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        ExecuteMsg::TransferOwnership {
+            new_owner: "jake".to_string(),
+        },
+    )
+    .unwrap();
+
+    assert_eq!(res.messages.len(), 0);
+
+    let owner = state.owner.load(deps.as_ref().storage).unwrap();
+    assert_eq!(owner, Addr::unchecked("owner"));
+    let new_owner = state.new_owner.load(deps.as_ref().storage).unwrap();
+    assert_eq!(new_owner, Addr::unchecked("jake"));
 
     let err = execute(
         deps.as_mut(),

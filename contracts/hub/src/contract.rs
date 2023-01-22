@@ -62,6 +62,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> C
         ExecuteMsg::TransferOwnership {
             new_owner,
         } => execute::transfer_ownership(deps, info.sender, new_owner),
+        ExecuteMsg::DropOwnershipProposal {} => execute::drop_ownership_proposal(deps, info.sender),
         ExecuteMsg::AcceptOwnership {} => execute::accept_ownership(deps, info.sender),
         ExecuteMsg::Harvest {} => execute::harvest(deps, env),
         ExecuteMsg::TuneDelegations {} => execute::tune_delegations(deps, env, info.sender),

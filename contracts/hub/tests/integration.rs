@@ -62,7 +62,7 @@ fn update_configs() -> Result<()> {
         )
         .unwrap_err();
 
-    assert_eq!("Generic error: unauthorized: sender is not owner", result.root_cause().to_string());
+    assert_eq!("Unauthorized: sender is not owner", result.root_cause().to_string());
 
     helper
         .hub_execute(

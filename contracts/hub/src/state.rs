@@ -6,10 +6,7 @@ use eris::hub::{
 };
 use itertools::Itertools;
 
-use crate::{
-    error::{ContractError, ContractResult},
-    types::BooleanKey,
-};
+use crate::{error::ContractError, types::BooleanKey};
 
 pub(crate) struct State<'a> {
     /// Account who can call certain privileged functions

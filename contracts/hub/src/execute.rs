@@ -764,6 +764,15 @@ pub fn transfer_ownership(deps: DepsMut, sender: Addr, new_owner: String) -> Con
     Ok(Response::new().add_attribute("action", "erishub/transfer_ownership"))
 }
 
+pub fn drop_ownership_proposal(deps: DepsMut, sender: Addr) -> ContractResult {
+    let state = State::default();
+
+    state.assert_owner(deps.storage, &sender)?;
+    state.new_owner.remove(deps.storage);
+
+    Ok(Response::new().add_attribute("action", "erishub/drop_ownership_proposal"))
+}
+
 pub fn accept_ownership(deps: DepsMut, sender: Addr) -> ContractResult {
     let state = State::default();
 
