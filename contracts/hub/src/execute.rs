@@ -15,8 +15,8 @@ use eris::hub::{
 
 use crate::constants::{get_reward_fee_cap, CONTRACT_DENOM, CONTRACT_NAME, CONTRACT_VERSION};
 use crate::helpers::{
-    dedupe, get_wanted_delegations, query_all_delegations, query_cw20_total_supply,
-    query_delegation, query_delegations,
+    assert_validator_exists, dedupe, get_wanted_delegations, query_all_delegations,
+    query_cw20_total_supply, query_delegation, query_delegations,
 };
 use crate::math::{
     compute_mint_amount, compute_redelegations_for_rebalancing, compute_redelegations_for_removal,
@@ -37,6 +37,14 @@ pub fn instantiate(deps: DepsMut, env: Env, msg: InstantiateMsg) -> StdResult<Re
 
     if msg.protocol_reward_fee.gt(&get_reward_fee_cap()) {
         return Err(StdError::generic_err("'protocol_reward_fee' greater than max"));
+    }
+
+    if msg.epoch_period == 0 {
+        return Err(StdError::generic_err("epoch_period can't be zero"));
+    }
+
+    if msg.unbond_period == 0 {
+        return Err(StdError::generic_err("unbond_period can't be zero"));
     }
 
     state.owner.save(deps.storage, &deps.api.addr_validate(&msg.owner)?)?;
@@ -677,6 +685,7 @@ pub fn add_validator(deps: DepsMut, sender: Addr, validator: String) -> StdResul
     let state = State::default();
 
     state.assert_owner(deps.storage, &sender)?;
+    assert_validator_exists(&deps.querier, validator)?;
 
     state.validators.update(deps.storage, |mut validators| {
         if validators.contains(&validator) {

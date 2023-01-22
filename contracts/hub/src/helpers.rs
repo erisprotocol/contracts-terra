@@ -5,7 +5,8 @@ use std::{
 };
 
 use cosmwasm_std::{
-    Addr, Coin, Decimal, Env, QuerierWrapper, StdError, StdResult, Storage, Uint128,
+    Addr, Coin, Decimal, Env, QuerierWrapper, QueryRequest, StakingQuery, StdError, StdResult,
+    Storage, Uint128, ValidatorResponse,
 };
 use cw20::{Cw20QueryMsg, TokenInfoResponse};
 use eris::{
@@ -122,11 +123,26 @@ pub(crate) fn parse_received_fund(funds: &[Coin], denom: &str) -> StdResult<Uint
     Ok(fund.amount)
 }
 
+pub fn assert_validator_exists(
+    querier: &QuerierWrapper,
+    validator: impl Into<String>,
+) -> StdResult<()> {
+    let result: ValidatorResponse =
+        querier.query(&QueryRequest::Staking(StakingQuery::Validator {
+            address: validator.into(),
+        }))?;
+    Ok(())
+}
+
 /// Dedupes a Vector of strings using a hashset.
-pub fn dedupe(v: &mut Vec<String>) {
+pub fn dedupe(querier: &QuerierWrapper, v: &mut Vec<String>) {
     let mut set = HashSet::new();
 
     v.retain(|x| set.insert(x.clone()));
+
+    for validator in v {
+        assert_validator_exists(querier, *validator);
+    }
 }
 
 /// Calculates the wanted delegations based on the delegation strategy and the amp + emp gauges
