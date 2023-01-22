@@ -6,7 +6,7 @@ use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::helper::{addr_opt_validate, addr_validate_to_lower};
+use crate::helper::addr_opt_validate;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -42,7 +42,7 @@ impl DelegationStrategy<String> {
                 validator_count,
                 max_delegation_bps,
             } => DelegationStrategy::Gauges {
-                amp_gauges: addr_validate_to_lower(api, amp_gauges)?,
+                amp_gauges: api.addr_validate(&amp_gauges)?,
                 emp_gauges: addr_opt_validate(api, &emp_gauges)?,
                 amp_factor_bps: amp_factor,
                 min_delegation_bps,
