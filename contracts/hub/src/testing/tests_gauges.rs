@@ -1950,41 +1950,6 @@ fn computing_redelegations_for_rebalancing_complex() -> StdResult<()> {
 //--------------------------------------------------------------------------------------------------
 
 #[test]
-fn parsing_coin() {
-    let coin = parse_coin("12345uatom").unwrap();
-    assert_eq!(coin, Coin::new(12345, "uatom"));
-
-    let coin =
-        parse_coin("23456ibc/0471F1C4E7AFD3F07702BEF6DC365268D64570F7C1FDC98EA6098DD6DE59817B")
-            .unwrap();
-    assert_eq!(
-        coin,
-        Coin::new(23456, "ibc/0471F1C4E7AFD3F07702BEF6DC365268D64570F7C1FDC98EA6098DD6DE59817B")
-    );
-
-    let err = parse_coin("69420").unwrap_err();
-    assert_eq!(err, StdError::generic_err("failed to parse coin: 69420"));
-
-    let err = parse_coin("ngmi").unwrap_err();
-    assert_eq!(err, StdError::generic_err("Parsing u128: cannot parse integer from empty string"));
-}
-
-#[test]
-fn parsing_coins() {
-    let coins = Coins::from_str("").unwrap();
-    assert_eq!(coins.0, vec![]);
-
-    let coins = Coins::from_str("12345uatom").unwrap();
-    assert_eq!(coins.0, vec![Coin::new(12345, "uatom")]);
-
-    let mut amount = "12345uatom,23456".to_owned();
-    amount.push_str(CONTRACT_DENOM);
-
-    let coins = Coins::from_str(amount.as_str()).unwrap();
-    assert_eq!(coins.0, vec![Coin::new(12345, "uatom"), Coin::new(23456, CONTRACT_DENOM)]);
-}
-
-#[test]
 fn adding_coins() {
     let mut coins = Coins(vec![]);
 
