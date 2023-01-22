@@ -123,26 +123,29 @@ pub(crate) fn parse_received_fund(funds: &[Coin], denom: &str) -> StdResult<Uint
     Ok(fund.amount)
 }
 
-pub fn assert_validator_exists(
-    querier: &QuerierWrapper,
-    validator: impl Into<String>,
-) -> StdResult<()> {
-    let result: ValidatorResponse =
+pub fn assert_validator_exists(querier: &QuerierWrapper, validator: &String) -> StdResult<()> {
+    let _result: ValidatorResponse =
         querier.query(&QueryRequest::Staking(StakingQuery::Validator {
             address: validator.into(),
         }))?;
     Ok(())
 }
 
+pub fn assert_validators_exists(
+    querier: &QuerierWrapper,
+    validators: &Vec<String>,
+) -> StdResult<()> {
+    for validator in validators {
+        assert_validator_exists(querier, validator)?;
+    }
+    Ok(())
+}
+
 /// Dedupes a Vector of strings using a hashset.
-pub fn dedupe(querier: &QuerierWrapper, v: &mut Vec<String>) {
+pub fn dedupe(validators: &mut Vec<String>) {
     let mut set = HashSet::new();
 
-    v.retain(|x| set.insert(x.clone()));
-
-    for validator in v {
-        assert_validator_exists(querier, *validator);
-    }
+    validators.retain(|x| set.insert(x.clone()));
 }
 
 /// Calculates the wanted delegations based on the delegation strategy and the amp + emp gauges

@@ -15,8 +15,8 @@ use eris::hub::{
 
 use crate::constants::{get_reward_fee_cap, CONTRACT_DENOM, CONTRACT_NAME, CONTRACT_VERSION};
 use crate::helpers::{
-    assert_validator_exists, dedupe, get_wanted_delegations, query_all_delegations,
-    query_cw20_total_supply, query_delegation, query_delegations,
+    assert_validator_exists, assert_validators_exists, dedupe, get_wanted_delegations,
+    query_all_delegations, query_cw20_total_supply, query_delegation, query_delegations,
 };
 use crate::math::{
     compute_mint_amount, compute_redelegations_for_rebalancing, compute_redelegations_for_removal,
@@ -56,6 +56,7 @@ pub fn instantiate(deps: DepsMut, env: Env, msg: InstantiateMsg) -> StdResult<Re
 
     let mut validators = msg.validators;
     dedupe(&mut validators);
+    assert_validators_exists(&deps.querier, &validators)?;
 
     state.validators.save(deps.storage, &validators)?;
     state.unlocked_coins.save(deps.storage, &vec![])?;
@@ -685,7 +686,7 @@ pub fn add_validator(deps: DepsMut, sender: Addr, validator: String) -> StdResul
     let state = State::default();
 
     state.assert_owner(deps.storage, &sender)?;
-    assert_validator_exists(&deps.querier, validator)?;
+    assert_validator_exists(&deps.querier, &validator)?;
 
     state.validators.update(deps.storage, |mut validators| {
         if validators.contains(&validator) {
