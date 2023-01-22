@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     entry_point, from_binary, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response,
-    StdError, StdResult,
+    StdResult,
 };
 use cw2::set_contract_version;
 use cw20::Cw20ReceiveMsg;
@@ -9,6 +9,7 @@ use eris::helper::unwrap_reply;
 use eris::hub::{CallbackMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, ReceiveMsg};
 
 use crate::constants::{CONTRACT_DENOM, CONTRACT_NAME, CONTRACT_VERSION};
+use crate::error::{ContractError, ContractResult};
 use crate::helpers::parse_received_fund;
 use crate::state::State;
 use crate::{execute, queries};
@@ -19,12 +20,12 @@ pub fn instantiate(
     env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
-) -> StdResult<Response> {
+) -> ContractResult {
     execute::instantiate(deps, env, msg)
 }
 
 #[entry_point]
-pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
+pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> ContractResult {
     let api = deps.api;
     match msg {
         ExecuteMsg::Receive(cw20_msg) => receive(deps, env, info, cw20_msg),
@@ -86,12 +87,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
     }
 }
 
-fn receive(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    cw20_msg: Cw20ReceiveMsg,
-) -> StdResult<Response> {
+fn receive(deps: DepsMut, env: Env, info: MessageInfo, cw20_msg: Cw20ReceiveMsg) -> ContractResult {
     let api = deps.api;
     match from_binary(&cw20_msg.msg)? {
         ReceiveMsg::QueueUnbond {
@@ -101,10 +97,7 @@ fn receive(
 
             let stake_token = state.stake_token.load(deps.storage)?;
             if info.sender != stake_token {
-                return Err(StdError::generic_err(format!(
-                    "expecting Stake token, received {}",
-                    info.sender
-                )));
+                return Err(ContractError::ExpectingStakeToken(info.sender.into()));
             }
 
             execute::queue_unbond(
@@ -122,9 +115,9 @@ fn callback(
     env: Env,
     info: MessageInfo,
     callback_msg: CallbackMsg,
-) -> StdResult<Response> {
+) -> ContractResult {
     if env.contract.address != info.sender {
-        return Err(StdError::generic_err("callbacks can only be invoked by the contract itself"));
+        return Err(ContractError::CallbackOnlyCalledByContract {});
     }
 
     match callback_msg {
@@ -137,10 +130,10 @@ fn callback(
 }
 
 #[entry_point]
-pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> StdResult<Response> {
+pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> ContractResult {
     match reply.id {
         1 => execute::register_stake_token(deps, unwrap_reply(reply)?),
-        id => Err(StdError::generic_err(format!("invalid reply id: {}; must be 1-2", id))),
+        id => Err(ContractError::InvalidReplyId(id)),
     }
 }
 
@@ -184,7 +177,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
 }
 
 #[entry_point]
-pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> ContractResult {
     // let contract_version = get_contract_version(deps.storage)?;
 
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;

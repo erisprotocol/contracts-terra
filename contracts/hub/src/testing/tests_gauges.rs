@@ -19,7 +19,8 @@ use itertools::Itertools;
 
 use crate::constants::CONTRACT_DENOM;
 use crate::contract::{execute, instantiate, reply};
-use crate::helpers::{dedupe, parse_coin, parse_received_fund};
+use crate::error::ContractError;
+use crate::helpers::{dedupe, parse_received_fund};
 use crate::math::{
     compute_redelegations_for_rebalancing, compute_redelegations_for_removal, compute_undelegations,
 };
@@ -337,7 +338,7 @@ fn donating() {
         ExecuteMsg::Donate {},
     )
     .unwrap_err();
-    assert_eq!(res, StdError::generic_err("donations are disabled"));
+    assert_eq!(res, ContractError::DonationsDisabled {});
 
     // enable donations
     execute(
@@ -553,7 +554,7 @@ fn queuing_unbond() {
     )
     .unwrap_err();
 
-    assert_eq!(err, StdError::generic_err("expecting Stake token, received random_token"));
+    assert_eq!(err, ContractError::ExpectingStakeToken("random_token".into()));
 
     // User 1 creates an unbonding request before `est_unbond_start_time` is reached. The unbond
     // request is saved, but not the pending batch is not submitted for unbonding
@@ -1082,7 +1083,7 @@ fn withdrawing_unbonded() {
     )
     .unwrap_err();
 
-    assert_eq!(err, StdError::generic_err("withdrawable amount is zero"));
+    assert_eq!(err, ContractError::CantBeZero("withdrawable amount".into()));
 
     // Attempt to withdraw once batches 1 and 2 have finished unbonding, but 3 has not yet
     //
@@ -1215,7 +1216,7 @@ fn adding_validator() {
     )
     .unwrap_err();
 
-    assert_eq!(err, StdError::generic_err("unauthorized: sender is not owner"));
+    assert_eq!(err, ContractError::Unauthorized {});
 
     let err = execute(
         deps.as_mut(),
@@ -1227,7 +1228,7 @@ fn adding_validator() {
     )
     .unwrap_err();
 
-    assert_eq!(err, StdError::generic_err("validator is already whitelisted"));
+    assert_eq!(err, ContractError::ValidatorAlreadyWhitelisted("alice".into()));
 
     let res = execute(
         deps.as_mut(),
@@ -1274,7 +1275,7 @@ fn removing_validator() {
     )
     .unwrap_err();
 
-    assert_eq!(err, StdError::generic_err("unauthorized: sender is not owner"));
+    assert_eq!(err, ContractError::Unauthorized {});
 
     let err = execute(
         deps.as_mut(),
@@ -1286,7 +1287,7 @@ fn removing_validator() {
     )
     .unwrap_err();
 
-    assert_eq!(err, StdError::generic_err("validator is not already whitelisted"));
+    assert_eq!(err, ContractError::ValidatorNotWhitelisted("dave".into()));
 
     // Target: (341667 + 341667 + 341666) / 2 = 512500
     // Remainder: 0
@@ -1324,7 +1325,7 @@ fn transferring_ownership() {
     )
     .unwrap_err();
 
-    assert_eq!(err, StdError::generic_err("unauthorized: sender is not owner"));
+    assert_eq!(err, ContractError::Unauthorized {});
 
     let res = execute(
         deps.as_mut(),
@@ -1349,7 +1350,7 @@ fn transferring_ownership() {
     )
     .unwrap_err();
 
-    assert_eq!(err, StdError::generic_err("unauthorized: sender is not new owner"));
+    assert_eq!(err, ContractError::UnauthorizedSenderNotNewOwner {});
 
     let res =
         execute(deps.as_mut(), mock_env(), mock_info("jake", &[]), ExecuteMsg::AcceptOwnership {})
@@ -1391,7 +1392,7 @@ fn update_fee() {
         },
     )
     .unwrap_err();
-    assert_eq!(err, StdError::generic_err("unauthorized: sender is not owner"));
+    assert_eq!(err, ContractError::Unauthorized {});
 
     let err = execute(
         deps.as_mut(),
@@ -1405,7 +1406,7 @@ fn update_fee() {
         },
     )
     .unwrap_err();
-    assert_eq!(err, StdError::generic_err("'protocol_reward_fee' greater than max"));
+    assert_eq!(err, ContractError::ProtocolRewardFeeTooHigh {});
 
     let res = execute(
         deps.as_mut(),
@@ -1993,7 +1994,7 @@ fn adding_coins() {
     coins.add(&Coin::new(23456, CONTRACT_DENOM)).unwrap();
     assert_eq!(coins.0, vec![Coin::new(12345, "uatom"), Coin::new(23456, CONTRACT_DENOM)]);
 
-    coins.add_many(&Coins::from_str("76543uatom,69420uusd").unwrap()).unwrap();
+    coins.add_many(&Coins(vec![Coin::new(76543, "uatom"), Coin::new(69420, "uusd")])).unwrap();
     assert_eq!(
         coins.0,
         vec![Coin::new(88888, "uatom"), Coin::new(23456, CONTRACT_DENOM), Coin::new(69420, "uusd")]

@@ -3,6 +3,7 @@ use std::str::FromStr;
 use cosmwasm_std::{Coin, StdError, StdResult};
 
 use crate::helpers::parse_coin;
+use cosmwasm_std::{Coin, StdResult};
 
 pub struct Coins(pub Vec<Coin>);
 

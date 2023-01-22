@@ -9,5 +9,6 @@ pub mod state;
 pub mod types;
 
 mod constants;
+pub mod error;
 #[cfg(test)]
 mod testing;

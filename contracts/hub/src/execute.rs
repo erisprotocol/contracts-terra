@@ -14,6 +14,7 @@ use eris::hub::{
 };
 
 use crate::constants::{get_reward_fee_cap, CONTRACT_DENOM, CONTRACT_NAME, CONTRACT_VERSION};
+use crate::error::{ContractError, ContractResult};
 use crate::helpers::{
     assert_validator_exists, assert_validators_exists, dedupe, get_wanted_delegations,
     query_all_delegations, query_cw20_total_supply, query_delegation, query_delegations,
@@ -30,21 +31,21 @@ use crate::types::{Coins, Delegation, SendFee};
 // Instantiation
 //--------------------------------------------------------------------------------------------------
 
-pub fn instantiate(deps: DepsMut, env: Env, msg: InstantiateMsg) -> StdResult<Response> {
+pub fn instantiate(deps: DepsMut, env: Env, msg: InstantiateMsg) -> ContractResult {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     let state = State::default();
 
     if msg.protocol_reward_fee.gt(&get_reward_fee_cap()) {
-        return Err(StdError::generic_err("'protocol_reward_fee' greater than max"));
+        return Err(ContractError::ProtocolRewardFeeTooHigh {});
     }
 
     if msg.epoch_period == 0 {
-        return Err(StdError::generic_err("epoch_period can't be zero"));
+        return Err(ContractError::CantBeZero("epoch_period".into()));
     }
 
     if msg.unbond_period == 0 {
-        return Err(StdError::generic_err("unbond_period can't be zero"));
+        return Err(ContractError::CantBeZero("unbond_period".into()));
     }
 
     state.owner.save(deps.storage, &deps.api.addr_validate(&msg.owner)?)?;
@@ -102,20 +103,20 @@ pub fn instantiate(deps: DepsMut, env: Env, msg: InstantiateMsg) -> StdResult<Re
     )))
 }
 
-pub fn register_stake_token(deps: DepsMut, response: SubMsgResponse) -> StdResult<Response> {
+pub fn register_stake_token(deps: DepsMut, response: SubMsgResponse) -> ContractResult {
     let state = State::default();
 
     let event = response
         .events
         .iter()
         .find(|event| event.ty == "instantiate")
-        .ok_or_else(|| StdError::generic_err("cannot find `instantiate` event"))?;
+        .ok_or_else(|| ContractError::CannotFindInstantiateEvent {})?;
 
     let contract_addr_str = &event
         .attributes
         .iter()
         .find(|attr| attr.key == "_contract_address" || attr.key == "_contract_addr")
-        .ok_or_else(|| StdError::generic_err("cannot find `_contract_address` attribute"))?
+        .ok_or_else(|| ContractError::CannotFindContractAddress {})?
         .value;
 
     let contract_addr = deps.api.addr_validate(contract_addr_str)?;
@@ -142,7 +143,7 @@ pub fn bond(
     receiver: Addr,
     token_to_bond: Uint128,
     donate: bool,
-) -> StdResult<Response> {
+) -> ContractResult {
     let state = State::default();
     let stake_token = state.stake_token.load(deps.storage)?;
 
@@ -152,7 +153,7 @@ pub fn bond(
     let ustake_supply = query_cw20_total_supply(&deps.querier, &stake_token)?;
     let ustake_to_mint = if donate {
         match state.allow_donations.may_load(deps.storage)? {
-            Some(false) => Err(StdError::generic_err("donations are disabled"))?,
+            Some(false) => Err(ContractError::DonationsDisabled {})?,
             Some(true) | None => {
                 // if it is not set (backward compatibility) or set to true, donations are allowed
             },
@@ -189,7 +190,7 @@ pub fn bond(
         .add_attribute("action", "erishub/bond"))
 }
 
-pub fn harvest(deps: DepsMut, env: Env) -> StdResult<Response> {
+pub fn harvest(deps: DepsMut, env: Env) -> ContractResult {
     let withdraw_msgs = deps
         .querier
         .query_all_delegations(&env.contract.address)?
@@ -238,7 +239,7 @@ fn check_received_coin_msg(
 /// execution.
 /// 2. Same as with `bond`, in the latest implementation we only delegate staking rewards with the
 /// validator that has the smallest delegation amount.
-pub fn reinvest(deps: DepsMut, env: Env) -> StdResult<Response> {
+pub fn reinvest(deps: DepsMut, env: Env) -> ContractResult {
     let state = State::default();
     let mut unlocked_coins = state.unlocked_coins.load(deps.storage)?;
     let fee_config = state.fee_config.load(deps.storage)?;
@@ -246,7 +247,7 @@ pub fn reinvest(deps: DepsMut, env: Env) -> StdResult<Response> {
     let uluna_available = unlocked_coins
         .iter()
         .find(|coin| coin.denom == CONTRACT_DENOM)
-        .ok_or_else(|| StdError::generic_err("no uluna available to be bonded"))?
+        .ok_or_else(|| ContractError::NoTokensAvailable(CONTRACT_DENOM.into()))?
         .amount;
 
     let protocol_fee_amount = fee_config.protocol_reward_fee.checked_mul_uint(uluna_available)?;
@@ -274,7 +275,7 @@ pub fn reinvest(deps: DepsMut, env: Env) -> StdResult<Response> {
         .add_attribute("action", "erishub/reinvest"))
 }
 
-pub fn callback_received_coin(deps: DepsMut, env: Env, snapshot: Coin) -> StdResult<Response> {
+pub fn callback_received_coin(deps: DepsMut, env: Env, snapshot: Coin) -> ContractResult {
     // in some cosmwasm versions the events are not received in the callback
     // so each time the contract can receive some coins from rewards we also need to check after receiving some and add them to the unlocked_coins
     let current_balance =
@@ -360,7 +361,7 @@ pub fn queue_unbond(
     env: Env,
     receiver: Addr,
     ustake_to_burn: Uint128,
-) -> StdResult<Response> {
+) -> ContractResult {
     let state = State::default();
 
     let mut pending_batch = state.pending_batch.load(deps.storage)?;
@@ -404,7 +405,7 @@ pub fn queue_unbond(
         .add_attribute("action", "erishub/queue_unbond"))
 }
 
-pub fn submit_batch(deps: DepsMut, env: Env) -> StdResult<Response> {
+pub fn submit_batch(deps: DepsMut, env: Env) -> ContractResult {
     let state = State::default();
     let stake_token = state.stake_token.load(deps.storage)?;
     let validators = state.validators.load(deps.storage)?;
@@ -413,10 +414,7 @@ pub fn submit_batch(deps: DepsMut, env: Env) -> StdResult<Response> {
 
     let current_time = env.block.time.seconds();
     if current_time < pending_batch.est_unbond_start_time {
-        return Err(StdError::generic_err(format!(
-            "batch can only be submitted for unbonding after {}",
-            pending_batch.est_unbond_start_time
-        )));
+        return Err(ContractError::SubmitBatchAfter(pending_batch.est_unbond_start_time));
     }
 
     let delegations = query_all_delegations(&deps.querier, &env.contract.address)?;
@@ -472,7 +470,7 @@ pub fn submit_batch(deps: DepsMut, env: Env) -> StdResult<Response> {
         .add_attribute("action", "erishub/unbond"))
 }
 
-pub fn reconcile(deps: DepsMut, env: Env) -> StdResult<Response> {
+pub fn reconcile(deps: DepsMut, env: Env) -> ContractResult {
     let state = State::default();
     let current_time = env.block.time.seconds();
 
@@ -535,12 +533,7 @@ pub fn reconcile(deps: DepsMut, env: Env) -> StdResult<Response> {
     Ok(Response::new().add_event(event).add_attribute("action", "erishub/reconcile"))
 }
 
-pub fn withdraw_unbonded(
-    deps: DepsMut,
-    env: Env,
-    user: Addr,
-    receiver: Addr,
-) -> StdResult<Response> {
+pub fn withdraw_unbonded(deps: DepsMut, env: Env, user: Addr, receiver: Addr) -> ContractResult {
     let state = State::default();
     let current_time = env.block.time.seconds();
 
@@ -591,7 +584,7 @@ pub fn withdraw_unbonded(
     }
 
     if total_uluna_to_refund.is_zero() {
-        return Err(StdError::generic_err("withdrawable amount is zero"));
+        return Err(ContractError::CantBeZero("withdrawable amount".into()));
     }
 
     let refund_msg = CosmosMsg::Bank(BankMsg::Send {
@@ -611,7 +604,7 @@ pub fn withdraw_unbonded(
         .add_attribute("action", "erishub/withdraw_unbonded"))
 }
 
-pub fn tune_delegations(deps: DepsMut, env: Env, sender: Addr) -> StdResult<Response> {
+pub fn tune_delegations(deps: DepsMut, env: Env, sender: Addr) -> ContractResult {
     let state = State::default();
 
     state.assert_owner(deps.storage, &sender)?;
@@ -647,7 +640,7 @@ pub fn rebalance(
     env: Env,
     sender: Addr,
     min_redelegation: Option<Uint128>,
-) -> StdResult<Response> {
+) -> ContractResult {
     let state = State::default();
     state.assert_owner(deps.storage, &sender)?;
 
@@ -682,7 +675,7 @@ pub fn rebalance(
         .add_attribute("action", "erishub/rebalance"))
 }
 
-pub fn add_validator(deps: DepsMut, sender: Addr, validator: String) -> StdResult<Response> {
+pub fn add_validator(deps: DepsMut, sender: Addr, validator: String) -> ContractResult {
     let state = State::default();
 
     state.assert_owner(deps.storage, &sender)?;
@@ -690,7 +683,7 @@ pub fn add_validator(deps: DepsMut, sender: Addr, validator: String) -> StdResul
 
     state.validators.update(deps.storage, |mut validators| {
         if validators.contains(&validator) {
-            return Err(StdError::generic_err("validator is already whitelisted"));
+            return Err(ContractError::ValidatorAlreadyWhitelisted(validator.clone()));
         }
         validators.push(validator.clone());
         Ok(validators)
@@ -706,14 +699,14 @@ pub fn remove_validator(
     env: Env,
     sender: Addr,
     validator: String,
-) -> StdResult<Response> {
+) -> ContractResult {
     let state = State::default();
 
     state.assert_owner(deps.storage, &sender)?;
 
     let validators = state.validators.update(deps.storage, |mut validators| {
         if !validators.contains(&validator) {
-            return Err(StdError::generic_err("validator is not already whitelisted"));
+            return Err(ContractError::ValidatorNotWhitelisted(validator.clone()));
         }
         validators.retain(|v| *v != validator);
         Ok(validators)
@@ -762,7 +755,7 @@ pub fn remove_validator(
         .add_attribute("action", "erishub/remove_validator"))
 }
 
-pub fn transfer_ownership(deps: DepsMut, sender: Addr, new_owner: String) -> StdResult<Response> {
+pub fn transfer_ownership(deps: DepsMut, sender: Addr, new_owner: String) -> ContractResult {
     let state = State::default();
 
     state.assert_owner(deps.storage, &sender)?;
@@ -771,14 +764,14 @@ pub fn transfer_ownership(deps: DepsMut, sender: Addr, new_owner: String) -> Std
     Ok(Response::new().add_attribute("action", "erishub/transfer_ownership"))
 }
 
-pub fn accept_ownership(deps: DepsMut, sender: Addr) -> StdResult<Response> {
+pub fn accept_ownership(deps: DepsMut, sender: Addr) -> ContractResult {
     let state = State::default();
 
     let previous_owner = state.owner.load(deps.storage)?;
     let new_owner = state.new_owner.load(deps.storage)?;
 
     if sender != new_owner {
-        return Err(StdError::generic_err("unauthorized: sender is not new owner"));
+        return Err(ContractError::UnauthorizedSenderNotNewOwner {});
     }
 
     state.owner.save(deps.storage, &sender)?;
@@ -798,7 +791,7 @@ pub fn update_config(
     protocol_reward_fee: Option<Decimal>,
     delegation_strategy: Option<DelegationStrategy>,
     allow_donations: Option<bool>,
-) -> StdResult<Response> {
+) -> ContractResult {
     let state = State::default();
 
     state.assert_owner(deps.storage, &sender)?;
@@ -812,7 +805,7 @@ pub fn update_config(
 
         if let Some(protocol_reward_fee) = protocol_reward_fee {
             if protocol_reward_fee.gt(&get_reward_fee_cap()) {
-                return Err(StdError::generic_err("'protocol_reward_fee' greater than max"));
+                return Err(ContractError::ProtocolRewardFeeTooHigh {});
             }
             fee_config.protocol_reward_fee = protocol_reward_fee;
         }
