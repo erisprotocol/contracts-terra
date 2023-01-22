@@ -88,15 +88,17 @@ pub(crate) fn compute_undelegations(
             d.amount - uluna_for_validator
         };
 
-        uluna_to_undelegate = std::cmp::min(uluna_to_undelegate, uluna_available);
-        uluna_available -= uluna_to_undelegate;
-
         if uluna_to_undelegate > 0 {
-            new_undelegations.push(Undelegation::new(&d.validator, uluna_to_undelegate));
-        }
+            uluna_to_undelegate = std::cmp::min(uluna_to_undelegate, uluna_available);
+            uluna_available -= uluna_to_undelegate;
 
-        if uluna_available == 0 {
-            break;
+            if uluna_to_undelegate > 0 {
+                new_undelegations.push(Undelegation::new(&d.validator, uluna_to_undelegate));
+            }
+
+            if uluna_available == 0 {
+                break;
+            }
         }
     }
 
