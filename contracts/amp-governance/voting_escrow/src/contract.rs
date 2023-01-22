@@ -739,7 +739,7 @@ fn update_blacklist(
     let cur_period_key = cur_period;
     let mut reduce_total_vp = Uint128::zero(); // accumulator for decreasing total voting power
     let mut old_slopes = Uint128::zero(); // accumulator for old slopes
-    let mut old_amount = Uint128::zero(); // accumulator for old slopes
+    let mut old_amount = Uint128::zero(); // accumulator for old amount
 
     for addr in append.iter() {
         let last_checkpoint = fetch_last_checkpoint(deps.storage, addr, cur_period_key)?;

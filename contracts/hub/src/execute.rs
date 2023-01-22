@@ -322,11 +322,11 @@ fn find_new_delegation(
             // if we have gauges, only delegate to validators that have delegations, all others are "inactive"
             let mut delegations = query_all_delegations(&deps.querier, &env.contract.address)?;
             if delegations.is_empty() {
-                let validatiors = state.validators.load(deps.storage)?;
+                let validators = state.validators.load(deps.storage)?;
 
                 delegations = vec![Delegation {
                     amount: 0,
-                    validator: validatiors.first().unwrap().to_string(),
+                    validator: validators.first().unwrap().to_string(),
                 }]
             }
             delegations
