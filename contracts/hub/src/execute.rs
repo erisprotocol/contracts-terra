@@ -52,6 +52,10 @@ pub fn instantiate(deps: DepsMut, env: Env, msg: InstantiateMsg) -> ContractResu
     state.epoch_period.save(deps.storage, &msg.epoch_period)?;
     state.unbond_period.save(deps.storage, &msg.unbond_period)?;
 
+    if let Some(vote_operator) = msg.vote_operator {
+        state.vote_operator.save(deps.storage, &deps.api.addr_validate(&vote_operator)?)?;
+    }
+
     // by default donations are set to false
     state.allow_donations.save(deps.storage, &false)?;
 
