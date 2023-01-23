@@ -1,4 +1,4 @@
-use cosmwasm_std::{Addr, Coin, StdError, StdResult, Storage};
+use cosmwasm_std::{Addr, Coin, Storage};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, MultiIndex};
 
 use eris::hub::{
@@ -6,7 +6,7 @@ use eris::hub::{
 };
 use itertools::Itertools;
 
-use crate::types::BooleanKey;
+use crate::{error::ContractError, types::BooleanKey};
 
 pub(crate) struct State<'a> {
     /// Account who can call certain privileged functions
@@ -37,6 +37,8 @@ pub(crate) struct State<'a> {
     pub delegation_goal: Item<'a, WantedDelegationsShare>,
     /// Operator who is allowed to vote on props
     pub vote_operator: Item<'a, Addr>,
+    /// Specifies wether the contract allows donations
+    pub allow_donations: Item<'a, bool>,
 }
 
 impl Default for State<'static> {
@@ -70,30 +72,33 @@ impl Default for State<'static> {
             delegation_strategy: Item::new("delegation_strategy"),
             delegation_goal: Item::new("delegation_goal"),
             vote_operator: Item::new("vote_operator"),
+            allow_donations: Item::new("allow_donations"),
         }
     }
 }
 
 impl<'a> State<'a> {
-    pub fn assert_owner(&self, storage: &dyn Storage, sender: &Addr) -> StdResult<()> {
+    pub fn assert_owner(&self, storage: &dyn Storage, sender: &Addr) -> Result<(), ContractError> {
         let owner = self.owner.load(storage)?;
         if *sender == owner {
             Ok(())
         } else {
-            Err(StdError::generic_err("unauthorized: sender is not owner"))
+            Err(ContractError::Unauthorized {})
         }
     }
 
-    pub fn assert_vote_operator(&self, storage: &dyn Storage, sender: &Addr) -> StdResult<()> {
-        let vote_operator = self
-            .vote_operator
-            .load(storage)
-            .map_err(|_| StdError::generic_err("No vote operator set."))?;
+    pub fn assert_vote_operator(
+        &self,
+        storage: &dyn Storage,
+        sender: &Addr,
+    ) -> Result<(), ContractError> {
+        let vote_operator =
+            self.vote_operator.load(storage).map_err(|_| ContractError::NoVoteOperatorSet {})?;
 
         if *sender == vote_operator {
             Ok(())
         } else {
-            Err(StdError::generic_err("unauthorized: sender is not vote operator"))
+            Err(ContractError::UnauthorizedSenderNotVoteOperator {})
         }
     }
 

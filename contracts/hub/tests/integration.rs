@@ -56,13 +56,14 @@ fn update_configs() -> Result<()> {
                 protocol_reward_fee: Some(Decimal::from_str("0")?),
                 delegation_strategy: None,
                 protocol_fee_contract: None,
+                allow_donations: None,
                 vote_operator: None,
             },
             Addr::unchecked("user"),
         )
         .unwrap_err();
 
-    assert_eq!("Generic error: unauthorized: sender is not owner", result.root_cause().to_string());
+    assert_eq!("Unauthorized: sender is not owner", result.root_cause().to_string());
 
     helper
         .hub_execute(
@@ -71,6 +72,7 @@ fn update_configs() -> Result<()> {
                 protocol_reward_fee: Some(Decimal::from_str("0.1")?),
                 protocol_fee_contract: Some("fee_new".to_string()),
                 delegation_strategy: Some(eris::hub::DelegationStrategy::Uniform),
+                allow_donations: None,
                 vote_operator: None,
             },
         )
@@ -249,6 +251,7 @@ fn config_does_not_change_exchange_rate() -> Result<()> {
                 max_delegation_bps: 10000,
                 validator_count: 5,
             }),
+            allow_donations: None,
             vote_operator: None,
         },
     )?;
@@ -379,6 +382,7 @@ fn config_does_not_change_exchange_rate_emps() -> Result<()> {
                 max_delegation_bps: 10000,
                 validator_count: 5,
             }),
+            allow_donations: None,
             vote_operator: None,
         },
     )?;

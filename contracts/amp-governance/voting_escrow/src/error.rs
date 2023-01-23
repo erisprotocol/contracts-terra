@@ -38,6 +38,15 @@ pub enum ContractError {
     #[error("Marketing info validation error: {0}")]
     MarketingInfoValidationError(String),
 
+    #[error("Logo binary data exceeds 5KB limit")]
+    LogoTooBig {},
+
+    #[error("Invalid xml preamble for SVG")]
+    InvalidXmlPreamble {},
+
+    #[error("Invalid png header")]
+    InvalidPngHeader {},
+
     #[error("Contract can't be migrated!")]
     MigrationError {},
 }

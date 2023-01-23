@@ -1,5 +1,7 @@
 use cosmwasm_std::{Addr, BankMsg, Coin, CosmosMsg, StakingMsg};
 
+use crate::constants::CONTRACT_DENOM;
+
 #[derive(Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 pub struct Delegation {
@@ -18,7 +20,7 @@ impl Delegation {
     pub fn to_cosmos_msg(&self) -> CosmosMsg {
         CosmosMsg::Staking(StakingMsg::Delegate {
             validator: self.validator.clone(),
-            amount: Coin::new(self.amount, "uluna"),
+            amount: Coin::new(self.amount, CONTRACT_DENOM),
         })
     }
 }
@@ -41,7 +43,7 @@ impl SendFee {
     pub fn to_cosmos_msg(&self) -> CosmosMsg {
         CosmosMsg::Bank(BankMsg::Send {
             to_address: self.to_address.clone(),
-            amount: vec![Coin::new(self.amount, "uluna")],
+            amount: vec![Coin::new(self.amount, CONTRACT_DENOM)],
         })
     }
 }
@@ -64,7 +66,7 @@ impl Undelegation {
     pub fn to_cosmos_msg(&self) -> CosmosMsg {
         CosmosMsg::Staking(StakingMsg::Undelegate {
             validator: self.validator.clone(),
-            amount: Coin::new(self.amount, "uluna"),
+            amount: Coin::new(self.amount, CONTRACT_DENOM),
         })
     }
 }
@@ -90,7 +92,7 @@ impl Redelegation {
         CosmosMsg::Staking(StakingMsg::Redelegate {
             src_validator: self.src.clone(),
             dst_validator: self.dst.clone(),
-            amount: Coin::new(self.amount, "uluna"),
+            amount: Coin::new(self.amount, CONTRACT_DENOM),
         })
     }
 }

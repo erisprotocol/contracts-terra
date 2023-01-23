@@ -245,7 +245,7 @@ fn update_vote_extend_amount() -> StdResult<()> {
         ]
     );
 
-    helper.ve_add_funds_lock(&mut router, "user1", 1000000).unwrap();
+    helper.ve_add_funds_lock(&mut router, "user1", 1000000, Some(true)).unwrap();
     helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {}).unwrap();
     let info = helper.amp_query_tune_info(&mut router).unwrap();
     assert_eq!(
@@ -266,9 +266,9 @@ fn update_vote_extend_amount() -> StdResult<()> {
     assert_eq!(
         info.vamp_points,
         vec![
-            ("val1".to_string(), Uint128::new(516152)),
-            ("val2".to_string(), Uint128::new(516152)),
-            ("val3".to_string(), Uint128::new(258076))
+            ("val1".to_string(), Uint128::new(550768)),
+            ("val2".to_string(), Uint128::new(550768)),
+            ("val3".to_string(), Uint128::new(275384))
         ]
     );
 
@@ -278,28 +278,40 @@ fn update_vote_extend_amount() -> StdResult<()> {
     assert_eq!(
         info.vamp_points,
         vec![
-            ("val1".to_string(), Uint128::new(478076)),
-            ("val2".to_string(), Uint128::new(478076)),
-            ("val3".to_string(), Uint128::new(239038))
+            ("val1".to_string(), Uint128::new(513846)),
+            ("val2".to_string(), Uint128::new(513846)),
+            ("val3".to_string(), Uint128::new(256923))
         ]
     );
 
+    router.next_period(1);
     helper.ve_withdraw(&mut router, "user1").unwrap();
     helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {}).unwrap();
     let info = helper.amp_query_tune_info(&mut router).unwrap();
     assert_eq!(
         info.vamp_points,
         vec![
-            ("val1".to_string(), Uint128::new(478076)),
-            ("val2".to_string(), Uint128::new(478076)),
-            ("val3".to_string(), Uint128::new(239038))
+            ("val1".to_string(), Uint128::new(476924)),
+            ("val2".to_string(), Uint128::new(476924)),
+            ("val3".to_string(), Uint128::new(238462))
         ]
     );
 
     router.next_period(1);
 
-    let err = helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {}).unwrap_err();
-    assert_eq!(err.root_cause().to_string(), "There are no validators to tune");
+    helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {}).unwrap();
+    let info = helper.amp_query_tune_info(&mut router).unwrap();
+    assert_eq!(
+        info.vamp_points,
+        vec![
+            ("val1".to_string(), Uint128::new(2)),
+            ("val2".to_string(), Uint128::new(2)),
+            ("val3".to_string(), Uint128::new(1))
+        ]
+    );
+
+    // let err = helper.amp_execute(&mut router, ExecuteMsg::TuneVamp {}).unwrap_err();
+    // assert_eq!(err.root_cause().to_string(), "There are no validators to tune");
     Ok(())
 }
 

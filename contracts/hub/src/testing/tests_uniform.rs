@@ -19,7 +19,8 @@ use itertools::Itertools;
 
 use crate::constants::CONTRACT_DENOM;
 use crate::contract::{execute, instantiate, reply};
-use crate::helpers::{dedupe, parse_coin, parse_received_fund};
+use crate::error::ContractError;
+use crate::helpers::{dedupe, parse_received_fund};
 use crate::math::{
     compute_redelegations_for_rebalancing, compute_redelegations_for_removal, compute_undelegations,
 };
@@ -317,6 +318,30 @@ fn donating() {
     );
 
     deps.querier.set_bank_balances(&[coin(100 + 12345, CONTRACT_DENOM)]);
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("user_2", &[Coin::new(12345, CONTRACT_DENOM)]),
+        ExecuteMsg::Donate {},
+    )
+    .unwrap_err();
+    assert_eq!(res, ContractError::DonationsDisabled {});
+
+    // enable donations
+    execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        ExecuteMsg::UpdateConfig {
+            protocol_fee_contract: None,
+            protocol_reward_fee: None,
+            allow_donations: Some(true),
+            delegation_strategy: None,
+            vote_operator: None,
+        },
+    )
+    .unwrap();
+
     // Charlie has the smallest amount of delegation, so the full deposit goes to him
     let res = execute(
         deps.as_mut(),
@@ -517,7 +542,7 @@ fn queuing_unbond() {
     )
     .unwrap_err();
 
-    assert_eq!(err, StdError::generic_err("expecting Stake token, received random_token"));
+    assert_eq!(err, ContractError::ExpectingStakeToken("random_token".into()));
 
     // User 1 creates an unbonding request before `est_unbond_start_time` is reached. The unbond
     // request is saved, but not the pending batch is not submitted for unbonding
@@ -938,6 +963,146 @@ fn reconciling_even_when_everything_ok() {
 }
 
 #[test]
+fn reconciling_underflow() {
+    let mut deps = setup_test();
+    let state = State::default();
+    let previous_batches = vec![
+        Batch {
+            id: 1,
+            reconciled: true,
+            total_shares: Uint128::new(92876),
+            uluna_unclaimed: Uint128::new(95197), // 1.025 Token per Stake
+            est_unbond_end_time: 10000,
+        },
+        Batch {
+            id: 2,
+            reconciled: false,
+            total_shares: Uint128::new(1345),
+            uluna_unclaimed: Uint128::new(1385), // 1.030 Token per Stake
+            est_unbond_end_time: 20000,
+        },
+        Batch {
+            id: 3,
+            reconciled: false,
+            total_shares: Uint128::new(1456),
+            uluna_unclaimed: Uint128::new(1506), // 1.035 Token per Stake
+            est_unbond_end_time: 30000,
+        },
+        Batch {
+            id: 4,
+            reconciled: false,
+            total_shares: Uint128::new(1),
+            uluna_unclaimed: Uint128::new(1),
+            est_unbond_end_time: 30001,
+        },
+    ];
+    for previous_batch in &previous_batches {
+        state
+            .previous_batches
+            .save(deps.as_mut().storage, previous_batch.id, previous_batch)
+            .unwrap();
+    }
+    state
+        .unlocked_coins
+        .save(
+            deps.as_mut().storage,
+            &vec![
+                Coin::new(10000, CONTRACT_DENOM),
+                Coin::new(234, "ukrw"),
+                Coin::new(345, "uusd"),
+                Coin::new(
+                    69420,
+                    "ibc/0471F1C4E7AFD3F07702BEF6DC365268D64570F7C1FDC98EA6098DD6DE59817B",
+                ),
+            ],
+        )
+        .unwrap();
+    deps.querier.set_bank_balances(&[
+        Coin::new(12345, CONTRACT_DENOM),
+        Coin::new(234, "ukrw"),
+        Coin::new(345, "uusd"),
+        Coin::new(69420, "ibc/0471F1C4E7AFD3F07702BEF6DC365268D64570F7C1FDC98EA6098DD6DE59817B"),
+    ]);
+    execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(35000),
+        mock_info("worker", &[]),
+        ExecuteMsg::Reconcile {},
+    )
+    .unwrap();
+}
+
+#[test]
+fn reconciling_underflow_second() {
+    let mut deps = setup_test();
+    let state = State::default();
+    let previous_batches = vec![
+        Batch {
+            id: 1,
+            reconciled: true,
+            total_shares: Uint128::new(92876),
+            uluna_unclaimed: Uint128::new(95197), // 1.025 Token per Stake
+            est_unbond_end_time: 10000,
+        },
+        Batch {
+            id: 2,
+            reconciled: false,
+            total_shares: Uint128::new(1345),
+            uluna_unclaimed: Uint128::new(1385), // 1.030 Token per Stake
+            est_unbond_end_time: 20000,
+        },
+        Batch {
+            id: 3,
+            reconciled: false,
+            total_shares: Uint128::new(176),
+            uluna_unclaimed: Uint128::new(183), // 1.035 Token per Stake
+            est_unbond_end_time: 30000,
+        },
+        Batch {
+            id: 4,
+            reconciled: false,
+            total_shares: Uint128::new(1),
+            uluna_unclaimed: Uint128::new(1),
+            est_unbond_end_time: 30001,
+        },
+    ];
+    for previous_batch in &previous_batches {
+        state
+            .previous_batches
+            .save(deps.as_mut().storage, previous_batch.id, previous_batch)
+            .unwrap();
+    }
+    state
+        .unlocked_coins
+        .save(
+            deps.as_mut().storage,
+            &vec![
+                Coin::new(10000, CONTRACT_DENOM),
+                Coin::new(234, "ukrw"),
+                Coin::new(345, "uusd"),
+                Coin::new(
+                    69420,
+                    "ibc/0471F1C4E7AFD3F07702BEF6DC365268D64570F7C1FDC98EA6098DD6DE59817B",
+                ),
+            ],
+        )
+        .unwrap();
+    deps.querier.set_bank_balances(&[
+        Coin::new(12345 - 1323, CONTRACT_DENOM),
+        Coin::new(234, "ukrw"),
+        Coin::new(345, "uusd"),
+        Coin::new(69420, "ibc/0471F1C4E7AFD3F07702BEF6DC365268D64570F7C1FDC98EA6098DD6DE59817B"),
+    ]);
+    execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(35000),
+        mock_info("worker", &[]),
+        ExecuteMsg::Reconcile {},
+    )
+    .unwrap();
+}
+
+#[test]
 fn withdrawing_unbonded() {
     let mut deps = setup_test();
     let state = State::default();
@@ -1046,7 +1211,7 @@ fn withdrawing_unbonded() {
     )
     .unwrap_err();
 
-    assert_eq!(err, StdError::generic_err("withdrawable amount is zero"));
+    assert_eq!(err, ContractError::CantBeZero("withdrawable amount".into()));
 
     // Attempt to withdraw once batches 1 and 2 have finished unbonding, but 3 has not yet
     //
@@ -1179,7 +1344,7 @@ fn adding_validator() {
     )
     .unwrap_err();
 
-    assert_eq!(err, StdError::generic_err("unauthorized: sender is not owner"));
+    assert_eq!(err, ContractError::Unauthorized {});
 
     let err = execute(
         deps.as_mut(),
@@ -1191,7 +1356,7 @@ fn adding_validator() {
     )
     .unwrap_err();
 
-    assert_eq!(err, StdError::generic_err("validator is already whitelisted"));
+    assert_eq!(err, ContractError::ValidatorAlreadyWhitelisted("alice".into()));
 
     let res = execute(
         deps.as_mut(),
@@ -1238,7 +1403,7 @@ fn removing_validator() {
     )
     .unwrap_err();
 
-    assert_eq!(err, StdError::generic_err("unauthorized: sender is not owner"));
+    assert_eq!(err, ContractError::Unauthorized {});
 
     let err = execute(
         deps.as_mut(),
@@ -1250,7 +1415,7 @@ fn removing_validator() {
     )
     .unwrap_err();
 
-    assert_eq!(err, StdError::generic_err("validator is not already whitelisted"));
+    assert_eq!(err, ContractError::ValidatorNotWhitelisted("dave".into()));
 
     // Target: (341667 + 341667 + 341666) / 2 = 512500
     // Remainder: 0
@@ -1296,7 +1461,7 @@ fn transferring_ownership() {
     )
     .unwrap_err();
 
-    assert_eq!(err, StdError::generic_err("unauthorized: sender is not owner"));
+    assert_eq!(err, ContractError::Unauthorized {});
 
     let res = execute(
         deps.as_mut(),
@@ -1312,6 +1477,49 @@ fn transferring_ownership() {
 
     let owner = state.owner.load(deps.as_ref().storage).unwrap();
     assert_eq!(owner, Addr::unchecked("owner"));
+    let new_owner = state.new_owner.load(deps.as_ref().storage).unwrap();
+    assert_eq!(new_owner, Addr::unchecked("jake"));
+
+    // Check dropping ownership proposal
+    let err = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("pumpkin", &[]),
+        ExecuteMsg::DropOwnershipProposal {},
+    )
+    .unwrap_err();
+    assert_eq!(err, ContractError::Unauthorized {});
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        ExecuteMsg::DropOwnershipProposal {},
+    )
+    .unwrap();
+    assert_eq!(res.messages.len(), 0);
+
+    let owner = state.owner.load(deps.as_ref().storage).unwrap();
+    assert_eq!(owner, Addr::unchecked("owner"));
+    let new_owner = state.new_owner.may_load(deps.as_ref().storage).unwrap();
+    assert_eq!(new_owner, None);
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        ExecuteMsg::TransferOwnership {
+            new_owner: "jake".to_string(),
+        },
+    )
+    .unwrap();
+
+    assert_eq!(res.messages.len(), 0);
+
+    let owner = state.owner.load(deps.as_ref().storage).unwrap();
+    assert_eq!(owner, Addr::unchecked("owner"));
+    let new_owner = state.new_owner.load(deps.as_ref().storage).unwrap();
+    assert_eq!(new_owner, Addr::unchecked("jake"));
 
     let err = execute(
         deps.as_mut(),
@@ -1321,7 +1529,7 @@ fn transferring_ownership() {
     )
     .unwrap_err();
 
-    assert_eq!(err, StdError::generic_err("unauthorized: sender is not new owner"));
+    assert_eq!(err, ContractError::UnauthorizedSenderNotNewOwner {});
 
     let res =
         execute(deps.as_mut(), mock_env(), mock_info("jake", &[]), ExecuteMsg::AcceptOwnership {})
@@ -1359,11 +1567,12 @@ fn update_fee() {
             protocol_fee_contract: None,
             protocol_reward_fee: Some(Decimal::from_ratio(11u128, 100u128)),
             delegation_strategy: None,
+            allow_donations: None,
             vote_operator: None,
         },
     )
     .unwrap_err();
-    assert_eq!(err, StdError::generic_err("unauthorized: sender is not owner"));
+    assert_eq!(err, ContractError::Unauthorized {});
 
     let err = execute(
         deps.as_mut(),
@@ -1373,11 +1582,12 @@ fn update_fee() {
             protocol_fee_contract: None,
             protocol_reward_fee: Some(Decimal::from_ratio(11u128, 100u128)),
             delegation_strategy: None,
+            allow_donations: None,
             vote_operator: None,
         },
     )
     .unwrap_err();
-    assert_eq!(err, StdError::generic_err("'protocol_reward_fee' greater than max"));
+    assert_eq!(err, ContractError::ProtocolRewardFeeTooHigh {});
 
     let res = execute(
         deps.as_mut(),
@@ -1387,6 +1597,7 @@ fn update_fee() {
             protocol_fee_contract: Some("fee-new".to_string()),
             protocol_reward_fee: Some(Decimal::from_ratio(10u128, 100u128)),
             delegation_strategy: None,
+            allow_donations: None,
             vote_operator: None,
         },
     )
@@ -1421,7 +1632,7 @@ fn vote() {
         },
     )
     .unwrap_err();
-    assert_eq!(res, StdError::generic_err("No vote operator set."));
+    assert_eq!(res, ContractError::NoVoteOperatorSet {});
 
     execute(
         deps.as_mut(),
@@ -1431,6 +1642,7 @@ fn vote() {
             protocol_fee_contract: None,
             protocol_reward_fee: None,
             delegation_strategy: None,
+            allow_donations: None,
             vote_operator: Some("vote_operator".to_string()),
         },
     )
@@ -1446,7 +1658,7 @@ fn vote() {
         },
     )
     .unwrap_err();
-    assert_eq!(res, StdError::generic_err("unauthorized: sender is not vote operator"));
+    assert_eq!(res, ContractError::UnauthorizedSenderNotVoteOperator {});
 
     let res = execute(
         deps.as_mut(),
@@ -1987,41 +2199,6 @@ fn computing_redelegations_for_rebalancing_complex() -> StdResult<()> {
 //--------------------------------------------------------------------------------------------------
 
 #[test]
-fn parsing_coin() {
-    let coin = parse_coin("12345uatom").unwrap();
-    assert_eq!(coin, Coin::new(12345, "uatom"));
-
-    let coin =
-        parse_coin("23456ibc/0471F1C4E7AFD3F07702BEF6DC365268D64570F7C1FDC98EA6098DD6DE59817B")
-            .unwrap();
-    assert_eq!(
-        coin,
-        Coin::new(23456, "ibc/0471F1C4E7AFD3F07702BEF6DC365268D64570F7C1FDC98EA6098DD6DE59817B")
-    );
-
-    let err = parse_coin("69420").unwrap_err();
-    assert_eq!(err, StdError::generic_err("failed to parse coin: 69420"));
-
-    let err = parse_coin("ngmi").unwrap_err();
-    assert_eq!(err, StdError::generic_err("Parsing u128: cannot parse integer from empty string"));
-}
-
-#[test]
-fn parsing_coins() {
-    let coins = Coins::from_str("").unwrap();
-    assert_eq!(coins.0, vec![]);
-
-    let coins = Coins::from_str("12345uatom").unwrap();
-    assert_eq!(coins.0, vec![Coin::new(12345, "uatom")]);
-
-    let mut amount = "12345uatom,23456".to_owned();
-    amount.push_str(CONTRACT_DENOM);
-
-    let coins = Coins::from_str(amount.as_str()).unwrap();
-    assert_eq!(coins.0, vec![Coin::new(12345, "uatom"), Coin::new(23456, CONTRACT_DENOM)]);
-}
-
-#[test]
 fn adding_coins() {
     let mut coins = Coins(vec![]);
 
@@ -2031,7 +2208,7 @@ fn adding_coins() {
     coins.add(&Coin::new(23456, CONTRACT_DENOM)).unwrap();
     assert_eq!(coins.0, vec![Coin::new(12345, "uatom"), Coin::new(23456, CONTRACT_DENOM)]);
 
-    coins.add_many(&Coins::from_str("76543uatom,69420uusd").unwrap()).unwrap();
+    coins.add_many(&Coins(vec![Coin::new(76543, "uatom"), Coin::new(69420, "uusd")])).unwrap();
     assert_eq!(
         coins.0,
         vec![Coin::new(88888, "uatom"), Coin::new(23456, CONTRACT_DENOM), Coin::new(69420, "uusd")]

@@ -6,7 +6,7 @@ use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::helper::{addr_opt_validate, addr_validate_to_lower};
+use crate::helper::addr_opt_validate;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -42,7 +42,7 @@ impl DelegationStrategy<String> {
                 validator_count,
                 max_delegation_bps,
             } => DelegationStrategy::Gauges {
-                amp_gauges: addr_validate_to_lower(api, amp_gauges)?,
+                amp_gauges: api.addr_validate(&amp_gauges)?,
                 emp_gauges: addr_opt_validate(api, &emp_gauges)?,
                 amp_factor_bps: amp_factor,
                 min_delegation_bps,
@@ -110,16 +110,12 @@ pub enum ExecuteMsg {
     TransferOwnership {
         new_owner: String,
     },
+    /// Remove the ownership transfer proposal
+    DropOwnershipProposal {},
     /// Accept an ownership transfer
     AcceptOwnership {},
     /// Claim staking rewards, swap all for Luna, and restake
     Harvest {},
-
-    /// Vote on a proposal (only allowed by the vote_operator)
-    Vote {
-        proposal_id: u64,
-        vote: VoteOption,
-    },
 
     TuneDelegations {},
     /// Use redelegations to balance the amounts of Luna delegated to validators
@@ -131,6 +127,12 @@ pub enum ExecuteMsg {
     Reconcile {},
     /// Submit the current pending batch of unbonding requests to be unbonded
     SubmitBatch {},
+    /// Vote on a proposal (only allowed by the vote_operator)
+    Vote {
+        proposal_id: u64,
+        vote: VoteOption,
+    },
+
     /// Callbacks; can only be invoked by the contract itself
     Callback(CallbackMsg),
 
@@ -140,6 +142,8 @@ pub enum ExecuteMsg {
         protocol_fee_contract: Option<String>,
         /// Fees that are being applied during reinvest of staking rewards
         protocol_reward_fee: Option<Decimal>, // "1 is 100%, 0.05 is 5%"
+        /// Specifies wether donations are allowed.
+        allow_donations: Option<bool>,
         /// Strategy how delegations should be handled
         delegation_strategy: Option<DelegationStrategy>,
         /// Update the vote_operator

@@ -9,6 +9,7 @@ use eris::hub::{
 };
 use itertools::Itertools;
 
+use crate::constants::CONTRACT_DENOM;
 use crate::helpers::{get_wanted_delegations, query_all_delegations, query_cw20_total_supply};
 use crate::math::get_uluna_per_validator_prepared;
 use crate::state::State;
@@ -77,7 +78,7 @@ pub fn state(deps: Deps, env: Env) -> StdResult<StateResponse> {
         .map(|item| item.uluna_unclaimed.u128())
         .sum();
 
-    let available = deps.querier.query_balance(&env.contract.address, "uluna")?.amount;
+    let available = deps.querier.query_balance(&env.contract.address, CONTRACT_DENOM)?.amount;
 
     let exchange_rate = if total_ustake.is_zero() {
         Decimal::one()

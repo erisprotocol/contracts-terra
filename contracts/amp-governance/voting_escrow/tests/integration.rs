@@ -403,14 +403,20 @@ fn voting_variable_decay() {
     router_ref.update_block(next_block);
     router_ref.update_block(|block| block.time = block.time.plus_seconds(WEEK * 4));
 
-    helper.extend_lock_amount(router_ref, "user", 70f32).unwrap();
+    // Only 1 WEEK left -> error
+    let err = helper.extend_lock_amount(router_ref, "user", 70f32).unwrap_err();
+    assert_eq!(err.root_cause().to_string(), "Lock period must be 3 or more weeks");
+
+    // auto extend lock
+    helper.extend_lock_amount_min(router_ref, "user", 70f32, Some(true)).unwrap();
+
     helper.extend_lock_time(router_ref, "user2", WEEK * 8).unwrap();
     let vp = helper.query_user_vp(router_ref, "user").unwrap();
-    assert_eq!(vp, 108.65385);
+    assert_eq!(vp, 120.76923);
     let vp = helper.query_user_vp(router_ref, "user2").unwrap();
     assert_eq!(vp, 93.26923);
     let vp = helper.query_total_vp(router_ref).unwrap();
-    assert_eq!(vp, 201.92307);
+    assert_eq!(vp, 214.03847);
 
     let res = helper
         .query_user_vp_at(router_ref, "user2", router_ref.block_info().time.seconds() + 4 * WEEK)
@@ -419,11 +425,14 @@ fn voting_variable_decay() {
     let res = helper
         .query_total_vp_at(router_ref, router_ref.block_info().time.seconds() + WEEK)
         .unwrap();
-    assert_eq!(res, 188.9423);
+    assert_eq!(res, 202.78847);
 
     // Go to the future
     router_ref.update_block(next_block);
-    router_ref.update_block(|block| block.time = block.time.plus_seconds(WEEK));
+    router_ref.update_block(|block| block.time = block.time.plus_seconds(3 * WEEK));
+
+    helper.extend_lock_time(router_ref, "user2", WEEK * 2).unwrap();
+
     let vp = helper.query_user_vp(router_ref, "user").unwrap();
     assert_eq!(vp, 100.0);
     let vp = helper.query_user_vp(router_ref, "user2").unwrap();

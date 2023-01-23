@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 
-use astroport::asset::addr_validate_to_lower;
 use astroport::common::{claim_ownership, drop_ownership_proposal, propose_new_owner};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
@@ -46,8 +45,8 @@ pub fn instantiate(
     CONFIG.save(
         deps.storage,
         &Config {
-            owner: addr_validate_to_lower(deps.api, &msg.owner)?,
-            hub_addr: addr_validate_to_lower(deps.api, &msg.hub_addr)?,
+            owner: deps.api.addr_validate(&msg.owner)?,
+            hub_addr: deps.api.addr_validate(&msg.hub_addr)?,
             validators_limit: msg.validators_limit,
         },
     )?;

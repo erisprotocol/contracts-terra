@@ -303,6 +303,7 @@ impl BaseErisTestPackage {
                     protocol_fee_contract: None,
                     protocol_reward_fee: None,
                     delegation_strategy,
+                    allow_donations: None,
                     vote_operator: None,
                 },
                 &[],

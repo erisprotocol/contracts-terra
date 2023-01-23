@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 use std::convert::TryInto;
 
-use astroport::asset::addr_validate_to_lower;
 use astroport::common::{claim_ownership, drop_ownership_proposal, propose_new_owner};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
@@ -55,9 +54,9 @@ pub fn instantiate(
     CONFIG.save(
         deps.storage,
         &Config {
-            owner: addr_validate_to_lower(deps.api, &msg.owner)?,
-            escrow_addr: addr_validate_to_lower(deps.api, &msg.escrow_addr)?,
-            hub_addr: addr_validate_to_lower(deps.api, &msg.hub_addr)?,
+            owner: deps.api.addr_validate(&msg.owner)?,
+            escrow_addr: deps.api.addr_validate(&msg.escrow_addr)?,
+            hub_addr: deps.api.addr_validate(&msg.hub_addr)?,
             validators_limit: msg.validators_limit,
         },
     )?;
@@ -316,7 +315,7 @@ fn update_vote(
         return Err(ContractError::Unauthorized {});
     }
 
-    let user = addr_validate_to_lower(deps.api, user)?;
+    let user = deps.api.addr_validate(&user)?;
     let user_info = USER_INFO.may_load(deps.storage, &user)?;
 
     if let Some(user_info) = user_info {
@@ -359,7 +358,7 @@ fn remove_user(deps: DepsMut, env: Env, info: MessageInfo, user: String) -> Exec
     let config = CONFIG.load(deps.storage)?;
     config.assert_owner(&info.sender)?;
 
-    let user = addr_validate_to_lower(deps.api, user)?;
+    let user = deps.api.addr_validate(&user)?;
     let user_info = USER_INFO.may_load(deps.storage, &user)?;
 
     if let Some(user_info) = user_info {
@@ -510,7 +509,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
 
 /// Returns user information.
 fn user_info(deps: Deps, env: Env, user: String) -> StdResult<UserInfoResponse> {
-    let user_addr = addr_validate_to_lower(deps.api, user)?;
+    let user_addr = deps.api.addr_validate(&user)?;
     let user = USER_INFO
         .may_load(deps.storage, &user_addr)?
         .ok_or_else(|| StdError::generic_err("User not found"))?;

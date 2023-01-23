@@ -32,7 +32,7 @@ For mainnet, the contract will submit a batch every 3 days, such that there are 
 
 During the 3 day period, the contract accepts unbonding requests from users and store them in an `IndexedMap` data structure under the `unbond_requests` key, and the aggregated properties of the pending batch under the `pending_batch` key. Each user's share in the batch is proportional to the amount of ampLUNA tokens the user requests to burn.
 
-At the end of the 3 day period, anyone can invoke the `ExecuteMsg::SubmitUnbond` function to submit the pending batch to be unbonded. The contract calculates the amount of Luna to unbond based on the Luna/ampLUNA exchange rate at the time, burns the ampLUNA tokens, and initiates undelegations with the validators.
+At the end of the 3 day period, anyone can invoke the `ExecuteMsg::SubmitBatch` function to submit the pending batch to be unbonded. The contract calculates the amount of Luna to unbond based on the Luna/ampLUNA exchange rate at the time, burns the ampLUNA tokens, and initiates undelegations with the validators.
 
 At the end of the following 21 day unbonding period, the user can invoke the `ExecuteMsg::WithdrawUnbonded` function. The contract pulls all of the user's unclaimed unbonding requests, and refunds appropriate amounts of Luna based on the each request's share in that batch, to the user.
 

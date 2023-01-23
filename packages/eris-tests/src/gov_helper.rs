@@ -244,6 +244,7 @@ impl EscrowHelper {
         router_ref: &mut App,
         sender: impl Into<String>,
         amount: u128,
+        extend_to_min_periods: Option<bool>,
     ) -> Result<AppResponse> {
         let sender: String = sender.into();
         self.mint_amp_lp(router_ref, sender.clone(), amount);
@@ -251,7 +252,10 @@ impl EscrowHelper {
         let cw20msg = Cw20ExecuteMsg::Send {
             contract: self.base.voting_escrow.get_address_string(),
             amount: Uint128::from(amount),
-            msg: to_binary(&eris::voting_escrow::Cw20HookMsg::ExtendLockAmount {}).unwrap(),
+            msg: to_binary(&eris::voting_escrow::Cw20HookMsg::ExtendLockAmount {
+                extend_to_min_periods,
+            })
+            .unwrap(),
         };
         router_ref.execute_contract(
             Addr::unchecked(sender),
@@ -260,6 +264,7 @@ impl EscrowHelper {
             &[],
         )
     }
+
     pub fn ve_add_funds_lock_for_user(
         &self,
         router_ref: &mut App,

@@ -1,5 +1,5 @@
 use astroport::common::{claim_ownership, drop_ownership_proposal, propose_new_owner};
-use eris::helper::{addr_opt_validate, addr_validate_to_lower, validate_addresses};
+use eris::helper::{addr_opt_validate, validate_addresses};
 use eris::DecimalCheckedOps;
 
 #[cfg(not(feature = "library"))]
@@ -18,7 +18,7 @@ use cw20_base::contract::{
 };
 use cw20_base::state::{MinterData, TokenInfo, LOGO, MARKETING_INFO, TOKEN_INFO};
 
-use eris::governance_helper::{get_period, get_periods_count, EPOCH_START, WEEK};
+use eris::governance_helper::{get_period, get_periods_count, EPOCH_START, MIN_LOCK_PERIODS, WEEK};
 use eris::helpers::slope::{adjust_vp_and_slope, calc_coefficient};
 use eris::voting_escrow::{
     BlacklistedVotersResponse, ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg,
@@ -51,13 +51,13 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    let deposit_token_addr = addr_validate_to_lower(deps.api, &msg.deposit_token_addr)?;
+    let deposit_token_addr = deps.api.addr_validate(&msg.deposit_token_addr)?;
 
     validate_whitelist_links(&msg.logo_urls_whitelist)?;
     let guardian_addr = addr_opt_validate(deps.api, &msg.guardian_addr)?;
 
     let config = Config {
-        owner: addr_validate_to_lower(deps.api, &msg.owner)?,
+        owner: deps.api.addr_validate(&msg.owner)?,
         guardian_addr,
         deposit_token_addr,
         logo_urls_whitelist: msg.logo_urls_whitelist.clone(),
@@ -410,20 +410,22 @@ fn receive_cw20(
     cw20_msg: Cw20ReceiveMsg,
 ) -> Result<Response, ContractError> {
     assert_token(deps.storage, info.sender)?;
-    let sender = addr_validate_to_lower(deps.api, &cw20_msg.sender)?;
+    let sender = deps.api.addr_validate(&cw20_msg.sender)?;
     assert_blacklist(deps.storage, &sender)?;
 
     match from_binary(&cw20_msg.msg)? {
         Cw20HookMsg::CreateLock {
             time,
         } => create_lock(deps, env, sender, cw20_msg.amount, time),
-        Cw20HookMsg::ExtendLockAmount {} => deposit_for(deps, env, cw20_msg.amount, sender),
+        Cw20HookMsg::ExtendLockAmount {
+            extend_to_min_periods,
+        } => deposit_for(deps, env, cw20_msg.amount, sender, extend_to_min_periods),
         Cw20HookMsg::DepositFor {
             user,
         } => {
-            let addr = addr_validate_to_lower(deps.api, user)?;
+            let addr = deps.api.addr_validate(&user)?;
             assert_blacklist(deps.storage, &addr)?;
-            deposit_for(deps, env, cw20_msg.amount, addr)
+            deposit_for(deps, env, cw20_msg.amount, addr, None)
         },
     }
 }
@@ -493,19 +495,35 @@ fn deposit_for(
     env: Env,
     amount: Uint128,
     user: Addr,
+    extend_to_min_periods: Option<bool>,
 ) -> Result<Response, ContractError> {
+    let mut new_end = None;
     LOCKED.update(deps.storage, user.clone(), env.block.height, |lock_opt| match lock_opt {
         Some(mut lock) if !lock.amount.is_zero() => {
-            if lock.end <= get_period(env.block.time.seconds())? {
-                Err(ContractError::LockExpired {})
-            } else {
-                lock.amount += amount;
-                Ok(lock)
+            let block_period = get_period(env.block.time.seconds())?;
+
+            match extend_to_min_periods {
+                Some(true) => {
+                    if lock.end < block_period + MIN_LOCK_PERIODS {
+                        lock.end = block_period + MIN_LOCK_PERIODS;
+                        new_end = Some(lock.end);
+                    }
+                },
+                Some(false) | None => {
+                    if lock.end <= block_period {
+                        Err(ContractError::LockExpired {})?
+                    }
+                    assert_periods_remaining(lock.end - block_period)?
+                },
             }
+
+            lock.amount += amount;
+            Ok(lock)
         },
         _ => Err(ContractError::LockDoesNotExist {}),
     })?;
-    checkpoint(deps.storage, env.clone(), user.clone(), Some(amount), None)?;
+
+    checkpoint(deps.storage, env.clone(), user.clone(), Some(amount), new_end)?;
 
     let config = CONFIG.load(deps.storage)?;
 
@@ -721,7 +739,7 @@ fn update_blacklist(
     let cur_period_key = cur_period;
     let mut reduce_total_vp = Uint128::zero(); // accumulator for decreasing total voting power
     let mut old_slopes = Uint128::zero(); // accumulator for old slopes
-    let mut old_amount = Uint128::zero(); // accumulator for old slopes
+    let mut old_amount = Uint128::zero(); // accumulator for old amount
 
     for addr in append.iter() {
         let last_checkpoint = fetch_last_checkpoint(deps.storage, addr, cur_period_key)?;
@@ -819,13 +837,13 @@ fn execute_update_config(
     }
 
     if let Some(new_guardian) = new_guardian {
-        cfg.guardian_addr = Some(addr_validate_to_lower(deps.api, new_guardian)?);
+        cfg.guardian_addr = Some(deps.api.addr_validate(&new_guardian)?);
     }
 
     if let Some(push_update_contracts) = push_update_contracts {
         cfg.push_update_contracts = push_update_contracts
             .iter()
-            .map(|c| addr_validate_to_lower(deps.api, c))
+            .map(|c| deps.api.addr_validate(&c))
             .collect::<StdResult<Vec<_>>>()?;
     }
 
@@ -914,7 +932,7 @@ pub fn check_voters_are_blacklisted(
     let black_list = BLACKLIST.load(deps.storage)?;
 
     for voter in voters {
-        let voter_addr = addr_validate_to_lower(deps.api, voter.as_str())?;
+        let voter_addr = deps.api.addr_validate(&voter.as_str())?;
         if !black_list.contains(&voter_addr) {
             return Ok(BlacklistedVotersResponse::VotersNotBlacklisted {
                 voter,
@@ -947,7 +965,7 @@ pub fn get_blacklisted_voters(
 
     let mut start_index = Default::default();
     if let Some(start_after) = start_after {
-        let start_addr = addr_validate_to_lower(deps.api, start_after.as_str())?;
+        let start_addr = deps.api.addr_validate(&start_after.as_str())?;
         start_index = black_list.iter().position(|addr| *addr == start_addr).ok_or_else(|| {
             StdError::generic_err(format!("The {} address is not blacklisted", start_addr.as_str()))
         })? + 1; // start from the next element of the slice
@@ -963,7 +981,7 @@ pub fn get_blacklisted_voters(
 ///
 /// * **user** user for which we return lock information.
 fn get_user_lock_info(deps: Deps, env: &Env, user: String) -> StdResult<LockInfoResponse> {
-    let addr = addr_validate_to_lower(deps.api, user)?;
+    let addr = deps.api.addr_validate(&user)?;
     if let Some(lock) = LOCKED.may_load(deps.storage, addr.clone())? {
         let cur_period = get_period(env.block.time.seconds())?;
 
@@ -1004,7 +1022,7 @@ fn get_user_lock_info(deps: Deps, env: &Env, user: String) -> StdResult<LockInfo
 ///
 /// * **block_height** block height at which we return the staked ampLP amount.
 fn get_user_deposit_at_height(deps: Deps, user: String, block_height: u64) -> StdResult<Uint128> {
-    let addr = addr_validate_to_lower(deps.api, user)?;
+    let addr = deps.api.addr_validate(&user)?;
     let locked_opt = LOCKED.may_load_at_height(deps.storage, addr, block_height)?;
     if let Some(lock) = locked_opt {
         Ok(lock.amount)
@@ -1039,7 +1057,7 @@ fn get_user_vamp_at_period(
     user: String,
     period: u64,
 ) -> StdResult<VotingPowerResponse> {
-    let user = addr_validate_to_lower(deps.api, user)?;
+    let user = deps.api.addr_validate(&user)?;
     let last_checkpoint = fetch_last_checkpoint(deps.storage, &user, period)?;
 
     if let Some(point) = last_checkpoint.map(|(_, point)| point) {

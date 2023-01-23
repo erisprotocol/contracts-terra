@@ -987,6 +987,7 @@ dependencies = [
  "eris-tests",
  "itertools",
  "serde",
+ "thiserror",
 ]
 
 [[package]]

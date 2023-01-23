@@ -14,7 +14,7 @@ pub struct Config {
     pub deposit_token_addr: Addr,
     /// The list of whitelisted logo urls prefixes
     pub logo_urls_whitelist: Vec<String>,
-    /// The list of whitelisted logo urls prefixes
+    /// The list of contracts to receive updates on user's lock info changes
     pub push_update_contracts: Vec<Addr>,
 }
 
@@ -41,7 +41,7 @@ pub struct Lock {
     pub amount: Uint128,
     /// The start period when the lock was created
     pub start: u64,
-    /// The timestamp when the lock position expires
+    /// The period when the lock position expires
     pub end: u64,
     /// the last period when the lock's time was increased
     pub last_extend_lock_period: u64,

@@ -10,5 +10,7 @@ pub mod state;
 pub mod types;
 
 mod constants;
+pub mod error;
+pub mod gov;
 #[cfg(test)]
 mod testing;

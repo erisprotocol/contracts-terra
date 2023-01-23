@@ -1,29 +1,6 @@
-use std::str::FromStr;
-
-use cosmwasm_std::{Coin, StdError, StdResult};
-
-use crate::helpers::parse_coin;
+use cosmwasm_std::{Coin, StdResult};
 
 pub struct Coins(pub Vec<Coin>);
-
-impl FromStr for Coins {
-    type Err = StdError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.is_empty() {
-            return Ok(Self(vec![]));
-        }
-
-        Ok(Self(
-            s.split(',')
-                .filter(|coin_str| !coin_str.is_empty()) // coin with zero amount may appeat as an empty string in the event log
-                .collect::<Vec<&str>>()
-                .iter()
-                .map(|s| parse_coin(s))
-                .collect::<StdResult<Vec<Coin>>>()?,
-        ))
-    }
-}
 
 impl Coins {
     pub fn add(&mut self, coin_to_add: &Coin) -> StdResult<()> {

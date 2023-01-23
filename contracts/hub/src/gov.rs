@@ -1,8 +1,6 @@
-use cosmwasm_std::{
-    CosmosMsg, DepsMut, Env, Event, GovMsg, MessageInfo, Response, StdResult, VoteOption,
-};
+use cosmwasm_std::{CosmosMsg, DepsMut, Env, Event, GovMsg, MessageInfo, Response, VoteOption};
 
-use crate::state::State;
+use crate::{error::ContractResult, state::State};
 
 pub fn vote(
     deps: DepsMut,
@@ -10,7 +8,7 @@ pub fn vote(
     info: MessageInfo,
     proposal_id: u64,
     vote: VoteOption,
-) -> StdResult<Response> {
+) -> ContractResult {
     let state = State::default();
     state.assert_vote_operator(deps.storage, &info.sender)?;
 

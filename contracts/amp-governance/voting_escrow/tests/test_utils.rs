@@ -225,11 +225,24 @@ impl Helper {
         user: &str,
         amount: f32,
     ) -> Result<AppResponse> {
+        self.extend_lock_amount_min(router, user, amount, None)
+    }
+
+    pub fn extend_lock_amount_min(
+        &self,
+        router: &mut App,
+        user: &str,
+        amount: f32,
+        extend_to_min: Option<bool>,
+    ) -> Result<AppResponse> {
         let amount = (amount * MULTIPLIER as f32) as u64;
         let cw20msg = Cw20ExecuteMsg::Send {
             contract: self.voting_instance.to_string(),
             amount: Uint128::from(amount),
-            msg: to_binary(&Cw20HookMsg::ExtendLockAmount {}).unwrap(),
+            msg: to_binary(&Cw20HookMsg::ExtendLockAmount {
+                extend_to_min_periods: extend_to_min,
+            })
+            .unwrap(),
         };
         router.execute_contract(Addr::unchecked(user), self.xastro_token.clone(), &cw20msg, &[])
     }
