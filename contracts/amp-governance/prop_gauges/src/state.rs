@@ -17,11 +17,7 @@ pub(crate) struct State<'a> {
 impl Default for State<'static> {
     fn default() -> Self {
         let props_indexes = PropsIndexes {
-            time: MultiIndex::new(
-                |d: &PropInfo| d.end_time_s.clone().into(),
-                "props",
-                "props__time",
-            ),
+            time: MultiIndex::new(|d: &PropInfo| d.end_time_s, "props", "props__time"),
         };
 
         Self {

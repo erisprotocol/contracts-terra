@@ -3,8 +3,9 @@ use std::convert::TryInto;
 use cosmwasm_std::{Decimal, Fraction, OverflowError, StdError, StdResult, Uint128, Uint256};
 
 /// Seconds in one week. It is intended for period number calculation.
-pub const WEEK: u64 = 7 * 86400; // lock period is rounded down by week
-                                 // pub const WEEK: u64 = 60 * 60; // on testnet we use period length of 1h instead of 1 week
+// mainnet: 7 * 86400
+// testnet: 60 * 60
+pub const WEEK: u64 = 60 * 60;
 
 /// Seconds in 2 years which is the maximum lock period.
 pub const MAX_LOCK_TIME: u64 = 2 * 365 * 86400; // 2 years (104 weeks)

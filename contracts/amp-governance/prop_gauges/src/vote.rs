@@ -34,7 +34,7 @@ pub fn apply_vote_of_user(
     vote: VoteOption,
 ) -> StdResult<(PropInfo, PropUserInfo)> {
     let current_period = get_period(env.block.time.seconds())?;
-    let vp = calc_voting_power_for_prop(current_period, &ve_lock_info, &prop);
+    let vp = calc_voting_power_for_prop(current_period, ve_lock_info, &prop);
 
     if vp.is_zero() {
         return Ok((
@@ -62,6 +62,7 @@ pub fn apply_vote_of_user(
     ))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn update_vote_state(
     env: &Env,
     querier: &QuerierWrapper,
@@ -84,7 +85,7 @@ pub(crate) fn update_vote_state(
     };
 
     let prop = remove_vote_of_user(prop, &user_info)?;
-    let (mut prop, user) = apply_vote_of_user(&env, prop, ve_lock_info, vote)?;
+    let (mut prop, user) = apply_vote_of_user(env, prop, ve_lock_info, vote)?;
 
     let vote_msg = get_vote_msg(querier, config, &mut prop, proposal_id)?;
 
@@ -108,17 +109,15 @@ pub fn get_vote_msg(
     let vote_msg: Option<CosmosMsg> = if wanted != current_vote {
         if let Some(wanted) = &wanted {
             Some(Hub(config.hub_addr.clone()).vote_msg(proposal_id, wanted.clone())?)
+        } else if current_vote.is_some()
+            && wanted.is_none()
+            && current_vote != Some(VoteOption::Abstain)
+        {
+            // if we already voted and go back to "not voting", vote abstain instead.
+            wanted = Some(VoteOption::Abstain);
+            Some(Hub(config.hub_addr.clone()).vote_msg(proposal_id, VoteOption::Abstain)?)
         } else {
-            if current_vote.is_some()
-                && wanted.is_none()
-                && current_vote != Some(VoteOption::Abstain)
-            {
-                // if we already voted and go back to "not voting", vote abstain instead.
-                wanted = Some(VoteOption::Abstain);
-                Some(Hub(config.hub_addr.clone()).vote_msg(proposal_id, VoteOption::Abstain)?)
-            } else {
-                None
-            }
+            None
         }
     } else {
         None
@@ -136,7 +135,7 @@ fn calc_voting_power_for_prop(
     let period = prop.period;
     let start = current_period;
 
-    let voting_power = if start == period {
+    if start == period {
         ve_lock_info.voting_power + ve_lock_info.fixed_amount
     } else if ve_lock_info.end <= period {
         // the current period is after the voting end -> get default end power.
@@ -145,7 +144,5 @@ fn calc_voting_power_for_prop(
         // The point before the intended period was found, thus we can calculate the user's voting power for the period we want
         calc_voting_power(ve_lock_info.slope, ve_lock_info.voting_power, start, period)
             + ve_lock_info.fixed_amount
-    };
-
-    voting_power
+    }
 }

@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "release": "bash build_release.sh",
+    "release": "bash build_release.sh MAINNET",
+    "release:testnet": "bash build_release.sh TESTNET",
     "coverage": "bash build_coverage.sh",
     "schema": "nps schema"
   },

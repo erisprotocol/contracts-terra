@@ -41,13 +41,13 @@ fn update_configs() -> StdResult<()> {
 }
 
 // #[test]
-fn vote() -> StdResult<()> {
+fn _vote() -> StdResult<()> {
     let mut router = mock_app();
     let helper = EscrowHelper::init(&mut router, false);
     let router_ref = &mut router;
 
-    helper.ve_lock_lp(router_ref, "user1", 04000, 104 * WEEK).unwrap();
-    helper.ve_lock_lp(router_ref, "user2", 04000, 104 * WEEK).unwrap();
+    helper.ve_lock_lp(router_ref, "user1", 4000, 104 * WEEK).unwrap();
+    helper.ve_lock_lp(router_ref, "user2", 4000, 104 * WEEK).unwrap();
     helper.ve_lock_lp(router_ref, "user3", 92000, 104 * WEEK).unwrap();
 
     // VOTE WITHOUT PROP

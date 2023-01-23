@@ -843,7 +843,7 @@ fn execute_update_config(
     if let Some(push_update_contracts) = push_update_contracts {
         cfg.push_update_contracts = push_update_contracts
             .iter()
-            .map(|c| deps.api.addr_validate(&c))
+            .map(|c| deps.api.addr_validate(c))
             .collect::<StdResult<Vec<_>>>()?;
     }
 
@@ -932,7 +932,7 @@ pub fn check_voters_are_blacklisted(
     let black_list = BLACKLIST.load(deps.storage)?;
 
     for voter in voters {
-        let voter_addr = deps.api.addr_validate(&voter.as_str())?;
+        let voter_addr = deps.api.addr_validate(voter.as_str())?;
         if !black_list.contains(&voter_addr) {
             return Ok(BlacklistedVotersResponse::VotersNotBlacklisted {
                 voter,
@@ -965,7 +965,7 @@ pub fn get_blacklisted_voters(
 
     let mut start_index = Default::default();
     if let Some(start_after) = start_after {
-        let start_addr = deps.api.addr_validate(&start_after.as_str())?;
+        let start_addr = deps.api.addr_validate(start_after.as_str())?;
         start_index = black_list.iter().position(|addr| *addr == start_addr).ok_or_else(|| {
             StdError::generic_err(format!("The {} address is not blacklisted", start_addr.as_str()))
         })? + 1; // start from the next element of the slice

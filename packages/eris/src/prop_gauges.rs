@@ -157,7 +157,7 @@ impl PropInfo {
             None
         } else if self.yes_vp >= self.no_vp
             && self.yes_vp >= self.abstain_vp
-            && self.yes_vp >= self.no_vp
+            && self.yes_vp >= self.nwv_vp
         {
             Some(VoteOption::Yes)
         } else if self.no_vp >= self.abstain_vp && self.no_vp >= self.nwv_vp {

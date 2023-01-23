@@ -591,7 +591,7 @@ fn test_query_voters() {
     );
 
     assert_eq!(
-        res.clone(),
+        res,
         PropVotersResponse {
             voters: vec![
                 (102, addr("user100"), VoteOption::Yes),
@@ -620,7 +620,7 @@ fn test_query_voters() {
     );
 
     assert_eq!(
-        res.clone(),
+        res,
         PropVotersResponse {
             voters: vec![
                 (92, addr("user90"), VoteOption::Yes),
@@ -647,7 +647,7 @@ fn test_query_voters() {
     );
 
     assert_eq!(
-        res.clone(),
+        res,
         PropVotersResponse {
             voters: vec![
                 (49, addr("user47"), VoteOption::No),
@@ -666,7 +666,7 @@ fn test_query_voters() {
     );
 
     assert_eq!(
-        res.clone(),
+        res,
         PropVotersResponse {
             voters: vec![
                 (50, addr("user48"), VoteOption::Yes),
@@ -944,7 +944,7 @@ fn setup_props(
         mock_info("owner", &[]),
         ExecuteMsg::InitProp {
             proposal_id: 1,
-            end_time_s: EPOCH_START + WEEK * 1,
+            end_time_s: EPOCH_START + WEEK,
         },
     )
     .unwrap();
