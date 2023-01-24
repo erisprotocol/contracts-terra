@@ -10,7 +10,7 @@ pub(crate) struct State<'a> {
     pub config: Item<'a, Config>,
     pub props: IndexedMap<'a, u64, PropInfo, PropsIndexes<'a>>,
     pub ownership_proposal: Item<'a, OwnershipProposal>,
-    pub users: Map<'a, (u64, Addr), PropUserInfo>,
+    pub users: IndexedMap<'a, (u64, Addr), PropUserInfo, UserIndexes<'a>>,
     pub voters: Map<'a, (u64, u128, Addr), VoteOption>,
 }
 
@@ -19,25 +19,38 @@ impl Default for State<'static> {
         let props_indexes = PropsIndexes {
             time: MultiIndex::new(|d: &PropInfo| d.end_time_s, "props", "props__time"),
         };
+        let user_indexes = UserIndexes {
+            user: MultiIndex::new(|d: &PropUserInfo| d.user.clone(), "users", "users__user"),
+        };
 
         Self {
             config: Item::new("config"),
             props: IndexedMap::new("props", props_indexes),
             ownership_proposal: Item::new("ownership_proposal"),
-            users: Map::new("users"),
+            users: IndexedMap::new("users", user_indexes),
             voters: Map::new("voters"),
         }
     }
 }
 
 pub(crate) struct PropsIndexes<'a> {
-    // pk goes to second tuple element
     pub time: MultiIndex<'a, u64, PropInfo, u64>,
 }
 
 impl<'a> IndexList<PropInfo> for PropsIndexes<'a> {
     fn get_indexes(&'_ self) -> Box<dyn Iterator<Item = &'_ dyn Index<PropInfo>> + '_> {
         let v: Vec<&dyn Index<PropInfo>> = vec![&self.time];
+        Box::new(v.into_iter())
+    }
+}
+
+pub(crate) struct UserIndexes<'a> {
+    pub user: MultiIndex<'a, Addr, PropUserInfo, (u64, Addr)>,
+}
+
+impl<'a> IndexList<PropUserInfo> for UserIndexes<'a> {
+    fn get_indexes(&'_ self) -> Box<dyn Iterator<Item = &'_ dyn Index<PropUserInfo>> + '_> {
+        let v: Vec<&dyn Index<PropUserInfo>> = vec![&self.user];
         Box::new(v.into_iter())
     }
 }

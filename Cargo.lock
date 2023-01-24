@@ -11,14 +11,13 @@ checksum = "98161a4e3e2184da77bb14f02184cdd111e83bbbcc9979dfee3c44b9a85f5602"
 [[package]]
 name = "astroport"
 version = "2.0.0"
-source = "git+https://github.com/astroport-fi/astroport-core.git?branch=main#c09842a6a2d5f4fba4a757f5fbf9f65e33e9a732"
+source = "git+https://github.com/astroport-fi/astroport-core.git?branch=main#bedca9e7736d76f7a57a25fa4d1d850696cd03c5"
 dependencies = [
+ "cosmwasm-schema",
  "cosmwasm-std",
- "cw-storage-plus 0.13.2",
- "cw20 0.13.2",
+ "cw-storage-plus 0.15.1",
+ "cw20 0.15.1",
  "itertools",
- "schemars",
- "serde",
  "uint",
 ]
 
@@ -258,9 +257,9 @@ checksum = "722e23542a15cea1f65d4a1419c4cfd7a26706c70871a13a04238ca3f40f1661"
 
 [[package]]
 name = "cosmwasm-crypto"
-version = "1.1.9"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "227315dc11f0bb22a273d0c43d3ba8ef52041c42cf959f09045388a89c57e661"
+checksum = "cb56fffc2233212e9546df66e01267277173d55f6237ab939690ef2c5cfd50c2"
 dependencies = [
  "digest 0.10.5",
  "ed25519-zebra",
@@ -271,9 +270,9 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-derive"
-version = "1.1.9"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6fca30d51f7e5fbfa6440d8b10d7df0231bdf77e97fd3fe5d0cb79cc4822e50c"
+checksum = "e26a78e202d602a23fd5d13dff898732814ebe7a8bde20f1bf71eb0209d56d56"
 dependencies = [
  "syn",
 ]
@@ -304,9 +303,9 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-std"
-version = "1.1.9"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b13d5a84d15cf7be17dc249a21588cdb0f7ef308907c50ce2723316a7d79c3dc"
+checksum = "7b50f4deaed6196047a3ceec9bc23e85d4292b73442d77af63723842d8b6049d"
 dependencies = [
  "base64",
  "cosmwasm-crypto",
@@ -317,6 +316,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde-json-wasm",
+ "sha2 0.10.6",
  "thiserror",
  "uint",
 ]
@@ -986,6 +986,7 @@ dependencies = [
  "eris",
  "eris-tests",
  "itertools",
+ "protobuf 3.2.0",
  "serde",
  "thiserror",
 ]
@@ -1178,9 +1179,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.16.0"
+version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86f0b0d4bf799edbc74508c1e8bf170ff5f41238e5f8225603ca7caaae2b7860"
+checksum = "6f61fba1741ea2b3d6a1e3178721804bb716a68a6aeba1149b5d52e3d464ea66"
 
 [[package]]
 name = "opaque-debug"
@@ -1523,9 +1524,9 @@ dependencies = [
 
 [[package]]
 name = "serde-json-wasm"
-version = "0.4.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "479b4dbc401ca13ee8ce902851b834893251404c4f3c65370a49e047a6be09a5"
+checksum = "a15bee9b04dd165c3f4e142628982ddde884c2022a89e8ddf99c4829bf2c3a58"
 dependencies = [
  "serde",
 ]

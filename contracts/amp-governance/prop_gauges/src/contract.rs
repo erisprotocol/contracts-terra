@@ -12,10 +12,12 @@ use eris::CustomResponse;
 use eris::governance_helper::get_period;
 use eris::helpers::bps::BasicPoints;
 use eris::prop_gauges::{ExecuteMsg, InstantiateMsg, MigrateMsg, PropInfo, PropUserInfo, QueryMsg};
-use eris::voting_escrow::{get_lock_info, LockInfoResponse};
+use eris::voting_escrow::{get_lock_info, get_total_voting_power_at_by_period, LockInfoResponse};
 
 use crate::error::ContractError;
-use crate::queries::{get_active_props, get_finished_props, get_prop_detail, get_prop_voters};
+use crate::queries::{
+    get_active_props, get_finished_props, get_prop_detail, get_prop_voters, get_user_votes,
+};
 use crate::state::{Config, State};
 use crate::vote::{get_vote_msg, remove_vote_of_user, update_vote_state};
 
@@ -51,6 +53,7 @@ pub fn instantiate(
             escrow_addr: addr_validate_to_lower(deps.api, &msg.escrow_addr)?,
             hub_addr: addr_validate_to_lower(deps.api, &msg.hub_addr)?,
             quorum_bps: msg.quorum_bps,
+            use_weighted_vote: msg.use_weighted_vote,
         },
     )?;
 
@@ -96,7 +99,8 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> E
         } => remove_user(deps, env, info, user),
         ExecuteMsg::UpdateConfig {
             quorum_bps,
-        } => update_config(deps, info, quorum_bps),
+            use_weighted_vote,
+        } => update_config(deps, info, quorum_bps, use_weighted_vote),
         ExecuteMsg::ProposeNewOwner {
             new_owner,
             expires_in,
@@ -170,6 +174,11 @@ fn init_prop(
         &PropInfo {
             end_time_s,
             period,
+            total_vp: get_total_voting_power_at_by_period(
+                &deps.querier,
+                config.escrow_addr,
+                period,
+            )?,
             current_vote: None,
             no_vp: Uint128::zero(),
             abstain_vp: Uint128::zero(),
@@ -179,7 +188,7 @@ fn init_prop(
     )?;
 
     Ok(Response::new()
-        .add_attribute("action", "erisprop/init_prop")
+        .add_attribute("action", "prop/init_prop")
         .add_attribute("prop", proposal_id.to_string())
         .add_attribute("end", period.to_string()))
 }
@@ -218,6 +227,7 @@ fn handle_vote(
 
     let user_info =
         state.get_user_info(deps.storage, proposal_id, &sender)?.unwrap_or(PropUserInfo {
+            user: sender.clone(),
             current_vote: VoteOption::Abstain,
             vp: Uint128::zero(),
         });
@@ -238,7 +248,7 @@ fn handle_vote(
 
     Ok(Response::new()
         .add_optional_message(vote_msg)
-        .add_attribute("action", "erisprop/vote")
+        .add_attribute("action", "prop/vote")
         .add_attribute("vp", user.vp))
 }
 
@@ -276,11 +286,14 @@ fn update_vote(
                 user_info,
                 &ve_lock_info,
             )?;
-            response = response.add_optional_message(vote_msg);
+
+            response = response
+                .add_optional_message(vote_msg)
+                .add_attribute("prop", proposal_id.to_string());
         }
     }
 
-    Ok(response.add_attribute("action", "erisprop/update_vote"))
+    Ok(response.add_attribute("action", "prop/update_vote"))
 }
 
 fn remove_user(deps: DepsMut, env: Env, info: MessageInfo, user: String) -> ExecuteResult {
@@ -297,10 +310,13 @@ fn remove_user(deps: DepsMut, env: Env, info: MessageInfo, user: String) -> Exec
         if let Some(user) = user {
             let mut prop = remove_vote_of_user(prop, &user)?;
 
-            let vote_msg = get_vote_msg(&deps.querier, &config, &mut prop, proposal_id)?;
+            let (vote_msg, total_vp) =
+                get_vote_msg(&deps.querier, &config, &mut prop, proposal_id)?;
+
+            prop.total_vp = total_vp;
 
             state.props.save(deps.storage, proposal_id, &prop)?;
-            state.users.remove(deps.storage, (proposal_id, user_addr.clone()));
+            state.users.remove(deps.storage, (proposal_id, user_addr.clone()))?;
             state.voters.remove(deps.storage, (proposal_id, user.vp.u128(), user_addr.clone()));
 
             response = response
@@ -309,7 +325,7 @@ fn remove_user(deps: DepsMut, env: Env, info: MessageInfo, user: String) -> Exec
         }
     }
 
-    Ok(response.add_attribute("action", "erisprop/remove_user"))
+    Ok(response.add_attribute("action", "prop/remove_user"))
 }
 
 /// Only contract owner can call this function.  
@@ -322,7 +338,12 @@ fn remove_user(deps: DepsMut, env: Env, info: MessageInfo, user: String) -> Exec
 /// * **main_pool_min_alloc** is a minimum percentage of ASTRO emissions that this pool should get every block
 ///
 /// * **remove_main_pool** should the main pool be removed or not
-fn update_config(deps: DepsMut, info: MessageInfo, quorum_bps: Option<u16>) -> ExecuteResult {
+fn update_config(
+    deps: DepsMut,
+    info: MessageInfo,
+    quorum_bps: Option<u16>,
+    use_weighted_vote: Option<bool>,
+) -> ExecuteResult {
     let state = State::default();
     let mut config = state.config.load(deps.storage)?;
     config.assert_owner(&info.sender)?;
@@ -332,9 +353,13 @@ fn update_config(deps: DepsMut, info: MessageInfo, quorum_bps: Option<u16>) -> E
         config.quorum_bps = quorum_bps;
     }
 
+    if let Some(use_weighted_vote) = use_weighted_vote {
+        config.use_weighted_vote = use_weighted_vote;
+    }
+
     state.config.save(deps.storage, &config)?;
 
-    Ok(Response::default().add_attribute("action", "erisprop/update_config"))
+    Ok(Response::default().add_attribute("action", "prop/update_config"))
 }
 
 /// Expose available contract queries.
@@ -370,6 +395,11 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             start_after,
             limit,
         } => to_binary(&get_prop_voters(deps, env, proposal_id, start_after, limit)?),
+        QueryMsg::UserVotes {
+            user,
+            limit,
+            start_after,
+        } => to_binary(&get_user_votes(deps, env, user, start_after, limit)?),
     }
 }
 

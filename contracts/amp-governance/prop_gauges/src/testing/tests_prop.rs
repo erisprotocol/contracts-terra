@@ -8,7 +8,7 @@ use cosmwasm_std::{
 use eris::governance_helper::{get_period, EPOCH_START, WEEK};
 use eris::prop_gauges::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, PropDetailResponse, PropInfo, PropUserInfo,
-    PropVotersResponse, PropsResponse, QueryMsg,
+    PropVotersResponse, PropsResponse, QueryMsg, UserPropResponseItem, UserVotesResponse,
 };
 use eris::voting_escrow::LockInfoResponse;
 use itertools::Itertools;
@@ -36,6 +36,7 @@ fn setup_test() -> OwnedDeps<MockStorage, MockApi, CustomQuerier> {
             escrow_addr: "escrow".to_string(),
             hub_addr: "hub".to_string(),
             quorum_bps: 500,
+            use_weighted_vote: false,
         },
     )
     .unwrap();
@@ -61,6 +62,7 @@ fn proper_instantiation() {
             escrow_addr: Addr::unchecked("escrow"),
             hub_addr: Addr::unchecked("hub"),
             quorum_bps: 500,
+            use_weighted_vote: false
         }
     );
 
@@ -153,7 +155,8 @@ fn check_init_prop() {
                     yes_vp: Uint128::zero(),
                     current_vote: None,
                     end_time_s: EPOCH_START + WEEK * 10,
-                    period: get_period(EPOCH_START + WEEK * 10).unwrap()
+                    period: get_period(EPOCH_START + WEEK * 10).unwrap(),
+                    total_vp: Uint128::zero()
                 }
             )]
         }
@@ -179,7 +182,8 @@ fn check_init_prop() {
                     yes_vp: Uint128::zero(),
                     current_vote: None,
                     end_time_s: EPOCH_START + WEEK * 10,
-                    period: get_period(EPOCH_START + WEEK * 10).unwrap()
+                    period: get_period(EPOCH_START + WEEK * 10).unwrap(),
+                    total_vp: Uint128::zero()
                 }
             )]
         }
@@ -232,7 +236,8 @@ fn check_init_prop() {
                         yes_vp: Uint128::zero(),
                         current_vote: None,
                         end_time_s: EPOCH_START + WEEK * 10,
-                        period: get_period(EPOCH_START + WEEK * 10).unwrap()
+                        period: get_period(EPOCH_START + WEEK * 10).unwrap(),
+                        total_vp: Uint128::zero()
                     },
                 ),
                 (
@@ -244,7 +249,8 @@ fn check_init_prop() {
                         yes_vp: Uint128::zero(),
                         current_vote: None,
                         end_time_s: EPOCH_START + WEEK * 11,
-                        period: get_period(EPOCH_START + WEEK * 11).unwrap()
+                        period: get_period(EPOCH_START + WEEK * 11).unwrap(),
+                        total_vp: Uint128::zero()
                     },
                 )
             ]
@@ -320,7 +326,8 @@ fn vote_prop() {
                     yes_vp: Uint128::new(7),
                     current_vote: Some(cosmwasm_std::VoteOption::No),
                     end_time_s: EPOCH_START + WEEK * 3,
-                    period: get_period(EPOCH_START + WEEK * 3).unwrap()
+                    period: get_period(EPOCH_START + WEEK * 3).unwrap(),
+                    total_vp: Uint128::new(204)
                 },
             )]
         }
@@ -372,7 +379,8 @@ fn vote_prop() {
                     yes_vp: Uint128::new(198 + 7),
                     current_vote: Some(cosmwasm_std::VoteOption::Yes),
                     end_time_s: EPOCH_START + WEEK * 3,
-                    period: get_period(EPOCH_START + WEEK * 3).unwrap()
+                    period: get_period(EPOCH_START + WEEK * 3).unwrap(),
+                    total_vp: Uint128::new(204)
                 },
             )]
         }
@@ -434,7 +442,8 @@ fn remove_user() {
         PropDetailResponse {
             user: Some(PropUserInfo {
                 current_vote: cosmwasm_std::VoteOption::No,
-                vp: Uint128::new(198)
+                vp: Uint128::new(198),
+                user: Addr::unchecked("user2")
             }),
             prop: PropInfo {
                 abstain_vp: Uint128::zero(),
@@ -443,7 +452,8 @@ fn remove_user() {
                 yes_vp: Uint128::new(7),
                 current_vote: Some(cosmwasm_std::VoteOption::No),
                 end_time_s: EPOCH_START + WEEK * 3,
-                period: get_period(EPOCH_START + WEEK * 3).unwrap()
+                period: get_period(EPOCH_START + WEEK * 3).unwrap(),
+                total_vp: Uint128::new(204)
             }
         }
     );
@@ -489,7 +499,8 @@ fn remove_user() {
                 yes_vp: Uint128::zero(),
                 current_vote: Some(cosmwasm_std::VoteOption::No),
                 end_time_s: EPOCH_START + WEEK * 3,
-                period: get_period(EPOCH_START + WEEK * 3).unwrap()
+                period: get_period(EPOCH_START + WEEK * 3).unwrap(),
+                total_vp: Uint128::new(204)
             }
         }
     );
@@ -548,7 +559,8 @@ fn remove_user() {
                 yes_vp: Uint128::zero(),
                 current_vote: Some(cosmwasm_std::VoteOption::Abstain),
                 end_time_s: EPOCH_START + WEEK * 3,
-                period: get_period(EPOCH_START + WEEK * 3).unwrap()
+                period: get_period(EPOCH_START + WEEK * 3).unwrap(),
+                total_vp: Uint128::new(204)
             }
         }
     );
@@ -672,6 +684,117 @@ fn test_query_voters() {
                 (50, addr("user48"), VoteOption::Yes),
                 (49, addr("user47"), VoteOption::No),
             ]
+        }
+    );
+}
+
+#[test]
+fn test_query_user_votes() {
+    let deps = setup_test();
+    let mut deps = setup_props(deps);
+
+    let user = format!("user{0}", 1);
+    deps.querier.set_lock(user.clone(), 1, 5);
+
+    let _res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(EPOCH_START),
+        mock_info(user.as_str(), &[]),
+        ExecuteMsg::Vote {
+            proposal_id: 1,
+            vote: VoteOption::Yes,
+        },
+    )
+    .unwrap();
+    let _res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(EPOCH_START),
+        mock_info(user.as_str(), &[]),
+        ExecuteMsg::Vote {
+            proposal_id: 2,
+            vote: VoteOption::Yes,
+        },
+    )
+    .unwrap();
+
+    let _res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(EPOCH_START),
+        mock_info(user.as_str(), &[]),
+        ExecuteMsg::Vote {
+            proposal_id: 3,
+            vote: VoteOption::No,
+        },
+    )
+    .unwrap();
+
+    let res: UserVotesResponse = query_helper(
+        deps.as_ref(),
+        QueryMsg::UserVotes {
+            user: user.clone(),
+            start_after: None,
+            limit: None,
+        },
+    );
+
+    assert_eq!(
+        res,
+        UserVotesResponse {
+            props: vec![
+                UserPropResponseItem {
+                    id: 3,
+                    current_vote: VoteOption::No,
+                    vp: Uint128::new(3)
+                },
+                UserPropResponseItem {
+                    id: 2,
+                    current_vote: VoteOption::Yes,
+                    vp: Uint128::new(4)
+                },
+                UserPropResponseItem {
+                    id: 1,
+                    current_vote: VoteOption::Yes,
+                    vp: Uint128::new(5)
+                },
+            ]
+        }
+    );
+
+    let res: UserVotesResponse = query_helper(
+        deps.as_ref(),
+        QueryMsg::UserVotes {
+            user: user.clone(),
+            start_after: Some(3),
+            limit: Some(1),
+        },
+    );
+    assert_eq!(
+        res,
+        UserVotesResponse {
+            props: vec![UserPropResponseItem {
+                id: 2,
+                current_vote: VoteOption::Yes,
+                vp: Uint128::new(4)
+            },]
+        }
+    );
+
+    let res: UserVotesResponse = query_helper(
+        deps.as_ref(),
+        QueryMsg::UserVotes {
+            user,
+            start_after: Some(2),
+            limit: None,
+        },
+    );
+    assert_eq!(
+        res,
+        UserVotesResponse {
+            props: vec![UserPropResponseItem {
+                id: 1,
+                current_vote: VoteOption::Yes,
+                vp: Uint128::new(5)
+            },]
         }
     );
 }
@@ -896,6 +1019,7 @@ fn update_config() {
         mock_info("jake", &[]),
         ExecuteMsg::UpdateConfig {
             quorum_bps: Some(1000),
+            use_weighted_vote: None,
         },
     )
     .unwrap_err();
@@ -907,6 +1031,7 @@ fn update_config() {
         mock_info("owner", &[]),
         ExecuteMsg::UpdateConfig {
             quorum_bps: Some(12000),
+            use_weighted_vote: None,
         },
     )
     .unwrap_err();
@@ -918,6 +1043,7 @@ fn update_config() {
         mock_info("owner", &[]),
         ExecuteMsg::UpdateConfig {
             quorum_bps: Some(5000),
+            use_weighted_vote: None,
         },
     )
     .unwrap();
@@ -931,6 +1057,7 @@ fn update_config() {
             escrow_addr: Addr::unchecked("escrow"),
             hub_addr: Addr::unchecked("hub"),
             quorum_bps: 5000,
+            use_weighted_vote: false
         }
     );
 }

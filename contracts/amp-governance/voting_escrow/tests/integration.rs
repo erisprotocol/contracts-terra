@@ -109,7 +109,7 @@ fn lock_unlock_logic() {
     assert_eq!(err.root_cause().to_string(), "The lock expired. Withdraw and create new lock");
     // Try to increase the lock time for an expired position
     let err = helper.extend_lock_time(router_ref, "user", WEEK).unwrap_err();
-    assert_eq!(err.root_cause().to_string(), "The lock expired. Withdraw and create new lock");
+    assert_eq!(err.root_cause().to_string(), "Lock period must be 3 or more weeks");
 
     // Imagine the user will withdraw their expired lock in 5 weeks
     router_ref.update_block(next_block);
@@ -412,11 +412,11 @@ fn voting_variable_decay() {
 
     helper.extend_lock_time(router_ref, "user2", WEEK * 8).unwrap();
     let vp = helper.query_user_vp(router_ref, "user").unwrap();
-    assert_eq!(vp, 120.76923);
+    assert_eq!(vp, 125.96153);
     let vp = helper.query_user_vp(router_ref, "user2").unwrap();
     assert_eq!(vp, 93.26923);
     let vp = helper.query_total_vp(router_ref).unwrap();
-    assert_eq!(vp, 214.03847);
+    assert_eq!(vp, 219.23077);
 
     let res = helper
         .query_user_vp_at(router_ref, "user2", router_ref.block_info().time.seconds() + 4 * WEEK)
@@ -425,7 +425,7 @@ fn voting_variable_decay() {
     let res = helper
         .query_total_vp_at(router_ref, router_ref.block_info().time.seconds() + WEEK)
         .unwrap();
-    assert_eq!(res, 202.78847);
+    assert_eq!(res, 206.25);
 
     // Go to the future
     router_ref.update_block(next_block);
@@ -884,7 +884,7 @@ fn total_vp_multiple_slope_subtraction() {
     let err = helper.create_lock(router_ref, "user1", 3 * WEEK, 100f32).unwrap_err();
     assert_eq!(err.root_cause().to_string(), "Lock already exists");
     let err = helper.extend_lock_time(router_ref, "user1", 2 * WEEK).unwrap_err();
-    assert_eq!(err.root_cause().to_string(), "The lock expired. Withdraw and create new lock");
+    assert_eq!(err.root_cause().to_string(), "Lock period must be 3 or more weeks");
     let total = helper.query_total_vp(router_ref).unwrap();
     assert_eq!(total, 100f32);
 }

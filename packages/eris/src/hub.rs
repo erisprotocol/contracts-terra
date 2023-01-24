@@ -132,6 +132,11 @@ pub enum ExecuteMsg {
         proposal_id: u64,
         vote: VoteOption,
     },
+    /// Vote on a proposal weighted (only allowed by the vote_operator)
+    VoteWeighted {
+        proposal_id: u64,
+        votes: Vec<(Decimal, VoteOption)>,
+    },
 
     /// Callbacks; can only be invoked by the contract itself
     Callback(CallbackMsg),

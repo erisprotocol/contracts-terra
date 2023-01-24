@@ -32,6 +32,7 @@ pub fn apply_vote_of_user(
     mut prop: PropInfo,
     ve_lock_info: &LockInfoResponse,
     vote: VoteOption,
+    user: Addr,
 ) -> StdResult<(PropInfo, PropUserInfo)> {
     let current_period = get_period(env.block.time.seconds())?;
     let vp = calc_voting_power_for_prop(current_period, ve_lock_info, &prop);
@@ -42,6 +43,7 @@ pub fn apply_vote_of_user(
             PropUserInfo {
                 current_vote: VoteOption::Abstain,
                 vp,
+                user,
             },
         ));
     }
@@ -58,6 +60,7 @@ pub fn apply_vote_of_user(
         PropUserInfo {
             current_vote: vote,
             vp,
+            user,
         },
     ))
 }
@@ -85,9 +88,10 @@ pub(crate) fn update_vote_state(
     };
 
     let prop = remove_vote_of_user(prop, &user_info)?;
-    let (mut prop, user) = apply_vote_of_user(env, prop, ve_lock_info, vote)?;
+    let (mut prop, user) = apply_vote_of_user(env, prop, ve_lock_info, vote, sender.clone())?;
 
-    let vote_msg = get_vote_msg(querier, config, &mut prop, proposal_id)?;
+    let (vote_msg, total_vp) = get_vote_msg(querier, config, &mut prop, proposal_id)?;
+    prop.total_vp = total_vp;
 
     state.props.save(store, proposal_id, &prop)?;
     state.users.save(store, (proposal_id, sender.clone()), &user)?;
@@ -101,29 +105,43 @@ pub fn get_vote_msg(
     config: &ConfigResponse,
     prop: &mut PropInfo,
     proposal_id: u64,
-) -> Result<Option<CosmosMsg>, ContractError> {
-    let current_vote = prop.current_vote.clone();
+) -> Result<(Option<CosmosMsg>, Uint128), ContractError> {
     let total_vp =
         get_total_voting_power_at_by_period(querier, config.escrow_addr.clone(), prop.period)?;
-    let mut wanted = prop.get_wanted_vote(total_vp, config.quorum_bps)?;
-    let vote_msg: Option<CosmosMsg> = if wanted != current_vote {
-        if let Some(wanted) = &wanted {
-            Some(Hub(config.hub_addr.clone()).vote_msg(proposal_id, wanted.clone())?)
-        } else if current_vote.is_some()
-            && wanted.is_none()
-            && current_vote != Some(VoteOption::Abstain)
-        {
-            // if we already voted and go back to "not voting", vote abstain instead.
-            wanted = Some(VoteOption::Abstain);
-            Some(Hub(config.hub_addr.clone()).vote_msg(proposal_id, VoteOption::Abstain)?)
+
+    if config.use_weighted_vote {
+        let vote_msg: Option<CosmosMsg> = if prop.reached_quorum(total_vp, config.quorum_bps)? {
+            let votes = prop.get_weighted_votes();
+            Some(Hub(config.hub_addr.clone()).vote_weighted_msg(proposal_id, votes)?)
         } else {
             None
-        }
+        };
+
+        prop.current_vote = None;
+        Ok((vote_msg, total_vp))
     } else {
-        None
-    };
-    prop.current_vote = wanted;
-    Ok(vote_msg)
+        // if normal vote, check if the current vote is already set.
+        let current_vote = prop.current_vote.clone();
+        let mut wanted = prop.get_wanted_vote(total_vp, config.quorum_bps)?;
+        let vote_msg: Option<CosmosMsg> = if wanted != current_vote {
+            if let Some(wanted) = &wanted {
+                Some(Hub(config.hub_addr.clone()).vote_msg(proposal_id, wanted.clone())?)
+            } else if current_vote.is_some()
+                && wanted.is_none()
+                && current_vote != Some(VoteOption::Abstain)
+            {
+                // if we already voted and go back to "not voting", vote abstain instead.
+                wanted = Some(VoteOption::Abstain);
+                Some(Hub(config.hub_addr.clone()).vote_msg(proposal_id, VoteOption::Abstain)?)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        prop.current_vote = wanted;
+        Ok((vote_msg, total_vp))
+    }
 }
 
 fn calc_voting_power_for_prop(

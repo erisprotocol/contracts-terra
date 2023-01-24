@@ -18,6 +18,7 @@ fn update_configs() -> StdResult<()> {
             &mut router,
             ExecuteMsg::UpdateConfig {
                 quorum_bps: Some(100u16),
+                use_weighted_vote: None,
             },
             "user",
         )
@@ -30,6 +31,7 @@ fn update_configs() -> StdResult<()> {
             &mut router,
             ExecuteMsg::UpdateConfig {
                 quorum_bps: Some(100u16),
+                use_weighted_vote: None,
             },
         )
         .unwrap();
@@ -68,7 +70,7 @@ fn _vote() -> StdResult<()> {
         .prop_init(router_ref, "owner", 10, router_ref.block_info().time.seconds() + 3 * WEEK)
         .unwrap();
 
-    result.assert_attribute("wasm", attr("action", "erisprop/init_prop")).unwrap();
+    result.assert_attribute("wasm", attr("action", "prop/init_prop")).unwrap();
     result.assert_attribute("wasm", attr("prop", "10")).unwrap();
     result.assert_attribute("wasm", attr("end", "3")).unwrap();
 
@@ -81,20 +83,20 @@ fn _vote() -> StdResult<()> {
 
     // VOTE USER1
     let result = helper.prop_vote(router_ref, "user1", 10, cosmwasm_std::VoteOption::Yes).unwrap();
-    result.assert_attribute("wasm", attr("action", "erisprop/vote")).unwrap();
+    result.assert_attribute("wasm", attr("action", "prop/vote")).unwrap();
     result.assert_attribute("wasm", attr("vp", "38946")).unwrap();
 
     // no matter the period, it is always the same VP (using different props, but same setup)
     router_ref.next_period(1);
     // VOTE USER1
     let result = helper.prop_vote(router_ref, "user1", 11, cosmwasm_std::VoteOption::Yes).unwrap();
-    result.assert_attribute("wasm", attr("action", "erisprop/vote")).unwrap();
+    result.assert_attribute("wasm", attr("action", "prop/vote")).unwrap();
     result.assert_attribute("wasm", attr("vp", "38946")).unwrap();
 
     router_ref.next_period(1);
     // VOTE USER1
     let result = helper.prop_vote(router_ref, "user1", 12, cosmwasm_std::VoteOption::Yes).unwrap();
-    result.assert_attribute("wasm", attr("action", "erisprop/vote")).unwrap();
+    result.assert_attribute("wasm", attr("action", "prop/vote")).unwrap();
     result.assert_attribute("wasm", attr("vp", "38946")).unwrap();
 
     // VOTE USER2
@@ -116,7 +118,7 @@ fn _vote() -> StdResult<()> {
         .unwrap();
 
     let result = helper.prop_vote(router_ref, "user2", 10, cosmwasm_std::VoteOption::Yes).unwrap();
-    result.assert_attribute("wasm", attr("action", "erisprop/vote")).unwrap();
+    result.assert_attribute("wasm", attr("action", "prop/vote")).unwrap();
     result.assert_attribute("wasm", attr("vp", "38946")).unwrap();
 
     // res.assert_attribute("wasm", attr("xx", "12")).unwrap();

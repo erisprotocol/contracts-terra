@@ -11,5 +11,6 @@ pub mod state;
 pub mod types;
 
 mod constants;
+mod protos;
 #[cfg(test)]
 mod testing;

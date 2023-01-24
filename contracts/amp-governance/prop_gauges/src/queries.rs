@@ -3,7 +3,10 @@ use std::cmp;
 use cosmwasm_std::{Addr, Deps, Env, StdResult, VoteOption};
 use cw_storage_plus::Bound;
 use eris::{
-    prop_gauges::{PropDetailResponse, PropInfo, PropVotersResponse, PropsResponse},
+    prop_gauges::{
+        PropDetailResponse, PropInfo, PropVotersResponse, PropsResponse, UserPropResponseItem,
+        UserVotesResponse,
+    },
     voting_escrow::{DEFAULT_LIMIT, MAX_LIMIT},
 };
 
@@ -39,6 +42,42 @@ pub fn get_active_props(
         .collect::<StdResult<Vec<(u64, PropInfo)>>>()?;
 
     Ok(PropsResponse {
+        props,
+    })
+}
+
+pub fn get_user_votes(
+    deps: Deps,
+    _env: Env,
+    user: String,
+    start_after: Option<u64>,
+    limit: Option<u32>,
+) -> StdResult<UserVotesResponse> {
+    let state = State::default();
+    let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
+    let addr = deps.api.addr_validate(&user)?;
+
+    let max = start_after.map(|start_after| Bound::exclusive((start_after, Addr::unchecked("a"))));
+
+    let props = state
+        .users
+        .idx
+        .user
+        .prefix(addr)
+        .range(deps.storage, None, max, cosmwasm_std::Order::Descending)
+        .take(limit)
+        .map(|item| -> StdResult<UserPropResponseItem> {
+            let (id, prop) = item?;
+
+            Ok(UserPropResponseItem {
+                id: id.0,
+                current_vote: prop.current_vote,
+                vp: prop.vp,
+            })
+        })
+        .collect::<StdResult<Vec<UserPropResponseItem>>>()?;
+
+    Ok(UserVotesResponse {
         props,
     })
 }

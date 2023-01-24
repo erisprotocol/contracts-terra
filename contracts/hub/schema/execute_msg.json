@@ -134,6 +134,19 @@
       "additionalProperties": false
     },
     {
+      "description": "Remove the ownership transfer proposal",
+      "type": "object",
+      "required": [
+        "drop_ownership_proposal"
+      ],
+      "properties": {
+        "drop_ownership_proposal": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
       "description": "Accept an ownership transfer",
       "type": "object",
       "required": [
@@ -155,32 +168,6 @@
       "properties": {
         "harvest": {
           "type": "object"
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "vote"
-      ],
-      "properties": {
-        "vote": {
-          "type": "object",
-          "required": [
-            "proposal_id",
-            "vote"
-          ],
-          "properties": {
-            "proposal_id": {
-              "type": "integer",
-              "format": "uint64",
-              "minimum": 0.0
-            },
-            "vote": {
-              "$ref": "#/definitions/VoteOption"
-            }
-          }
         }
       },
       "additionalProperties": false
@@ -249,6 +236,73 @@
       "additionalProperties": false
     },
     {
+      "description": "Vote on a proposal (only allowed by the vote_operator)",
+      "type": "object",
+      "required": [
+        "vote"
+      ],
+      "properties": {
+        "vote": {
+          "type": "object",
+          "required": [
+            "proposal_id",
+            "vote"
+          ],
+          "properties": {
+            "proposal_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "vote": {
+              "$ref": "#/definitions/VoteOption"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "description": "Vote on a proposal weighted (only allowed by the vote_operator)",
+      "type": "object",
+      "required": [
+        "vote_weighted"
+      ],
+      "properties": {
+        "vote_weighted": {
+          "type": "object",
+          "required": [
+            "proposal_id",
+            "votes"
+          ],
+          "properties": {
+            "proposal_id": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "votes": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": [
+                  {
+                    "$ref": "#/definitions/Decimal"
+                  },
+                  {
+                    "$ref": "#/definitions/VoteOption"
+                  }
+                ],
+                "maxItems": 2,
+                "minItems": 2
+              }
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
       "description": "Callbacks; can only be invoked by the contract itself",
       "type": "object",
       "required": [
@@ -271,6 +325,13 @@
         "update_config": {
           "type": "object",
           "properties": {
+            "allow_donations": {
+              "description": "Specifies wether donations are allowed.",
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
             "delegation_strategy": {
               "description": "Strategy how delegations should be handled",
               "anyOf": [
@@ -301,6 +362,7 @@
               ]
             },
             "vote_operator": {
+              "description": "Update the vote_operator",
               "type": [
                 "string",
                 "null"

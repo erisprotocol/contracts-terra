@@ -263,6 +263,7 @@ impl BaseErisTestPackage {
             hub_addr: self.hub.get_address_string(),
             escrow_addr: self.voting_escrow.get_address_string(),
             quorum_bps: 500,
+            use_weighted_vote: false,
         };
 
         let instance = router

@@ -260,7 +260,7 @@ fn remove_votes_of_user(
     storage: &mut dyn Storage,
 ) -> Result<(), ContractError> {
     if user_info.lock_end > block_period {
-        let user_last_vote_period = get_period(user_info.vote_ts).unwrap_or(block_period);
+        let user_last_vote_period = get_period(user_info.vote_ts)?;
         // Calculate voting power before changes
         let old_vp_at_period = calc_voting_power(
             user_info.slope,

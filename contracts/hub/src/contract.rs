@@ -75,6 +75,10 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> C
             proposal_id,
             vote,
         } => gov::vote(deps, env, info, proposal_id, vote),
+        ExecuteMsg::VoteWeighted {
+            proposal_id,
+            votes,
+        } => gov::vote_weighted(deps, env, info, proposal_id, votes),
         ExecuteMsg::Callback(callback_msg) => callback(deps, env, info, callback_msg),
         ExecuteMsg::UpdateConfig {
             protocol_fee_contract,

@@ -48,7 +48,7 @@ pub struct InstantiateMsg {
 /// This structure describes the execute functions in the contract.
 #[cw_serde]
 pub enum ExecuteMsg {
-    /// Extend the lockup time for your staked ampLP
+    /// Extend the lockup time for your staked ampLP. For an expired lock, it will always start from the current period.
     ExtendLockTime {
         time: u64,
     },

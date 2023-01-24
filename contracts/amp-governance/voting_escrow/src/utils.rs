@@ -71,21 +71,27 @@ pub(crate) fn cancel_scheduled_slope(
     storage: &mut dyn Storage,
     slope: Uint128,
     period: u64,
-) -> StdResult<()> {
+) -> StdResult<u64> {
     let end_period_key = period;
     let last_slope_change = LAST_SLOPE_CHANGE.may_load(storage)?.unwrap_or(0);
-    match SLOPE_CHANGES.may_load(storage, end_period_key)? {
-        // We do not need to schedule a slope change in the past
-        Some(old_scheduled_change) if period > last_slope_change => {
-            let new_slope = old_scheduled_change - slope;
-            if !new_slope.is_zero() {
-                SLOPE_CHANGES.save(storage, end_period_key, &(old_scheduled_change - slope))
-            } else {
-                SLOPE_CHANGES.remove(storage, end_period_key);
-                Ok(())
-            }
-        },
-        _ => Ok(()),
+
+    // We do not need to schedule a slope change in the past
+    if period > last_slope_change {
+        match SLOPE_CHANGES.may_load(storage, end_period_key)? {
+            Some(old_scheduled_change) => {
+                let new_slope = old_scheduled_change.saturating_sub(slope);
+                if !new_slope.is_zero() {
+                    SLOPE_CHANGES.save(storage, end_period_key, &(old_scheduled_change - slope))?;
+                } else {
+                    SLOPE_CHANGES.remove(storage, end_period_key);
+                }
+
+                Ok(last_slope_change)
+            },
+            _ => Ok(last_slope_change),
+        }
+    } else {
+        Ok(last_slope_change)
     }
 }
 

@@ -82,6 +82,7 @@
       }
     },
     "vote_operator": {
+      "description": "Contract address that is allowed to vote",
       "type": [
         "string",
         "null"
