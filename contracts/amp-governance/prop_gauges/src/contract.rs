@@ -97,6 +97,9 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> E
         ExecuteMsg::RemoveUser {
             user,
         } => remove_user(deps, env, info, user),
+        ExecuteMsg::RemoveProp {
+            proposal_id,
+        } => remove_prop(deps, env, info, proposal_id),
         ExecuteMsg::UpdateConfig {
             quorum_bps,
             use_weighted_vote,
@@ -326,6 +329,16 @@ fn remove_user(deps: DepsMut, env: Env, info: MessageInfo, user: String) -> Exec
     }
 
     Ok(response.add_attribute("action", "prop/remove_user"))
+}
+
+fn remove_prop(deps: DepsMut, env: Env, info: MessageInfo, proposal_id: u64) -> ExecuteResult {
+    let state = State::default();
+    let config = state.config.load(deps.storage)?;
+    config.assert_owner(&info.sender)?;
+
+    state.props.remove(deps.storage, proposal_id)?;
+
+    Ok(Response::new().add_attribute("action", "prop/remove_prop"))
 }
 
 /// Only contract owner can call this function.  

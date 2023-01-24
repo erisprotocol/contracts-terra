@@ -55,6 +55,10 @@ pub enum ExecuteMsg {
     RemoveUser {
         user: String,
     },
+    // Admin action to remove a user
+    RemoveProp {
+        proposal_id: u64,
+    },
 
     /// ProposeNewOwner proposes a new owner for the contract
     ProposeNewOwner {
@@ -185,12 +189,6 @@ impl PropInfo {
         }
     }
 
-    // fn get_rounded(vp: Uint128, total: Uint128, rounding_factor: &Uint128) -> Decimal {
-    //     Decimal::from_ratio(vp.mul(rounding_factor), total)
-    //         .floor()
-    //         .div(Decimal::from_ratio(rounding_factor.clone(), Uint128::one()))
-    // }
-
     pub fn get_weighted_votes(&self) -> Vec<(Decimal, VoteOption)> {
         let voted = self.voted_vp();
 
@@ -198,7 +196,7 @@ impl PropInfo {
             return vec![];
         }
 
-        let rounding_factor = Uint128::new(100);
+        let rounding_factor = Uint128::new(1000);
 
         let mut votes = vec![
             (
@@ -302,9 +300,14 @@ pub struct PropVotersResponse {
 
 #[cw_serde]
 pub struct PropUserInfo {
+    #[serde(default = "default_addr")]
     pub user: Addr,
     pub current_vote: VoteOption,
     pub vp: Uint128,
+}
+
+fn default_addr() -> Addr {
+    Addr::unchecked("")
 }
 
 #[test]
@@ -362,22 +365,3 @@ fn test_weighted_votes_single() {
         vec!["1".to_string()]
     );
 }
-// #[test]
-// fn test_weighted_votes_some() {
-//     let prop = PropInfo {
-//         abstain_vp: Uint128::zero(),
-//         period: 100,
-//         end_time_s: 100,
-//         yes_vp: Uint128::new(10),
-//         no_vp: Uint128::new(20),
-//         nwv_vp: Uint128::zero(),
-//         total_vp: Uint128::zero(),
-//         current_vote: None,
-//     };
-
-//     let votes = prop.get_weighted_vote();
-//     assert_eq!(
-//         votes.iter().map(|a| a.0.to_string()).collect::<Vec<String>>(),
-//         vec!["0.333333333333333334".to_string(), "0.666666666666666666".to_string()]
-//     );
-// }
