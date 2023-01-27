@@ -266,9 +266,9 @@ fn update_vote_extend_amount() -> StdResult<()> {
     assert_eq!(
         info.vamp_points,
         vec![
-            ("val1".to_string(), Uint128::new(550768)),
-            ("val2".to_string(), Uint128::new(550768)),
-            ("val3".to_string(), Uint128::new(275384))
+            ("val1".to_string(), Uint128::new(554230)),
+            ("val2".to_string(), Uint128::new(554230)),
+            ("val3".to_string(), Uint128::new(277115))
         ]
     );
 
@@ -278,9 +278,9 @@ fn update_vote_extend_amount() -> StdResult<()> {
     assert_eq!(
         info.vamp_points,
         vec![
-            ("val1".to_string(), Uint128::new(513846)),
-            ("val2".to_string(), Uint128::new(513846)),
-            ("val3".to_string(), Uint128::new(256923))
+            ("val1".to_string(), Uint128::new(516154)),
+            ("val2".to_string(), Uint128::new(516154)),
+            ("val3".to_string(), Uint128::new(258077))
         ]
     );
 
@@ -291,9 +291,9 @@ fn update_vote_extend_amount() -> StdResult<()> {
     assert_eq!(
         info.vamp_points,
         vec![
-            ("val1".to_string(), Uint128::new(476924)),
-            ("val2".to_string(), Uint128::new(476924)),
-            ("val3".to_string(), Uint128::new(238462))
+            ("val1".to_string(), Uint128::new(478078)),
+            ("val2".to_string(), Uint128::new(478078)),
+            ("val3".to_string(), Uint128::new(239039))
         ]
     );
 

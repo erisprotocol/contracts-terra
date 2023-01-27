@@ -1,4 +1,4 @@
-use cosmwasm_std::StdError;
+use cosmwasm_std::{OverflowError, StdError};
 use cw20_base::ContractError as cw20baseError;
 use thiserror::Error;
 
@@ -10,6 +10,15 @@ pub enum ContractError {
 
     #[error("{0}")]
     Cw20Base(#[from] cw20baseError),
+
+    #[error("{0}")]
+    Overflow(#[from] OverflowError),
+
+    #[error("{location:?}: {orig:?}")]
+    OverflowLocation {
+        location: String,
+        orig: OverflowError,
+    },
 
     #[error("Unauthorized")]
     Unauthorized {},

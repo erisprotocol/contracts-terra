@@ -246,7 +246,7 @@ fn checkpoint_total(
     reduce_amount: Option<Uint128>,
     old_slope: Uint128,
     new_slope: Uint128,
-) -> StdResult<()> {
+) -> Result<(), ContractError> {
     let cur_period = get_period(env.block.time.seconds())?;
     let cur_period_key = cur_period;
     let contract_addr = env.contract.address;
@@ -265,7 +265,12 @@ fn checkpoint_total(
                 point = Point {
                     power: calc_voting_power(&point, recalc_period),
                     start: recalc_period,
-                    slope: point.slope - scheduled_change,
+                    slope: point.slope.checked_sub(scheduled_change).map_err(|orig| {
+                        ContractError::OverflowLocation {
+                            location: "checkpoint_total:recalculating".into(),
+                            orig,
+                        }
+                    })?,
                     ..point
                 };
                 HISTORY.save(storage, (contract_addr.clone(), recalc_period), &point)?
@@ -279,7 +284,12 @@ fn checkpoint_total(
 
         Point {
             power: new_power,
-            slope: point.slope - old_slope + new_slope,
+            slope: point.slope.checked_sub(old_slope).map_err(|orig| {
+                ContractError::OverflowLocation {
+                    location: "checkpoint_total:new_point".into(),
+                    orig,
+                }
+            })? + new_slope,
             start: cur_period,
             fixed: (point.fixed + add_amount)
                 .checked_sub(reduce_amount.unwrap_or_default())
@@ -295,7 +305,8 @@ fn checkpoint_total(
             fixed: add_amount,
         }
     };
-    HISTORY.save(storage, (contract_addr, cur_period_key), &new_point)
+    HISTORY.save(storage, (contract_addr, cur_period_key), &new_point)?;
+    Ok(())
 }
 
 /// Checkpoint a user's voting power (vAMP balance).
@@ -316,7 +327,7 @@ fn checkpoint(
     addr: Addr,
     add_amount: Option<Uint128>,
     new_end: Option<u64>,
-) -> StdResult<()> {
+) -> Result<(), ContractError> {
     let cur_period = get_period(env.block.time.seconds())?;
     let cur_period_key = cur_period;
     let add_amount = add_amount.unwrap_or_default();
@@ -331,7 +342,8 @@ fn checkpoint(
         let current_power = calc_voting_power(&point, cur_period);
 
         let new_slope = if dt != 0 {
-            if end > point.end && add_amount.is_zero() {
+            // always recalculate slope when the end has changed
+            if end > point.end {
                 // This is extend_lock_time. Recalculating user's voting power
                 let mut lock = LOCKED.load(store, addr.clone())?;
                 let mut new_voting_power = calc_coefficient(dt).checked_mul_uint(lock.amount)?;
@@ -354,11 +366,14 @@ fn checkpoint(
             Uint128::zero()
         };
 
-        // Cancel the previously scheduled slope change
-        cancel_scheduled_slope(store, point.slope, point.end)?;
+        // Cancel the previously scheduled slope change (same logic as in cancel_scheduled_slope)
+        let last_slope_change = cancel_scheduled_slope(store, point.slope, point.end)?;
 
-        // We need to subtract the slope point from the total voting power slope
-        old_slope = point.slope;
+        if point.end > last_slope_change {
+            // We need to subtract the slope point from the total voting power slope
+            // Only if the point is still active and has not been processed/applied yet.
+            old_slope = point.slope
+        };
 
         Point {
             power: current_power + add_voting_power,
@@ -673,16 +688,18 @@ fn extend_lock_time(
     assert_time_limits(time)?;
 
     let block_period = get_period(env.block.time.seconds())?;
-    if lock.end <= block_period {
-        return Err(ContractError::LockExpired {});
+    if lock.end < block_period {
+        // if the lock.end is in the past, extend_lock_time always starts from the current period.
+        lock.end = block_period;
     };
 
-    // Should not exceed MAX_LOCK_TIME
-    assert_time_limits(EPOCH_START + lock.end * WEEK + time - env.block.time.seconds())?;
     lock.end += get_periods_count(time);
 
     let periods = lock.end - block_period;
     assert_periods_remaining(periods)?;
+
+    // Should not exceed MAX_LOCK_TIME
+    assert_time_limits(EPOCH_START + lock.end * WEEK - env.block.time.seconds())?;
 
     LOCKED.save(deps.storage, user.clone(), &lock, env.block.height)?;
 
