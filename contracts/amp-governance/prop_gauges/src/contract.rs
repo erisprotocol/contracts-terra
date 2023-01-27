@@ -331,7 +331,7 @@ fn remove_user(deps: DepsMut, env: Env, info: MessageInfo, user: String) -> Exec
     Ok(response.add_attribute("action", "prop/remove_user"))
 }
 
-fn remove_prop(deps: DepsMut, env: Env, info: MessageInfo, proposal_id: u64) -> ExecuteResult {
+fn remove_prop(deps: DepsMut, _env: Env, info: MessageInfo, proposal_id: u64) -> ExecuteResult {
     let state = State::default();
     let config = state.config.load(deps.storage)?;
     config.assert_owner(&info.sender)?;
