@@ -1,5 +1,3 @@
-use std::ops::Mul;
-
 use astroport::token as astro;
 use cosmwasm_std::{attr, to_binary, Addr, Fraction, StdError, Uint128};
 use cw20::{Cw20ExecuteMsg, Logo, LogoInfo, MarketingInfoResponse, MinterResponse};
@@ -324,18 +322,12 @@ fn extend_lock_after_period_by_amount() {
     helper.extend_lock_amount_min(router_ref, "user", 100f32, Some(true)).unwrap();
 
     let vp = helper.query_total_vp(router_ref).unwrap();
-    assert_eq!(vp,
-        // lock 2
-         1.25961 + 
-         // lock 1 * 2 (due to twice the deposit now, but same lock length)
-         125.96153 + 
-         125.96153 + 
-         // rounding
-         0.00002);
+    // [lock 2] + [lock 1 * 2 - due to twice the deposit now, but same lock length] + [rounding]
+    assert_eq!(vp, 1.25961 + 125.96153 + 125.96153 + 0.00002);
 
     let err = helper.withdraw(router_ref, "user").unwrap_err();
     assert_eq!(err.root_cause().to_string(), "The lock time has not yet expired");
-    
+
     // Lock 1 can be withdrawn again
     router_ref.update_block(next_block);
     router_ref.update_block(|block| block.time = block.time.plus_seconds(WEEK * 4));
@@ -345,7 +337,6 @@ fn extend_lock_after_period_by_amount() {
     // only lock 2 remaining
     assert_eq!(vp, 1.0);
 }
-
 
 #[test]
 fn extend_lock_after_period_by_time() {
@@ -378,17 +369,13 @@ fn extend_lock_after_period_by_time() {
     helper.extend_lock_time(router_ref, "user", 3 * WEEK).unwrap();
 
     let vp = helper.query_total_vp(router_ref).unwrap();
-    assert_eq!(vp,
-        // lock 2
-         1.25961 + 
-         // lock 1 (same lock length)
-         125.96153 + 
-         // rounding
-         0.00001);
+
+    // [lock 2] + [lock 1 - same lock length] + [rounding]
+    assert_eq!(vp, 1.25961 + 125.96153 + 0.00001);
 
     let err = helper.withdraw(router_ref, "user").unwrap_err();
     assert_eq!(err.root_cause().to_string(), "The lock time has not yet expired");
-    
+
     // Lock 1 can be withdrawn again
     router_ref.update_block(next_block);
     router_ref.update_block(|block| block.time = block.time.plus_seconds(WEEK * 4));
