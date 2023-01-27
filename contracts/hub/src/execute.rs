@@ -110,13 +110,13 @@ pub fn register_stake_token(deps: DepsMut, response: SubMsgResponse) -> Contract
         .events
         .iter()
         .find(|event| event.ty == "instantiate")
-        .ok_or_else(|| ContractError::CannotFindInstantiateEvent {})?;
+        .ok_or(ContractError::CannotFindInstantiateEvent {})?;
 
     let contract_addr_str = &event
         .attributes
         .iter()
         .find(|attr| attr.key == "_contract_address" || attr.key == "_contract_addr")
-        .ok_or_else(|| ContractError::CannotFindContractAddress {})?
+        .ok_or(ContractError::CannotFindContractAddress {})?
         .value;
 
     let contract_addr = deps.api.addr_validate(contract_addr_str)?;
