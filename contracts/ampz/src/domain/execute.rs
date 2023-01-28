@@ -59,18 +59,31 @@ pub fn execute_id(
 
     state.last_execution.save(deps.storage, id, &env.block.time.seconds())?;
 
-    let mut msgs: Vec<CosmosMsg> = vec![];
+    // relevant asset infos that should be used
     let asset_infos: Vec<AssetInfo>;
+    // user balance start is a snapshot of relevant assets when execution starts (before claiming source yield)
     let user_balance_start: Vec<Asset>;
-    let mut deposit_max_amount: Option<Vec<Asset>> = None;
 
+    // the sub messages are always:
+    // 1. claim yield source with ampz (in user wallet)
+    // 2. deposit received yield into ampz contract with ampz (in user wallet)
+    // --- Rest is executed in the contract
+    // 3. Optionally swap to required destination asset (e.g. Amplifier requires uluna deposit)
+    // 4. Finish execution by depositing into the destination and sending the result to the user. This also pays operator + protocol fees.
+    let mut msgs: Vec<CosmosMsg> = vec![];
+    let mut deposit_max_amount: Option<Vec<Asset>> = None;
     let mut requires_swap = false;
 
     match execution.source {
         eris::ampz::Source::Claim => {
+            let delegations = query_all_delegations(&deps.querier, &user)?;
+
+            if delegations.is_empty() {
+                return Err(StdError::generic_err("no active delegations"));
+            }
+
             asset_infos = vec![native_asset_info(CONTRACT_DENOM.to_string())];
             user_balance_start = asset_infos.query_balances(&deps.querier, &user)?;
-            let delegations = query_all_delegations(&deps.querier, &user)?;
 
             let mut exec = MsgExec::new();
             exec.grantee = env.contract.address.clone().into();
@@ -96,6 +109,7 @@ pub fn execute_id(
             msgs.push(msg);
 
             if let Destination::DepositAmplifier {} = execution.destination {
+                // depositing in amplifier only possible from native chain token (e.g. uluna).
                 requires_swap = true;
             }
         },
@@ -113,6 +127,7 @@ pub fn execute_id(
 
             if let Destination::DepositAmplifier {} = execution.destination {
                 if over.info != native_asset_info(CONTRACT_DENOM.to_string()) {
+                    // if we deposit into amplifier and the deposit asset is not the native chain token, convert it.
                     requires_swap = true;
                 }
             }

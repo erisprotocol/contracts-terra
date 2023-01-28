@@ -39,19 +39,21 @@ pub fn callback(
             max_amount,
         } => {
             attrs.push(attr("type", "authz_deposit"));
+
+            // the snapshot of the user balance is in the callback message
+            // the contract queries the same assets again and takes a diff of what has been added
             let balances =
                 user_balance_start.query_balance_diff(&deps.querier, &user, max_amount)?;
+
+            // rest is used to create allowance or deposit messages into the ampz contract
             let (funds, allowances) =
                 funds_or_allowance(&env, &env.contract.address, &balances, None)?;
-
             for allowance in allowances {
                 msgs.push(allowance.to_authz_msg(user.clone(), &env)?);
             }
-
             for asset in balances.iter() {
                 attrs.push(attr("amount", asset.to_string()));
             }
-
             msgs.push(
                 Ampz(env.contract.address.clone())
                     .deposit(balances, funds)?
@@ -64,6 +66,8 @@ pub fn callback(
             into,
         } => {
             attrs.push(attr("type", "swap"));
+
+            // this swaps all specified assets to the "into" asset.
             let asset_infos = asset_infos.into_iter().filter(|info| *info != into).collect_vec();
             let balances = asset_infos.query_balances(&deps.querier, &env.contract.address)?;
             let zapper = state.zapper.load(deps.storage)?;
@@ -74,6 +78,7 @@ pub fn callback(
                 attrs.push(attr("from", asset.to_string()));
             }
 
+            // it uses the ERIS zapper multi-swap feature
             msgs.append(&mut allowances);
             msgs.push(zapper.multi_swap_msg(balances, into.clone(), funds, None)?);
             attrs.push(attr("to", format!("{:?}", into)));
@@ -145,6 +150,7 @@ fn pay_fees(
 ) -> StdResult<Vec<Asset>> {
     let fee = state.fee.load(deps.storage)?;
 
+    // when the user is doing manual executions, no operator fee needs to be paid.
     let operator_bps = if *user == operator {
         BasicPoints::zero()
     } else {
@@ -152,10 +158,13 @@ fn pay_fees(
     };
 
     let total_fee = operator_bps.checked_add(fee.fee_bps)?;
+    // when no total fee, nothing needs to be paid
     if total_fee.is_zero() {
         return Ok(balances);
     }
 
+    // share of what the operator will receive
+    // if the operator is the treasury, operator will receive 0 and all the treasury (only single transfer)
     let operator_share = if operator == fee.receiver {
         Decimal::zero()
     } else {
@@ -166,20 +175,23 @@ fn pay_fees(
 
     for asset in balances {
         if !asset.amount.is_zero() {
+            // split total fees from the asset
             let (deposit_asset, fee_amount) = asset.subtract_fee(total_fee);
 
             result.push(deposit_asset);
 
+            // split fee into operator and protocol fee
             let operator_fee_amount = fee_amount * operator_share;
             let protocol_fee_amount = fee_amount.saturating_sub(operator_fee_amount);
 
             if !protocol_fee_amount.is_zero() {
+                // pay protocol fee
                 let protocol_fee = asset.info.with_balance(protocol_fee_amount);
                 msgs.push(protocol_fee.transfer_msg(&fee.receiver)?);
-
                 attrs.push(attr("fee", protocol_fee.to_string()));
             }
             if !operator_fee_amount.is_zero() {
+                // pay operator fee
                 let operator_fee = asset.info.with_balance(operator_fee_amount);
                 msgs.push(operator_fee.transfer_msg(&operator)?);
                 attrs.push(attr("operator_fee", operator_fee.to_string()));
@@ -187,6 +199,7 @@ fn pay_fees(
         }
     }
 
+    // return the assets without the fees
     Ok(result)
 }
 
