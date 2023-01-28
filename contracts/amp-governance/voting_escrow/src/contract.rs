@@ -342,23 +342,8 @@ fn checkpoint(
         let current_power = calc_voting_power(&point, cur_period);
 
         let new_slope = if dt != 0 {
-            // if end > point.end && !add_amount.is_zero() {
-            //     // This is both increasing the user's lock amount and lock time
-            //     let mut lock = LOCKED.load(store, addr.clone())?;
-            //     let coefficient = calc_coefficient(dt);
-            //     let raw_add_voting_power = coefficient.checked_mul_uint(add_amount)?;
-            //     let mut new_voting_power =
-            //         coefficient.checked_mul_uint(lock.amount).checked_add(raw_add_voting_power)?;
-            //     let slope = adjust_vp_and_slope(&mut new_voting_power, dt)?; // end_vp
-            //                                                                  // new_voting_power should always be >= current_power. saturating_sub is used for extra safety
-            //     add_voting_power = new_voting_power.saturating_sub(current_power);
-            //     lock.last_extend_lock_period = cur_period;
-            //     LOCKED.save(store, addr.clone(), &lock, env.block.height)?;
-            //     slope
-            // } else
+            // always recalculate slope when the end has changed
             if end > point.end {
-                //&& add_amount.is_zero() {
-
                 // This is extend_lock_time. Recalculating user's voting power
                 let mut lock = LOCKED.load(store, addr.clone())?;
                 let mut new_voting_power = calc_coefficient(dt).checked_mul_uint(lock.amount)?;
@@ -381,12 +366,12 @@ fn checkpoint(
             Uint128::zero()
         };
 
-        // Cancel the previously scheduled slope change
+        // Cancel the previously scheduled slope change (same logic as in cancel_scheduled_slope)
         let last_slope_change = cancel_scheduled_slope(store, point.slope, point.end)?;
 
-        // only if the point is still active and has not been processed.
         if point.end > last_slope_change {
             // We need to subtract the slope point from the total voting power slope
+            // Only if the point is still active and has not been processed/applied yet.
             old_slope = point.slope
         };
 
