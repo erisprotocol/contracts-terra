@@ -863,7 +863,7 @@ fn check_blacklist() {
 
     // Try to execute with empty arrays
     let err = helper.update_blacklist(router_ref, None, None).unwrap_err();
-    assert_eq!(err.root_cause().to_string(), "Generic error: Append and remove arrays are empty");
+    assert_eq!(err.root_cause().to_string(), "Append and remove arrays are empty");
 
     // Blacklisting user2
     let res = helper.update_blacklist(router_ref, Some(vec!["user2".to_string()]), None).unwrap();
