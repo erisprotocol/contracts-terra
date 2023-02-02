@@ -44,6 +44,9 @@ pub enum ContractError {
     #[error("The {0} address is blacklisted")]
     AddressBlacklisted(String),
 
+    #[error("Do not send the address {0} multiple times. (Blacklist)")]
+    AddressBlacklistDuplicated(String),
+
     #[error("Marketing info validation error: {0}")]
     MarketingInfoValidationError(String),
 

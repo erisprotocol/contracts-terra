@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use astroport::common::{claim_ownership, drop_ownership_proposal, propose_new_owner};
 use eris::helper::{addr_opt_validate, validate_addresses};
 use eris::DecimalCheckedOps;
@@ -758,7 +760,13 @@ fn update_blacklist(
     let mut old_slopes = Uint128::zero(); // accumulator for old slopes
     let mut old_amount = Uint128::zero(); // accumulator for old amount
 
+    let mut used_addr: HashSet<Addr> = HashSet::new();
+
     for addr in append.iter() {
+        if !used_addr.insert(addr.clone()) {
+            return Err(ContractError::AddressBlacklistDuplicated(addr.to_string()));
+        }
+
         let last_checkpoint = fetch_last_checkpoint(deps.storage, addr, cur_period_key)?;
         if let Some((_, point)) = last_checkpoint {
             // We need to checkpoint with zero power and zero slope
@@ -803,6 +811,10 @@ fn update_blacklist(
     }
 
     for addr in remove.iter() {
+        if !used_addr.insert(addr.clone()) {
+            return Err(ContractError::AddressBlacklistDuplicated(addr.to_string()));
+        }
+
         let lock_opt = LOCKED.may_load(deps.storage, addr.clone())?;
         if let Some(Lock {
             amount,
