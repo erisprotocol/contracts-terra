@@ -195,9 +195,7 @@ pub fn bond(
 }
 
 pub fn harvest(deps: DepsMut, env: Env) -> ContractResult {
-    let withdraw_msgs = deps
-        .querier
-        .query_all_delegations(&env.contract.address)?
+    let withdraw_msgs = query_all_delegations(&deps.querier, &env.contract.address)?
         .into_iter()
         .map(|d| {
             CosmosMsg::Distribution(DistributionMsg::WithdrawDelegatorReward {

@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use astroport::common::{claim_ownership, drop_ownership_proposal, propose_new_owner};
 use eris::helper::{addr_opt_validate, validate_addresses};
 use eris::DecimalCheckedOps;
@@ -79,7 +81,9 @@ pub fn instantiate(
 
     if let Some(marketing) = msg.marketing {
         if msg.logo_urls_whitelist.is_empty() {
-            return Err(StdError::generic_err("Logo URLs whitelist can not be empty").into());
+            return Err(ContractError::MarketingInfoValidationError(
+                "Logo URLs whitelist can not be empty".to_string(),
+            ));
         }
 
         validate_marketing_info(
@@ -384,8 +388,7 @@ fn checkpoint(
         }
     } else {
         // This error can't happen since this if-branch is intended for checkpoint creation
-        let end =
-            new_end.ok_or_else(|| StdError::generic_err("Checkpoint initialization error"))?;
+        let end = new_end.ok_or(ContractError::CheckpointInitializationFailed {})?;
         let dt = end - cur_period;
         add_voting_power = calc_coefficient(dt).checked_mul_uint(add_amount)?;
         let slope = adjust_vp_and_slope(&mut add_voting_power, dt)?; //add_amount
@@ -637,7 +640,7 @@ fn get_push_update_msgs_multi(
 fn get_push_update_msgs(
     config: Config,
     sender: Addr,
-    lock_info: StdResult<LockInfoResponse>,
+    lock_info: Result<LockInfoResponse, ContractError>,
 ) -> StdResult<Vec<CosmosMsg>> {
     // only send update if lock info is available. LOCK info is never removed for any user that locked anything.
     if let Ok(lock_info) = lock_info {
@@ -749,7 +752,7 @@ fn update_blacklist(
         .collect();
 
     if append.is_empty() && remove.is_empty() {
-        return Err(StdError::generic_err("Append and remove arrays are empty").into());
+        return Err(ContractError::AddressBlacklistEmpty {});
     }
 
     let cur_period = get_period(env.block.time.seconds())?;
@@ -758,7 +761,13 @@ fn update_blacklist(
     let mut old_slopes = Uint128::zero(); // accumulator for old slopes
     let mut old_amount = Uint128::zero(); // accumulator for old amount
 
+    let mut used_addr: HashSet<Addr> = HashSet::new();
+
     for addr in append.iter() {
+        if !used_addr.insert(addr.clone()) {
+            return Err(ContractError::AddressBlacklistDuplicated(addr.to_string()));
+        }
+
         let last_checkpoint = fetch_last_checkpoint(deps.storage, addr, cur_period_key)?;
         if let Some((_, point)) = last_checkpoint {
             // We need to checkpoint with zero power and zero slope
@@ -803,6 +812,10 @@ fn update_blacklist(
     }
 
     for addr in remove.iter() {
+        if !used_addr.insert(addr.clone()) {
+            return Err(ContractError::AddressBlacklistDuplicated(addr.to_string()));
+        }
+
         let lock_opt = LOCKED.may_load(deps.storage, addr.clone())?;
         if let Some(Lock {
             amount,
@@ -882,43 +895,43 @@ fn execute_update_config(
 ///
 /// * **QueryMsg::LockInfo { user }** Fetch a user's lock information.
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> Result<Binary, ContractError> {
     match msg {
         QueryMsg::CheckVotersAreBlacklisted {
             voters,
-        } => to_binary(&check_voters_are_blacklisted(deps, voters)?),
+        } => Ok(to_binary(&check_voters_are_blacklisted(deps, voters)?)?),
         QueryMsg::BlacklistedVoters {
             start_after,
             limit,
-        } => to_binary(&get_blacklisted_voters(deps, start_after, limit)?),
-        QueryMsg::TotalVamp {} => to_binary(&get_total_vamp(deps, env, None)?),
+        } => Ok(to_binary(&get_blacklisted_voters(deps, start_after, limit)?)?),
+        QueryMsg::TotalVamp {} => Ok(to_binary(&get_total_vamp(deps, env, None)?)?),
         QueryMsg::UserVamp {
             user,
-        } => to_binary(&get_user_vamp(deps, env, user, None)?),
+        } => Ok(to_binary(&get_user_vamp(deps, env, user, None)?)?),
         QueryMsg::TotalVampAt {
             time,
-        } => to_binary(&get_total_vamp(deps, env, Some(time))?),
+        } => Ok(to_binary(&get_total_vamp(deps, env, Some(time))?)?),
         QueryMsg::TotalVampAtPeriod {
             period,
-        } => to_binary(&get_total_vamp_at_period(deps, env, period)?),
+        } => Ok(to_binary(&get_total_vamp_at_period(deps, env, period)?)?),
         QueryMsg::UserVampAt {
             user,
             time,
-        } => to_binary(&get_user_vamp(deps, env, user, Some(time))?),
+        } => Ok(to_binary(&get_user_vamp(deps, env, user, Some(time))?)?),
         QueryMsg::UserVampAtPeriod {
             user,
             period,
-        } => to_binary(&get_user_vamp_at_period(deps, user, period)?),
+        } => Ok(to_binary(&get_user_vamp_at_period(deps, user, period)?)?),
         QueryMsg::LockInfo {
             user,
-        } => to_binary(&get_user_lock_info(deps, &env, user)?),
+        } => Ok(to_binary(&get_user_lock_info(deps, &env, user)?)?),
         QueryMsg::UserDepositAtHeight {
             user,
             height,
-        } => to_binary(&get_user_deposit_at_height(deps, user, height)?),
+        } => Ok(to_binary(&get_user_deposit_at_height(deps, user, height)?)?),
         QueryMsg::Config {} => {
             let config = CONFIG.load(deps.storage)?;
-            to_binary(&ConfigResponse {
+            Ok(to_binary(&ConfigResponse {
                 owner: config.owner.to_string(),
                 guardian_addr: config.guardian_addr,
                 deposit_token_addr: config.deposit_token_addr.to_string(),
@@ -928,14 +941,14 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
                     .into_iter()
                     .map(|a| a.to_string())
                     .collect(),
-            })
+            })?)
         },
         QueryMsg::Balance {
             address,
-        } => to_binary(&get_user_balance(deps, env, address)?),
-        QueryMsg::TokenInfo {} => to_binary(&query_token_info(deps, env)?),
-        QueryMsg::MarketingInfo {} => to_binary(&query_marketing_info(deps)?),
-        QueryMsg::DownloadLogo {} => to_binary(&query_download_logo(deps)?),
+        } => Ok(to_binary(&get_user_balance(deps, env, address)?)?),
+        QueryMsg::TokenInfo {} => Ok(to_binary(&query_token_info(deps, env)?)?),
+        QueryMsg::MarketingInfo {} => Ok(to_binary(&query_marketing_info(deps)?)?),
+        QueryMsg::DownloadLogo {} => Ok(to_binary(&query_download_logo(deps)?)?),
     }
 }
 
@@ -945,7 +958,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
 pub fn check_voters_are_blacklisted(
     deps: Deps,
     voters: Vec<String>,
-) -> StdResult<BlacklistedVotersResponse> {
+) -> Result<BlacklistedVotersResponse, ContractError> {
     let black_list = BLACKLIST.load(deps.storage)?;
 
     for voter in voters {
@@ -970,7 +983,7 @@ pub fn get_blacklisted_voters(
     deps: Deps,
     start_after: Option<String>,
     limit: Option<u32>,
-) -> StdResult<Vec<Addr>> {
+) -> Result<Vec<Addr>, ContractError> {
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
     let mut black_list = BLACKLIST.load(deps.storage)?;
 
@@ -983,9 +996,11 @@ pub fn get_blacklisted_voters(
     let mut start_index = Default::default();
     if let Some(start_after) = start_after {
         let start_addr = deps.api.addr_validate(start_after.as_str())?;
-        start_index = black_list.iter().position(|addr| *addr == start_addr).ok_or_else(|| {
-            StdError::generic_err(format!("The {} address is not blacklisted", start_addr.as_str()))
-        })? + 1; // start from the next element of the slice
+        start_index = black_list
+            .iter()
+            .position(|addr| *addr == start_addr)
+            .ok_or_else(|| ContractError::AddressNotBlacklisted(start_addr.to_string()))?
+            + 1; // start from the next element of the slice
     }
 
     // validate end index of the slice
@@ -997,7 +1012,11 @@ pub fn get_blacklisted_voters(
 /// Return a user's lock information.
 ///
 /// * **user** user for which we return lock information.
-fn get_user_lock_info(deps: Deps, env: &Env, user: String) -> StdResult<LockInfoResponse> {
+fn get_user_lock_info(
+    deps: Deps,
+    env: &Env,
+    user: String,
+) -> Result<LockInfoResponse, ContractError> {
     let addr = deps.api.addr_validate(&user)?;
     if let Some(lock) = LOCKED.may_load(deps.storage, addr.clone())? {
         let cur_period = get_period(env.block.time.seconds())?;
@@ -1029,7 +1048,7 @@ fn get_user_lock_info(deps: Deps, env: &Env, user: String) -> StdResult<LockInfo
         };
         Ok(resp)
     } else {
-        Err(StdError::generic_err("User is not found"))
+        Err(ContractError::UserNotFound(addr.to_string()))
     }
 }
 
@@ -1177,11 +1196,10 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, C
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     if contract_version.contract != CONTRACT_NAME {
-        return Err(StdError::generic_err(format!(
+        return Err(ContractError::MigrationError(format!(
             "contract_name does not match: prev: {0}, new: {1}",
             contract_version.contract, CONTRACT_VERSION
-        ))
-        .into());
+        )));
     }
 
     Ok(Response::new()

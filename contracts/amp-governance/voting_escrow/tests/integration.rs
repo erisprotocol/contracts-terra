@@ -672,9 +672,7 @@ fn check_queries() {
         .query_blacklisted_voters(router_ref, Some("voter9".to_string()), Some(10u32))
         .unwrap_err();
     assert_eq!(
-        StdError::generic_err(
-            "Querier contract error: Generic error: The voter9 address is not blacklisted"
-        ),
+        StdError::generic_err("Querier contract error: The voter9 address is not blacklisted"),
         err
     );
 
@@ -724,6 +722,45 @@ fn check_queries() {
         .check_voters_are_blacklisted(router_ref, vec!["voter1".to_string(), "voter8".to_string()])
         .unwrap();
     assert_eq!("Voters are blacklisted!", res.to_string());
+}
+
+#[test]
+fn check_blacklist_cannot_add_duplicates() {
+    let mut router = mock_app();
+    let router_ref = &mut router;
+    let owner = Addr::unchecked("owner");
+    let helper = Helper::init(router_ref, owner);
+
+    // add users to the blacklist
+    let err = helper
+        .update_blacklist(router_ref, Some(vec!["voter1".to_string(), "voter1".to_string()]), None)
+        .unwrap_err();
+
+    assert_eq!(
+        err.root_cause().to_string(),
+        "Do not send the address voter1 multiple times. (Blacklist)"
+    );
+
+    helper.update_blacklist(router_ref, Some(vec!["voter1".to_string()]), None).unwrap();
+
+    // duplicated user to remove
+    let err = helper
+        .update_blacklist(router_ref, None, Some(vec!["voter1".to_string(), "voter1".to_string()]))
+        .unwrap_err();
+
+    assert_eq!(
+        err.root_cause().to_string(),
+        "Do not send the address voter1 multiple times. (Blacklist)"
+    );
+
+    // will toggle the voter1 on the blacklist
+    helper
+        .update_blacklist(
+            router_ref,
+            Some(vec!["voter1".to_string()]),
+            Some(vec!["voter1".to_string()]),
+        )
+        .unwrap();
 }
 
 #[test]
@@ -826,7 +863,7 @@ fn check_blacklist() {
 
     // Try to execute with empty arrays
     let err = helper.update_blacklist(router_ref, None, None).unwrap_err();
-    assert_eq!(err.root_cause().to_string(), "Generic error: Append and remove arrays are empty");
+    assert_eq!(err.root_cause().to_string(), "Append and remove arrays are empty");
 
     // Blacklisting user2
     let res = helper.update_blacklist(router_ref, Some(vec!["user2".to_string()]), None).unwrap();

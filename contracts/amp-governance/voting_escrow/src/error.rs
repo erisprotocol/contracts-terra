@@ -29,6 +29,9 @@ pub enum ContractError {
     #[error("Lock does not exist")]
     LockDoesNotExist {},
 
+    #[error("User {0} not found")]
+    UserNotFound(String),
+
     #[error("Lock time must be within limits (week <= lock time < 2 years)")]
     LockTimeLimitsError {},
 
@@ -44,6 +47,15 @@ pub enum ContractError {
     #[error("The {0} address is blacklisted")]
     AddressBlacklisted(String),
 
+    #[error("The {0} address is not blacklisted")]
+    AddressNotBlacklisted(String),
+
+    #[error("Do not send the address {0} multiple times. (Blacklist)")]
+    AddressBlacklistDuplicated(String),
+
+    #[error("Append and remove arrays are empty")]
+    AddressBlacklistEmpty {},
+
     #[error("Marketing info validation error: {0}")]
     MarketingInfoValidationError(String),
 
@@ -56,6 +68,9 @@ pub enum ContractError {
     #[error("Invalid png header")]
     InvalidPngHeader {},
 
-    #[error("Contract can't be migrated!")]
-    MigrationError {},
+    #[error("Checkpoint initialization error")]
+    CheckpointInitializationFailed {},
+
+    #[error("Contract can't be migrated: {0}")]
+    MigrationError(String),
 }
