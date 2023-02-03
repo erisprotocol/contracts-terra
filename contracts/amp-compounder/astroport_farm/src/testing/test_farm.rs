@@ -8,7 +8,7 @@ use astroport::generator::{
 
 use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, to_binary, Addr, Coin, CosmosMsg, Decimal, DepsMut, Env, Event, MessageInfo,
+    coin, from_binary, to_binary, Addr, Coin, CosmosMsg, Decimal, DepsMut, Env, Event, MessageInfo,
     OwnedDeps, Reply, Response, StdError, SubMsgResponse, Timestamp, Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg, Expiration};
@@ -823,6 +823,51 @@ fn bond(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Result<(
             user_info: None
         }
     );
+
+    Ok(())
+}
+
+#[allow(clippy::redundant_clone)]
+#[test]
+fn bond_same_assets() -> Result<(), ContractError> {
+    let mut deps = mock_dependencies();
+    let env = mock_env();
+
+    create(&mut deps)?;
+
+    let info = mock_info(USER_1, &[coin(200, "uluna")]);
+
+    // Check with native assets
+    let assets = vec![
+        native_asset("uluna".to_string(), Uint128::new(100)),
+        native_asset("uluna".to_string(), Uint128::new(100)),
+    ];
+
+    let msg = ExecuteMsg::BondAssets {
+        assets: assets.clone(),
+        minimum_receive: Some(Uint128::from(10000u128)),
+        no_swap: None,
+        receiver: None,
+        slippage_tolerance: Some(Decimal::percent(2)),
+    };
+
+    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
+    assert_error(res, "duplicated asset");
+
+    // Check with tokens
+    let assets = vec![
+        token_asset(Addr::unchecked("token1"), Uint128::new(100)),
+        token_asset(Addr::unchecked("token1"), Uint128::new(100)),
+    ];
+    let msg = ExecuteMsg::BondAssets {
+        assets: assets.clone(),
+        minimum_receive: Some(Uint128::from(10000u128)),
+        no_swap: None,
+        receiver: None,
+        slippage_tolerance: Some(Decimal::percent(2)),
+    };
+    let res = execute(deps.as_mut(), env.clone(), info, msg.clone());
+    assert_error(res, "duplicated asset");
 
     Ok(())
 }

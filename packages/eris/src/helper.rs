@@ -4,7 +4,7 @@ use cosmwasm_std::{
     Uint128, Uint256,
 };
 use cw20::Expiration;
-use std::convert::TryInto;
+use std::{collections::HashSet, convert::TryInto};
 
 use crate::adapters::asset::AssetEx;
 
@@ -26,6 +26,16 @@ pub fn addr_opt_validate(api: &dyn Api, addr: &Option<String>) -> StdResult<Opti
 /// If any address is invalid, the function returns [`StdError`].
 pub fn validate_addresses(api: &dyn Api, admins: &[String]) -> StdResult<Vec<Addr>> {
     admins.iter().map(|addr| api.addr_validate(addr)).collect()
+}
+
+/// Validates that each asset info is only once in the Vector
+pub fn assert_uniq_assets(assets: &[Asset]) -> StdResult<()> {
+    let mut uniq = HashSet::new();
+    if !assets.iter().all(|a| uniq.insert(a.info.to_string())) {
+        return Err(StdError::generic_err("duplicated asset"));
+    }
+
+    Ok(())
 }
 
 pub fn funds_or_allowance(
@@ -75,6 +85,8 @@ impl ScalingUint128 for Uint128 {
 
 #[cfg(test)]
 mod tests {
+    use astroport::asset::{native_asset, token_asset};
+
     use super::*;
 
     #[test]
@@ -86,5 +98,41 @@ mod tests {
         let a = Uint128::new(123);
         let b = a.multiply_ratio_and_ceil(Uint128::new(1), Uint128::new(3));
         assert_eq!(b, Uint128::new(41));
+    }
+
+    #[test]
+    fn assets_uniq_test() {
+        // no duplicate
+        assert_uniq_assets(&[
+            native_asset("uluna".to_string(), Uint128::new(100)),
+            token_asset(Addr::unchecked("token1"), Uint128::new(100)),
+        ])
+        .unwrap();
+
+        // no duplicate
+        assert_uniq_assets(&[
+            token_asset(Addr::unchecked("token1"), Uint128::new(100)),
+            token_asset(Addr::unchecked("token2"), Uint128::new(100)),
+            native_asset("uluna".to_string(), Uint128::new(100)),
+            native_asset("uusd".to_string(), Uint128::new(100)),
+        ])
+        .unwrap();
+
+        // duplicated native
+        assert_uniq_assets(&[
+            native_asset("uluna".to_string(), Uint128::new(100)),
+            native_asset("uluna".to_string(), Uint128::new(100)),
+            token_asset(Addr::unchecked("token1"), Uint128::new(100)),
+        ])
+        .unwrap_err();
+
+        // duplicated token
+        assert_uniq_assets(&[
+            token_asset(Addr::unchecked("token1"), Uint128::new(100)),
+            token_asset(Addr::unchecked("token1"), Uint128::new(100)),
+            token_asset(Addr::unchecked("token2"), Uint128::new(100)),
+            native_asset("uluna".to_string(), Uint128::new(100)),
+        ])
+        .unwrap_err();
     }
 }

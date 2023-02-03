@@ -1,7 +1,7 @@
 use astroport::asset::{token_asset, Asset};
 use astroport::querier::query_token_balance;
 use cosmwasm_std::{attr, Addr, CosmosMsg, Decimal, DepsMut, Env, MessageInfo, Response, Uint128};
-use eris::helper::funds_or_allowance;
+use eris::helper::{assert_uniq_assets, funds_or_allowance};
 
 use crate::error::ContractError;
 use crate::state::{Config, ScalingOperation, CONFIG, STATE};
@@ -24,6 +24,8 @@ pub fn bond_assets(
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     let lp_token = config.lp_token;
+
+    assert_uniq_assets(&assets)?;
 
     let (funds, mut messages) =
         funds_or_allowance(&env, &config.compound_proxy.0, &assets, Some(&info))?;

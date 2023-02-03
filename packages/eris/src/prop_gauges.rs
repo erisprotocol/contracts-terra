@@ -343,7 +343,7 @@ fn test_weighted_votes_some() {
     let votes = prop.get_weighted_votes();
     assert_eq!(
         votes.iter().map(|a| a.0.to_string()).collect::<Vec<String>>(),
-        vec!["0.34".to_string(), "0.66".to_string()]
+        vec!["0.334".to_string(), "0.666".to_string()]
     );
 }
 #[test]

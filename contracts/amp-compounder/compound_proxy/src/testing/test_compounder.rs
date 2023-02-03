@@ -765,6 +765,27 @@ fn compound_token_path() -> Result<(), ContractError> {
 
 #[allow(clippy::redundant_clone)]
 #[test]
+fn compound_same_asset() -> Result<(), ContractError> {
+    let mut deps = init_contract(None, None);
+    let env = mock_env();
+
+    let msg = ExecuteMsg::Compound {
+        rewards: vec![uluna_amount(1000000), uluna_amount(1000000)],
+        receiver: None,
+        no_swap: Some(true),
+        slippage_tolerance: Some(Decimal::percent(2)),
+        lp_token: "liquidity_token".to_string(),
+    };
+
+    let info = mock_info("addr0000", &[coin(1000000 + 1000000, "uluna")]);
+    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap_err();
+
+    assert_eq!(res.to_string(), "Generic error: duplicated asset".to_string());
+    Ok(())
+}
+
+#[allow(clippy::redundant_clone)]
+#[test]
 fn compound_failed() -> Result<(), ContractError> {
     let mut deps = init_contract(None, None);
     let env = mock_env();

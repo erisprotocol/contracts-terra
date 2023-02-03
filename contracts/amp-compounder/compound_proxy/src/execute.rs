@@ -16,6 +16,7 @@ use eris::compound_proxy::{CallbackMsg, ExecuteMsg, LpConfig};
 use astroport::asset::{Asset, AssetInfo, AssetInfoExt};
 use eris::adapters::asset::AssetEx;
 use eris::adapters::pair::Pair;
+use eris::helper::assert_uniq_assets;
 
 /// ## Description
 /// Performs rewards compounding to LP token. Sender must do token approval upon calling this function.
@@ -30,6 +31,8 @@ pub fn compound(
     slippage_tolerance: Option<Decimal>,
     lp_token: String,
 ) -> Result<Response, ContractError> {
+    assert_uniq_assets(&rewards)?;
+
     let state = State::default();
     let factory: Option<Factory> = state.config.load(deps.storage)?.factory;
     let lp_config = state
@@ -123,6 +126,8 @@ pub fn multi_swap(
     rewards: Vec<Asset>,
     receiver: Addr,
 ) -> Result<Response, ContractError> {
+    assert_uniq_assets(&rewards)?;
+
     let state = State::default();
     let factory: Option<Factory> = state.config.load(deps.storage)?.factory;
 
