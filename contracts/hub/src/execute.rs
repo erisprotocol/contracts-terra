@@ -654,7 +654,7 @@ pub fn rebalance(
     let new_redelegations =
         compute_redelegations_for_rebalancing(&state, deps.storage, &delegations, validators)?
             .into_iter()
-            .filter(|redelegation| redelegation.amount > min_redelegation.u128())
+            .filter(|redelegation| redelegation.amount >= min_redelegation.u128())
             .collect::<Vec<_>>();
 
     let redelegate_msgs = new_redelegations.iter().map(|rd| rd.to_cosmos_msg()).collect::<Vec<_>>();
