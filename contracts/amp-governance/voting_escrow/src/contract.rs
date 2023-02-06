@@ -269,12 +269,7 @@ fn checkpoint_total(
                 point = Point {
                     power: calc_voting_power(&point, recalc_period),
                     start: recalc_period,
-                    slope: point.slope.checked_sub(scheduled_change).map_err(|orig| {
-                        ContractError::OverflowLocation {
-                            location: "checkpoint_total:recalculating".into(),
-                            orig,
-                        }
-                    })?,
+                    slope: point.slope.saturating_sub(scheduled_change),
                     ..point
                 };
                 HISTORY.save(storage, (contract_addr.clone(), recalc_period), &point)?
@@ -288,12 +283,7 @@ fn checkpoint_total(
 
         Point {
             power: new_power,
-            slope: point.slope.checked_sub(old_slope).map_err(|orig| {
-                ContractError::OverflowLocation {
-                    location: "checkpoint_total:new_point".into(),
-                    orig,
-                }
-            })? + new_slope,
+            slope: point.slope.saturating_sub(old_slope) + new_slope,
             start: cur_period,
             fixed: (point.fixed + add_amount)
                 .checked_sub(reduce_amount.unwrap_or_default())
