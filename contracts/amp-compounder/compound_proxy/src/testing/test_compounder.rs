@@ -449,7 +449,7 @@ fn add_remove_routes() -> StdResult<()> {
             delete_routes: Some(vec![RouteDelete {
                 from: astro(),
                 to: uluna(),
-                both: Some(false),
+                both: Some(true),
             }]),
             insert_routes: Some(vec![RouteInit::Path {
                 router: "router".to_string(),
