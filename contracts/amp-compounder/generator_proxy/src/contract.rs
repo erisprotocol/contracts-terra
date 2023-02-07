@@ -25,8 +25,12 @@ use cosmwasm_std::{
     entry_point, from_binary, to_binary, Binary, Decimal, Deps, DepsMut, Empty, Env, MessageInfo,
     Response, StdError, Uint128,
 };
+use cw2::set_contract_version;
 use cw20::Cw20ReceiveMsg;
 use eris::adapters::generator::Generator;
+
+pub const CONTRACT_NAME: &str = "eris-generator-proxy";
+pub const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// ## Description
 /// Creates a new contract with the specified parameters in the [`InstantiateMsg`].
@@ -233,6 +237,12 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> Result<Binary, ContractErro
 /// ## Description
 /// Used for contract migration. Returns a default object of type [`Response`].
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: Empty) -> Result<Response, ContractError> {
-    Ok(Response::default())
+pub fn migrate(deps: DepsMut, _env: Env, _msg: Empty) -> Result<Response, ContractError> {
+    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+    Ok(Response::new()
+        // .add_attribute("previous_contract_name", &contract_version.contract)
+        // .add_attribute("previous_contract_version", &contract_version.version)
+        .add_attribute("new_contract_name", CONTRACT_NAME)
+        .add_attribute("new_contract_version", CONTRACT_VERSION))
 }

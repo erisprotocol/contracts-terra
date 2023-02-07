@@ -312,9 +312,8 @@ fn deposit(
         [
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: GENERATOR.to_string(),
-                msg: to_binary(&GeneratorExecuteMsg::Withdraw {
-                    lp_token: LP_TOKEN.to_string(),
-                    amount: Uint128::zero()
+                msg: to_binary(&GeneratorExecuteMsg::ClaimRewards {
+                    lp_tokens: vec![LP_TOKEN.to_string()]
                 })?,
                 funds: vec![],
             }),
@@ -569,9 +568,8 @@ fn claim_rewards(
         [
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: GENERATOR.to_string(),
-                msg: to_binary(&GeneratorExecuteMsg::Withdraw {
-                    lp_token: LP_TOKEN.to_string(),
-                    amount: Uint128::zero()
+                msg: to_binary(&GeneratorExecuteMsg::ClaimRewards {
+                    lp_tokens: vec![LP_TOKEN.to_string()]
                 })?,
                 funds: vec![],
             }),
@@ -774,9 +772,8 @@ fn withdraw(
         [
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: GENERATOR.to_string(),
-                msg: to_binary(&GeneratorExecuteMsg::Withdraw {
-                    lp_token: LP_TOKEN.to_string(),
-                    amount: Uint128::zero()
+                msg: to_binary(&GeneratorExecuteMsg::ClaimRewards {
+                    lp_tokens: vec![LP_TOKEN.to_string()]
                 })?,
                 funds: vec![],
             }),
