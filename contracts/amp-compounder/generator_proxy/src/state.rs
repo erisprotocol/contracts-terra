@@ -1,7 +1,7 @@
-use astroport::common::OwnershipProposal;
-use cosmwasm_std::{Addr};
-use cw_storage_plus::{Item, Map};
 use crate::model::{Config, PoolInfo, RewardInfo, StakerInfo, StakingState, UserInfo};
+use astroport::common::OwnershipProposal;
+use cosmwasm_std::Addr;
+use cw_storage_plus::{Item, Map};
 
 /// Stores the contract config
 pub const CONFIG: Item<Config> = Item::new("config");

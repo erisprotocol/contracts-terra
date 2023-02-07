@@ -30,7 +30,8 @@ pub fn execute_deposit(
         let (claim, prev_balances) =
             reconcile_claimed_by_others(deps, &env, &config, &info.sender, &astro_user_info)?;
         if claim {
-            messages.push(config.generator.withdraw_msg(info.sender.to_string(), Uint128::zero())?);
+            let lp_token = info.sender.to_string();
+            messages.push(config.generator.claim_rewards_msg(vec![lp_token])?);
             messages.push(
                 CallbackMsg::AfterBondClaimed {
                     lp_token: info.sender.clone(),
@@ -51,7 +52,7 @@ pub fn execute_deposit(
             }
             .to_cosmos_msg(&env.contract.address)?,
         )
-        .add_attribute("action", "deposit"))
+        .add_attribute("action", "ampg/deposit"))
 }
 
 pub fn execute_withdraw(
@@ -72,7 +73,7 @@ pub fn execute_withdraw(
 
     let mut messages: Vec<CosmosMsg> = vec![];
     if claim {
-        messages.push(config.generator.withdraw_msg(lp_token.to_string(), Uint128::zero())?);
+        messages.push(config.generator.claim_rewards_msg(vec![lp_token.to_string()])?);
         messages.push(
             CallbackMsg::AfterBondClaimed {
                 lp_token: lp_token.clone(),
@@ -92,7 +93,7 @@ pub fn execute_withdraw(
             }
             .to_cosmos_msg(&env.contract.address)?,
         )
-        .add_attribute("action", "withdraw"))
+        .add_attribute("action", "ampg/withdraw"))
 }
 
 pub fn execute_claim_rewards(
@@ -114,7 +115,7 @@ pub fn execute_claim_rewards(
         let (claim, prev_balances) =
             reconcile_claimed_by_others(deps.branch(), &env, &config, &lp_token, &astro_user_info)?;
         if claim {
-            messages.push(config.generator.withdraw_msg(lp_token.to_string(), Uint128::zero())?);
+            messages.push(config.generator.claim_rewards_msg(vec![lp_token.to_string()])?);
             messages.push(
                 CallbackMsg::AfterBondClaimed {
                     lp_token: lp_token.clone(),
@@ -132,7 +133,7 @@ pub fn execute_claim_rewards(
         );
     }
 
-    Ok(Response::new().add_messages(messages).add_attribute("action", "claim_rewards"))
+    Ok(Response::new().add_messages(messages).add_attribute("action", "ampg/claim_rewards"))
 }
 
 fn fetch_balance(

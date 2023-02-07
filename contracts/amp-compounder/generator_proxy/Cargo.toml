@@ -1,6 +1,6 @@
 [package]
 name = "eris-generator-proxy"
-version = "1.2.0"
+version = "1.3.0"
 authors = ["Spectrum", "Eris"]
 edition = "2021"
 description = "Proxy contract to Astroport generator"
@@ -25,6 +25,7 @@ backtraces = ["cosmwasm-std/backtraces"]
 astroport = { git = "https://github.com/astroport-fi/astroport-core.git", default-features = false, rev = "bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62" }
 astroport-governance = { git = "https://github.com/astroport-fi/astroport-governance.git", default-features = false, rev = "6cb3becc39c9d0c29eff66bbf7dd751a882fea7d" }
 eris = { path = "../../../packages/eris" }
+cw2 = "0.13.2"
 cw20 = { version = "0.13.2" }
 cosmwasm-std = "1.0"
 cw-storage-plus = { version = "0.13.2" }
