@@ -12,7 +12,7 @@ use crate::state::State;
 use crate::{constants::CONTRACT_DENOM, error::ContractResult};
 use eris::{
     adapters::asset::AssetInfosEx,
-    ampz::{CallbackMsg, Destination},
+    ampz::{CallbackMsg, DestinationState},
 };
 
 pub fn execute_id(deps: DepsMut, env: Env, info: MessageInfo, id: u128) -> ContractResult {
@@ -88,7 +88,7 @@ pub fn execute_id(deps: DepsMut, env: Env, info: MessageInfo, id: u128) -> Contr
             let msg = astroport.generator.claim_rewards_msg(lps)?.to_authz_msg(&user, &env)?;
             msgs.push(msg);
 
-            if let Destination::DepositAmplifier {} = execution.destination {
+            if let DestinationState::DepositAmplifier {} = execution.destination {
                 // depositing in amplifier only possible from native chain token (e.g. uluna).
                 requires_swap = true;
             }
@@ -102,7 +102,7 @@ pub fn execute_id(deps: DepsMut, env: Env, info: MessageInfo, id: u128) -> Contr
                 return Err(ContractError::BalanceLessThanThreshold {});
             }
 
-            if let Destination::DepositAmplifier {} = execution.destination {
+            if let DestinationState::DepositAmplifier {} = execution.destination {
                 if over.info != native_asset_info(CONTRACT_DENOM.to_string()) {
                     // if we deposit into amplifier and the deposit asset is not the native chain token, convert it.
                     requires_swap = true;
@@ -145,8 +145,7 @@ pub fn execute_id(deps: DepsMut, env: Env, info: MessageInfo, id: u128) -> Contr
 
     msgs.push(
         CallbackMsg::FinishExecution {
-            destination: execution.destination,
-            asset_infos,
+            destination: execution.destination.to_runtime(asset_infos),
             executor: info.sender,
         }
         .into_cosmos_msg(&env.contract.address, id, &user)?,

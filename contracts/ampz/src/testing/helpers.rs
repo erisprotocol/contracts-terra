@@ -5,7 +5,7 @@ use cosmwasm_std::testing::{
     mock_env, mock_info, BankQuerier, MockApi, MockStorage, StakingQuerier, MOCK_CONTRACT_ADDR,
 };
 use cosmwasm_std::{
-    coin, coins, from_binary, Addr, BlockInfo, ContractInfo, Decimal, Deps, Env, FullDelegation,
+    coin, from_binary, Addr, BlockInfo, ContractInfo, Decimal, Deps, Env, FullDelegation,
     OwnedDeps, QuerierResult, Response, StdError, SystemError, SystemResult, Timestamp, Uint128,
     Validator,
 };
@@ -71,6 +71,20 @@ pub(super) fn mock_env_at_timestamp(timestamp: u64) -> Env {
     }
 }
 
+pub(super) fn mock_env_at_timestamp_height(timestamp: u64, height: u64) -> Env {
+    Env {
+        block: BlockInfo {
+            height,
+            time: Timestamp::from_seconds(timestamp),
+            chain_id: "cosmos-testnet-14002".to_string(),
+        },
+        contract: ContractInfo {
+            address: Addr::unchecked(MOCK_CONTRACT_ADDR),
+        },
+        transaction: None,
+    }
+}
+
 pub(super) fn query_helper<T: DeserializeOwned>(deps: Deps, msg: QueryMsg) -> T {
     from_binary(&query(deps, mock_env(), msg).unwrap()).unwrap()
 }
@@ -105,7 +119,7 @@ pub(super) fn setup_test() -> OwnedDeps<MockStorage, MockApi, CustomQuerier> {
             },
             fee: FeeConfig {
                 fee_bps: 100u16.try_into().unwrap(),
-                operator_bps: 100u16.try_into().unwrap(),
+                operator_bps: 200u16.try_into().unwrap(),
                 receiver: "fee_receiver".into(),
             },
         },
@@ -122,7 +136,7 @@ pub(super) fn add_default_execution(
 ) -> u128 {
     let interval_s = 100;
     let execution = Execution {
-        destination: eris::ampz::Destination::DepositAmplifier {},
+        destination: eris::ampz::DestinationState::DepositAmplifier {},
         schedule: Schedule {
             interval_s,
             start: None,
@@ -154,8 +168,7 @@ pub(super) fn finish_amplifier(
     executor: &str,
 ) -> Response {
     let finish_execution = CallbackMsg::FinishExecution {
-        asset_infos: vec![native_asset_info(CONTRACT_DENOM.to_string())],
-        destination: eris::ampz::Destination::DepositAmplifier {},
+        destination: eris::ampz::DestinationRuntime::DepositAmplifier {},
         executor: Addr::unchecked(executor),
     };
 

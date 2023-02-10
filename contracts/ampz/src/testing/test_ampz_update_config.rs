@@ -37,7 +37,7 @@ fn check_default_config() {
             },
             fee: FeeConfig {
                 fee_bps: 100u16.try_into().unwrap(),
-                operator_bps: 100u16.try_into().unwrap(),
+                operator_bps: 200u16.try_into().unwrap(),
                 receiver: "fee_receiver".into()
             }
         }

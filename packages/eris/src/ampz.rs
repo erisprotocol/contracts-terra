@@ -50,7 +50,7 @@ pub struct VestingPeriod {
 pub struct Execution {
     pub user: String,
     pub source: Source,
-    pub destination: Destination,
+    pub destination: DestinationState,
     pub schedule: Schedule,
 }
 
@@ -174,9 +174,32 @@ pub struct CallbackWrapper {
 }
 
 #[cw_serde]
-pub enum Destination {
+pub enum DestinationState {
     DepositAmplifier {},
     DepositFarm {
+        farm: String,
+    },
+}
+
+impl DestinationState {
+    pub fn to_runtime(self, asset_infos: Vec<AssetInfo>) -> DestinationRuntime {
+        match self {
+            DestinationState::DepositAmplifier {} => DestinationRuntime::DepositAmplifier {},
+            DestinationState::DepositFarm {
+                farm,
+            } => DestinationRuntime::DepositFarm {
+                asset_infos,
+                farm,
+            },
+        }
+    }
+}
+
+#[cw_serde]
+pub enum DestinationRuntime {
+    DepositAmplifier {},
+    DepositFarm {
+        asset_infos: Vec<AssetInfo>,
         farm: String,
     },
 }
@@ -195,8 +218,7 @@ pub enum CallbackMsg {
     },
 
     FinishExecution {
-        asset_infos: Vec<AssetInfo>,
-        destination: Destination,
+        destination: DestinationRuntime,
         executor: Addr,
     },
 }

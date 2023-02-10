@@ -2,6 +2,7 @@ mod custom_querier;
 mod cw20_querier;
 mod helpers;
 mod test_ampz_check_fees;
+pub mod test_ampz_execution_callbacks;
 mod test_ampz_execution_interval;
 pub mod test_ampz_execution_remove;
 pub mod test_ampz_execution_types;

@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
-use astroport::asset::{Asset, AssetInfo, AssetInfoExt};
+use astroport::asset::{Asset, AssetInfo};
 use cosmwasm_std::{
     to_binary, Addr, BankMsg, Coin, CosmosMsg, MessageInfo, QuerierWrapper, StdError, StdResult,
     Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, Expiration};
 
-use crate::{fees_collector::TargetConfigChecked, helpers::bps::BasicPoints};
+use crate::fees_collector::TargetConfigChecked;
 
 pub trait AssetInfosEx {
     fn query_balances(&self, querier: &QuerierWrapper, address: &Addr) -> StdResult<Vec<Asset>>;
@@ -77,36 +77,6 @@ impl AssetsEx for Vec<Asset> {
     }
 }
 
-// impl fmt::Display for Vec<Asset> {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-
-//         let mut comma_separated = String::new();
-
-//         for num in &self.0[0..self.0.len() - 1] {
-//             comma_separated.push_str(&num.to_string());
-//             comma_separated.push_str(", ");
-//         }
-
-//         comma_separated.push_str(&self.0[self.0.len() - 1].to_string());
-//         write!(f, "{}", comma_separated)
-//     }
-// }
-
-// impl Display for Vec<Asset> {
-//     fn fmt(&self, f: &mut Formatter) -> Result {
-//         Coin
-//         let mut comma_separated = String::new();
-
-//         for num in &self.0[0..self.0.len() - 1] {
-//             comma_separated.push_str(&num.to_string());
-//             comma_separated.push_str(", ");
-//         }
-
-//         comma_separated.push_str(&self.0[self.0.len() - 1].to_string());
-//         write!(f, "{}", comma_separated)
-//     }
-// }
-
 pub trait AssetEx {
     fn transfer_msg(&self, to: &Addr) -> StdResult<CosmosMsg>;
     fn transfer_msg_target(&self, to: &TargetConfigChecked) -> StdResult<CosmosMsg>;
@@ -123,8 +93,6 @@ pub trait AssetEx {
         recipient: &Addr,
         messages: &mut Vec<CosmosMsg>,
     ) -> StdResult<()>;
-
-    fn subtract_fee(&self, fee: BasicPoints) -> (Asset, Uint128);
 }
 
 impl AssetEx for Asset {
@@ -240,11 +208,5 @@ impl AssetEx for Asset {
             },
         };
         Ok(())
-    }
-
-    fn subtract_fee(&self, fee_percent: BasicPoints) -> (Asset, Uint128) {
-        let fee_absolute = self.amount * fee_percent.decimal();
-        let new_amount = self.amount.saturating_sub(fee_absolute);
-        (self.info.with_balance(new_amount), fee_absolute)
     }
 }

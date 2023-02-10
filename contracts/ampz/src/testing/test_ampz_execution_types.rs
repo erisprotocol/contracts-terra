@@ -1,5 +1,7 @@
 use cosmwasm_std::testing::mock_info;
+use eris::adapters::generator::Generator;
 
+use crate::protos::msgex::CosmosMsgEx;
 use crate::testing::helpers::finish_amplifier;
 use crate::{contract::execute, error::ContractError};
 
@@ -27,7 +29,7 @@ fn check_execution_source_claim_deposit_amplifier() {
 
     let interval_s = 100;
     let execution = Execution {
-        destination: eris::ampz::Destination::DepositAmplifier {},
+        destination: eris::ampz::DestinationState::DepositAmplifier {},
         schedule: Schedule {
             interval_s,
             start: None,
@@ -37,8 +39,7 @@ fn check_execution_source_claim_deposit_amplifier() {
     };
 
     let finish_execution = CallbackMsg::FinishExecution {
-        asset_infos: vec![native_asset_info(CONTRACT_DENOM.to_string())],
-        destination: eris::ampz::Destination::DepositAmplifier {},
+        destination: eris::ampz::DestinationRuntime::DepositAmplifier {},
         executor: Addr::unchecked("controller"),
     };
 
@@ -106,7 +107,7 @@ fn check_execution_source_wallet_native_deposit_amplifier() {
 
     let interval_s = 100;
     let execution = Execution {
-        destination: eris::ampz::Destination::DepositAmplifier {},
+        destination: eris::ampz::DestinationState::DepositAmplifier {},
         schedule: Schedule {
             interval_s,
             start: None,
@@ -119,8 +120,7 @@ fn check_execution_source_wallet_native_deposit_amplifier() {
     };
 
     let finish_execution = CallbackMsg::FinishExecution {
-        asset_infos: vec![native_asset_info(CONTRACT_DENOM.to_string())],
-        destination: eris::ampz::Destination::DepositAmplifier {},
+        destination: eris::ampz::DestinationRuntime::DepositAmplifier {},
         executor: Addr::unchecked("controller"),
     };
 
@@ -189,7 +189,7 @@ fn check_execution_source_wallet_cw20_deposit_amplifier() {
 
     let interval_s = 100;
     let execution = Execution {
-        destination: eris::ampz::Destination::DepositAmplifier {},
+        destination: eris::ampz::DestinationState::DepositAmplifier {},
         schedule: Schedule {
             interval_s,
             start: None,
@@ -266,8 +266,7 @@ fn check_execution_source_wallet_cw20_deposit_amplifier() {
     assert_eq!(
         res.messages[2].msg,
         CallbackMsg::FinishExecution {
-            asset_infos: vec![native_asset_info(CONTRACT_DENOM.to_string())],
-            destination: eris::ampz::Destination::DepositAmplifier {},
+            destination: eris::ampz::DestinationRuntime::DepositAmplifier {},
             executor: Addr::unchecked("controller"),
         }
         .into_cosmos_msg(&Addr::unchecked(MOCK_CONTRACT_ADDR), 1, &Addr::unchecked("user"))
@@ -285,7 +284,7 @@ fn check_execution_source_astro_deposit_amplifier() {
 
     let interval_s = 100;
     let execution = Execution {
-        destination: eris::ampz::Destination::DepositAmplifier {},
+        destination: eris::ampz::DestinationState::DepositAmplifier {},
         schedule: Schedule {
             interval_s,
             start: None,
@@ -307,20 +306,7 @@ fn check_execution_source_astro_deposit_amplifier() {
     )
     .unwrap();
 
-    let res = execute(
-        deps.as_mut(),
-        mock_env_at_timestamp(1000),
-        mock_info("controller", &[]),
-        ExecuteMsg::Execute {
-            id: 1,
-        },
-    )
-    .unwrap_err();
-
-    assert_eq!(res, ContractError::BalanceLessThanThreshold {});
-
-    deps.querier.set_cw20_balance("user", "astro", 105);
-
+    let env = mock_env_at_timestamp(1000);
     let res = execute(
         deps.as_mut(),
         mock_env_at_timestamp(1000),
@@ -331,38 +317,56 @@ fn check_execution_source_astro_deposit_amplifier() {
     )
     .unwrap();
 
-    // deposit + swap + finish
+    // claim_astro + deposit + swap + finish
     assert_eq!(
         res.messages[0].msg,
+        Generator(Addr::unchecked("generator"))
+            .claim_rewards_msg(vec!["lp1".into(), "lp2".into()])
+            .unwrap()
+            .to_authz_msg("user", &env)
+            .unwrap()
+    );
+    // claim increases user balance
+    deps.querier.bank_querier.update_balance("user", coins(120, CONTRACT_DENOM));
+    deps.querier.set_cw20_balance("user", "astro", 1300);
+
+    assert_eq!(
+        res.messages[1].msg,
         CallbackMsg::AuthzDeposit {
-            user_balance_start: vec![token_asset(astro(), Uint128::new(100))],
-            max_amount: Some(vec![token_asset(astro(), Uint128::new(10))])
+            user_balance_start: vec![
+                native_asset(CONTRACT_DENOM.into(), Uint128::new(100)),
+                token_asset(astro(), Uint128::new(1000))
+            ],
+            max_amount: None
         }
         .into_cosmos_msg(&Addr::unchecked(MOCK_CONTRACT_ADDR), 1, &Addr::unchecked("user"))
         .unwrap()
     );
 
-    deps.querier.set_cw20_balance("user", "astro", 100);
-    deps.querier.set_cw20_balance(MOCK_CONTRACT_ADDR, "astro", 5);
+    // deposit adds funds to the contract
+    deps.querier.bank_querier.update_balance("user", coins(100, CONTRACT_DENOM));
+    deps.querier.set_cw20_balance("user", "astro", 1000);
+
+    deps.querier.bank_querier.update_balance(MOCK_CONTRACT_ADDR, coins(20, CONTRACT_DENOM));
+    deps.querier.set_cw20_balance(MOCK_CONTRACT_ADDR, "astro", 300);
 
     assert_eq!(
-        res.messages[1].msg,
+        res.messages[2].msg,
         CallbackMsg::Swap {
-            asset_infos: vec![token_asset_info(astro())],
+            asset_infos: vec![native_asset_info(CONTRACT_DENOM.into()), token_asset_info(astro())],
             into: native_asset_info(CONTRACT_DENOM.into())
         }
         .into_cosmos_msg(&Addr::unchecked(MOCK_CONTRACT_ADDR), 1, &Addr::unchecked("user"))
         .unwrap()
     );
 
+    deps.querier.bank_querier.update_balance(MOCK_CONTRACT_ADDR, coins(50, CONTRACT_DENOM));
     deps.querier.set_cw20_balance(MOCK_CONTRACT_ADDR, "astro", 0);
-    deps.querier.bank_querier.update_balance(MOCK_CONTRACT_ADDR, coins(5, CONTRACT_DENOM));
 
     assert_eq!(
-        res.messages[2].msg,
+        res.messages[3].msg,
         CallbackMsg::FinishExecution {
-            asset_infos: vec![native_asset_info(CONTRACT_DENOM.to_string())],
-            destination: eris::ampz::Destination::DepositAmplifier {},
+            destination: eris::ampz::DestinationRuntime::DepositAmplifier {},
             executor: Addr::unchecked("controller"),
         }
         .into_cosmos_msg(&Addr::unchecked(MOCK_CONTRACT_ADDR), 1, &Addr::unchecked("user"))

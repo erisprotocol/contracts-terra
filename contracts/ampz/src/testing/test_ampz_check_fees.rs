@@ -42,14 +42,14 @@ fn controller_executes_receives_no_fee() {
     assert_eq!(
         res.messages[0].msg,
         // 1%+1% is sent to fee_receiver
-        native_asset(CONTRACT_DENOM.into(), Uint128::new(2))
+        native_asset(CONTRACT_DENOM.into(), Uint128::new(3))
             .transfer_msg(&Addr::unchecked("fee_receiver"))
             .unwrap(),
     );
 
     assert_eq!(
         res.messages[1].msg,
-        Hub(Addr::unchecked("hub")).bond_msg(CONTRACT_DENOM, 98, Some("user".into())).unwrap()
+        Hub(Addr::unchecked("hub")).bond_msg(CONTRACT_DENOM, 97, Some("user".into())).unwrap()
     );
 }
 
@@ -125,13 +125,13 @@ fn anyone_executes_multiple_fee() {
     assert_eq!(
         res.messages[1].msg,
         // 1% is sent to executor
-        native_asset(CONTRACT_DENOM.into(), Uint128::new(1))
+        native_asset(CONTRACT_DENOM.into(), Uint128::new(2))
             .transfer_msg(&Addr::unchecked("anyone"))
             .unwrap(),
     );
 
     assert_eq!(
         res.messages[2].msg,
-        Hub(Addr::unchecked("hub")).bond_msg(CONTRACT_DENOM, 98, Some("user".into())).unwrap()
+        Hub(Addr::unchecked("hub")).bond_msg(CONTRACT_DENOM, 97, Some("user".into())).unwrap()
     );
 }

@@ -2,8 +2,8 @@ use std::vec;
 
 use astroport::asset::{native_asset_info, Asset, AssetInfoExt};
 use cosmwasm_std::{
-    attr, Addr, Attribute, CosmosMsg, Decimal, DepsMut, Env, MessageInfo, Response, StdError,
-    StdResult,
+    attr, Addr, Attribute, CosmosMsg, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
+    Uint128,
 };
 
 use crate::constants::CONTRACT_DENOM;
@@ -34,6 +34,8 @@ pub fn callback(
     let mut msgs: Vec<CosmosMsg> = vec![];
     let mut attrs: Vec<Attribute> = vec![];
 
+    // we are not revalidating the id and the user, as the callback comes from ourself in a trusted way
+
     match callback_wrapper.message {
         CallbackMsg::AuthzDeposit {
             user_balance_start,
@@ -45,6 +47,10 @@ pub fn callback(
             // the contract queries the same assets again and takes a diff of what has been added
             let balances =
                 user_balance_start.query_balance_diff(&deps.querier, &user, max_amount)?;
+
+            if balances.is_empty() {
+                return Err(ContractError::NothingToDeposit {});
+            }
 
             // rest is used to create allowance or deposit messages into the ampz contract
             let (funds, allowances) =
@@ -68,30 +74,40 @@ pub fn callback(
         } => {
             attrs.push(attr("type", "swap"));
 
-            // this swaps all specified assets to the "into" asset.
+            // this swaps all specified assets to the "into" asset. Ignoring already correctly swapped assets.
             let asset_infos = asset_infos.into_iter().filter(|info| *info != into).collect_vec();
-            let balances = asset_infos.query_balances(&deps.querier, &env.contract.address)?;
-            let zapper = state.zapper.load(deps.storage)?;
+            let balances = asset_infos
+                .query_balances(&deps.querier, &env.contract.address)?
+                .into_iter()
+                .filter(|asset| !asset.amount.is_zero())
+                .collect_vec();
 
-            let (funds, mut allowances) = funds_or_allowance(&env, &zapper.0, &balances, None)?;
+            if balances.is_empty() {
+                // when executing a swap and nothing needs to be swapped, we can still continue
+                attrs.push(attr("skipped-swap", "1"));
+                attrs.push(attr("to", format!("{:?}", into)));
+            } else {
+                let zapper = state.zapper.load(deps.storage)?;
 
-            for asset in balances.iter() {
-                attrs.push(attr("from", asset.to_string()));
+                let (funds, mut allowances) = funds_or_allowance(&env, &zapper.0, &balances, None)?;
+
+                for asset in balances.iter() {
+                    attrs.push(attr("from", asset.to_string()));
+                }
+
+                // it uses the ERIS zapper multi-swap feature
+                msgs.append(&mut allowances);
+                msgs.push(zapper.multi_swap_msg(balances, into.clone(), funds, None)?);
+                attrs.push(attr("to", format!("{:?}", into)));
             }
-
-            // it uses the ERIS zapper multi-swap feature
-            msgs.append(&mut allowances);
-            msgs.push(zapper.multi_swap_msg(balances, into.clone(), funds, None)?);
-            attrs.push(attr("to", format!("{:?}", into)));
         },
 
         CallbackMsg::FinishExecution {
             destination,
-            asset_infos,
-            executor: operator,
+            executor,
         } => {
             match destination {
-                eris::ampz::Destination::DepositAmplifier {} => {
+                eris::ampz::DestinationRuntime::DepositAmplifier {} => {
                     attrs.push(attr("type", "deposit_amplifier"));
                     let main_token = native_asset_info(CONTRACT_DENOM.to_string());
                     let amount = main_token.query_pool(&deps.querier, env.contract.address)?;
@@ -106,7 +122,7 @@ pub fn callback(
                         &mut msgs,
                         &mut attrs,
                         vec![main_token.with_balance(amount)],
-                        operator,
+                        executor,
                         &user,
                     )?;
 
@@ -119,14 +135,15 @@ pub fn callback(
                     msgs.push(bond_msg);
                 },
 
-                eris::ampz::Destination::DepositFarm {
+                eris::ampz::DestinationRuntime::DepositFarm {
+                    asset_infos,
                     farm,
                 } => {
                     attrs.push(attr("type", "deposit_farm"));
                     let balances =
                         asset_infos.query_balances(&deps.querier, &env.contract.address)?;
                     let balances =
-                        pay_fees(&state, &deps, &mut msgs, &mut attrs, balances, operator, &user)?;
+                        pay_fees(&state, &deps, &mut msgs, &mut attrs, balances, executor, &user)?;
 
                     deposit_in_farm(&deps, farm, &env, &user, balances, &mut msgs)?;
                 },
@@ -160,35 +177,33 @@ fn pay_fees(
         fee.operator_bps
     };
 
-    let total_fee = operator_bps.checked_add(fee.fee_bps)?;
+    let total_fee_bps = operator_bps.checked_add(fee.fee_bps)?;
     // when no total fee, nothing needs to be paid
-    if total_fee.is_zero() {
+    if total_fee_bps.is_zero() {
         add_balances_to_attributes(&balances, attrs);
         return Ok(balances);
     }
 
     let controller = state.controller.load(deps.storage)?;
 
-    // share of what the operator will receive
-    // if the operator is the treasury, operator will receive 0 and all the treasury (only single transfer)
-    let operator_share = if operator == fee.receiver || operator == controller {
-        Decimal::zero()
-    } else {
-        operator_bps.div_decimal(total_fee)
-    };
-
     let mut result: Vec<Asset> = vec![];
 
     for asset in balances {
         if !asset.amount.is_zero() {
-            // split total fees from the asset
-            let (deposit_asset, fee_amount) = asset.subtract_fee(total_fee);
+            let mut operator_fee_amount = asset.amount * operator_bps.decimal();
+            let mut protocol_fee_amount = asset.amount * fee.fee_bps.decimal();
+
+            let deposit_amount =
+                asset.amount.checked_sub(operator_fee_amount)?.checked_sub(protocol_fee_amount)?;
+
+            let deposit_asset = asset.info.with_balance(deposit_amount);
+
+            if operator == fee.receiver || operator == controller {
+                protocol_fee_amount += operator_fee_amount;
+                operator_fee_amount = Uint128::zero();
+            }
 
             result.push(deposit_asset);
-
-            // split fee into operator and protocol fee
-            let operator_fee_amount = fee_amount * operator_share;
-            let protocol_fee_amount = fee_amount.saturating_sub(operator_fee_amount);
 
             if !protocol_fee_amount.is_zero() {
                 // pay protocol fee

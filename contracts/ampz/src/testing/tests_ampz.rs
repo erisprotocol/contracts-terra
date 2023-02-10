@@ -32,7 +32,7 @@ fn proper_instantiation() {
 fn setup_execution() {
     let mut deps = setup_test();
     let execution = Execution {
-        destination: eris::ampz::Destination::DepositAmplifier {},
+        destination: eris::ampz::DestinationState::DepositAmplifier {},
         schedule: Schedule {
             interval_s: 100,
             start: None,

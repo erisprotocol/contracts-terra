@@ -1,6 +1,6 @@
 use std::vec;
 
-use astroport::asset::{native_asset, native_asset_info};
+use astroport::asset::native_asset;
 use cosmwasm_std::testing::{mock_info, MockApi, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{coins, Addr, OwnedDeps, Uint128};
 
@@ -24,7 +24,7 @@ fn check_execution_interval() {
 
     let interval_s = 100;
     let execution = Execution {
-        destination: eris::ampz::Destination::DepositAmplifier {},
+        destination: eris::ampz::DestinationState::DepositAmplifier {},
         schedule: Schedule {
             interval_s,
             start: None,
@@ -34,8 +34,7 @@ fn check_execution_interval() {
     };
 
     let finish_execution = CallbackMsg::FinishExecution {
-        asset_infos: vec![native_asset_info(CONTRACT_DENOM.to_string())],
-        destination: eris::ampz::Destination::DepositAmplifier {},
+        destination: eris::ampz::DestinationRuntime::DepositAmplifier {},
         executor: Addr::unchecked("controller"),
     };
 

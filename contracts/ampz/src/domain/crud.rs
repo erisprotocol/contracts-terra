@@ -5,7 +5,7 @@ use cosmwasm_std::{attr, Attribute, DepsMut, Env, MessageInfo, Response};
 use crate::error::{ContractError, ContractResult};
 use crate::state::State;
 use eris::adapters::farm::Farm;
-use eris::ampz::{Destination, Execution};
+use eris::ampz::{DestinationState, Execution};
 
 pub fn add_execution(
     deps: DepsMut,
@@ -51,8 +51,8 @@ pub fn add_execution(
     }
 
     match &execution.destination {
-        Destination::DepositAmplifier {} => (),
-        Destination::DepositFarm {
+        DestinationState::DepositAmplifier {} => (),
+        DestinationState::DepositFarm {
             farm,
         } => {
             let allowed_farms = state.farms.load(deps.storage)?;
