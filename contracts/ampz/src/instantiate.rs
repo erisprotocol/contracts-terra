@@ -1,7 +1,7 @@
 use cosmwasm_std::{DepsMut, Env, Response, StdResult};
 use cw2::set_contract_version;
 use eris::{
-    adapters::{farm::Farm, hub::Hub},
+    adapters::{compounder::Compounder, farm::Farm, hub::Hub},
     ampz::InstantiateMsg,
 };
 
@@ -16,11 +16,11 @@ pub fn exec_instantiate(deps: DepsMut, _env: Env, msg: InstantiateMsg) -> StdRes
     let state = State::default();
 
     state.controller.save(deps.storage, &deps.api.addr_validate(&msg.controller)?)?;
+    state.zapper.save(deps.storage, &Compounder(deps.api.addr_validate(&msg.zapper)?))?;
+    state.astroport.save(deps.storage, &msg.astroport.validate(deps.api)?)?;
+
     state.owner.save(deps.storage, &deps.api.addr_validate(&msg.owner)?)?;
     state.hub.save(deps.storage, &Hub(deps.api.addr_validate(msg.hub.as_str())?))?;
-    state.id.save(deps.storage, &1u128)?;
-
-    state.astroport.save(deps.storage, &msg.astroport.validate(deps.api)?)?;
 
     let farms: Vec<Farm> = msg
         .farms
@@ -29,6 +29,8 @@ pub fn exec_instantiate(deps: DepsMut, _env: Env, msg: InstantiateMsg) -> StdRes
         .collect::<StdResult<_>>()?;
 
     state.farms.save(deps.storage, &farms)?;
+
+    state.id.save(deps.storage, &1u128)?;
     state.fee.save(deps.storage, &msg.fee.validate(deps.api)?)?;
 
     Ok(Response::new())

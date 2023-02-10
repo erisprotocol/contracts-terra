@@ -62,14 +62,10 @@ impl Source {
                 ..
             } => Some("astro_rewards".to_string()),
             Source::Wallet {
-                over,
-                max_amount,
+                ..
             } => {
-                if max_amount.is_some() {
-                    // if max amount specified, we allow an arbitrary amount of executions.
-                    return None;
-                }
-                Some(format!("wallet_{}", over.info))
+                // wallet is allowed to be defined multiple times
+                None
             },
         }
     }
@@ -101,7 +97,6 @@ impl AstroportConfig<String> {
 pub enum ExecuteMsg {
     Execute {
         id: u128,
-        user: Option<String>,
     },
 
     // being executed via authz
@@ -124,6 +119,8 @@ pub enum ExecuteMsg {
     TransferOwnership {
         new_owner: String,
     },
+    /// Remove the ownership transfer proposal
+    DropOwnershipProposal {},
     /// Accept an ownership transfer
     AcceptOwnership {},
 
@@ -132,16 +129,10 @@ pub enum ExecuteMsg {
         remove_farms: Option<Vec<String>>,
         controller: Option<String>,
         zapper: Option<String>,
+        hub: Option<String>,
         astroport: Option<AstroportConfig<String>>,
-        // tips: Option<TipConfig>,
         fee: Option<FeeConfig<String>>,
     },
-    // AddToTipJar {
-    //     recipient: Option<String>,
-    // },
-    // WithdrawTipJar {
-    //     amount: Option<Uint128>,
-    // },
 }
 
 #[cw_serde]
@@ -206,7 +197,7 @@ pub enum CallbackMsg {
     FinishExecution {
         asset_infos: Vec<AssetInfo>,
         destination: Destination,
-        operator: Addr,
+        executor: Addr,
     },
 }
 
@@ -221,13 +212,17 @@ impl CallbackMsg {
     ) -> StdResult<CosmosMsg> {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: String::from(contract_addr),
-            msg: to_binary(&ExecuteMsg::Callback(CallbackWrapper {
-                id,
-                user: user.clone(),
-                message: self.clone(),
-            }))?,
+            msg: to_binary(&ExecuteMsg::Callback(self.into_callback_wrapper(id, user)))?,
             funds: vec![],
         }))
+    }
+
+    pub fn into_callback_wrapper(&self, id: u128, user: &Addr) -> CallbackWrapper {
+        CallbackWrapper {
+            id,
+            user: user.clone(),
+            message: self.clone(),
+        }
     }
 }
 
@@ -270,7 +265,7 @@ pub struct ConfigResponse {
     /// Pending ownership transfer, awaiting acceptance by the new owner
     pub new_owner: Option<String>,
 
-    pub executor: String,
+    pub controller: String,
 
     pub zapper: String,
 
@@ -281,7 +276,7 @@ pub struct ConfigResponse {
 
 #[cw_serde]
 pub struct StateResponse {
-    pub id: u128,
+    pub next_id: u128,
 }
 
 #[cw_serde]

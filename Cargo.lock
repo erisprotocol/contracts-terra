@@ -788,6 +788,7 @@ dependencies = [
  "itertools",
  "protobuf 3.2.0",
  "serde",
+ "thiserror",
 ]
 
 [[package]]

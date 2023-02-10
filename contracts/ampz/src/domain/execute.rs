@@ -1,66 +1,44 @@
 use std::vec;
 
 use astroport::asset::{native_asset_info, Asset, AssetInfo, AssetInfoExt};
-use cosmwasm_std::{CosmosMsg, DepsMut, Env, MessageInfo, Response, StdError, StdResult};
+use cosmwasm_std::{CosmosMsg, DepsMut, Env, MessageInfo, Response};
 
-use crate::constants::CONTRACT_DENOM;
+use crate::error::ContractError;
 use crate::helpers::query_all_delegations;
 use crate::protos::authz::MsgExec;
 use crate::protos::msgex::CosmosMsgEx;
 use crate::protos::proto::MsgWithdrawDelegatorReward;
 use crate::state::State;
+use crate::{constants::CONTRACT_DENOM, error::ContractResult};
 use eris::{
     adapters::asset::AssetInfosEx,
     ampz::{CallbackMsg, Destination},
 };
 
-pub fn execute_id(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    id: u128,
-    user: Option<String>,
-) -> StdResult<Response> {
+pub fn execute_id(deps: DepsMut, env: Env, info: MessageInfo, id: u128) -> ContractResult {
     let state = State::default();
 
-    // state.assert_controller_owner(deps.storage, &info.sender)?;
-
     let execution = state.get_by_id(deps.storage, id)?;
-
-    if let Some(user) = user {
-        if user != execution.user {
-            return Err(StdError::generic_err(format!(
-                "user does not match. user: {0} execution user: {1}",
-                user, execution.user
-            )));
-        }
-    }
 
     let user = deps.api.addr_validate(&execution.user)?;
 
     let last_execution = state.last_execution.load(deps.storage, id)?;
-    let next_execution = last_execution
-        .checked_add(execution.schedule.interval_s)
-        .ok_or_else(|| StdError::generic_err("cannot add interval_s"))?;
+    let next_execution =
+        last_execution.checked_add(execution.schedule.interval_s).unwrap_or_default();
 
     // it is ok to ignore the schedule e.g. for manual executions.
     let ignore_schedule = info.sender == execution.user;
 
     if !ignore_schedule && next_execution > env.block.time.seconds() {
-        return Err(StdError::generic_err(format!(
-            "next execution in the future: {}",
-            next_execution
-        )));
+        return Err(ContractError::ExecutionInFuture(next_execution));
     }
 
     if state.is_executing.load(deps.storage).is_ok() {
-        return Err(StdError::generic_err("is already executing"));
+        return Err(ContractError::IsExecuting {});
     }
 
-    state.last_execution.save(deps.storage, id, &env.block.time.seconds())?;
-
     // relevant asset infos that should be used
-    let asset_infos: Vec<AssetInfo>;
+    let mut asset_infos: Vec<AssetInfo>;
     // user balance start is a snapshot of relevant assets when execution starts (before claiming source yield)
     let user_balance_start: Vec<Asset>;
 
@@ -79,7 +57,7 @@ pub fn execute_id(
             let delegations = query_all_delegations(&deps.querier, &user)?;
 
             if delegations.is_empty() {
-                return Err(StdError::generic_err("no active delegations"));
+                return Err(ContractError::NoActiveDelegation {});
             }
 
             asset_infos = vec![native_asset_info(CONTRACT_DENOM.to_string())];
@@ -103,6 +81,8 @@ pub fn execute_id(
         } => {
             let astroport = state.astroport.load(deps.storage)?;
             asset_infos = astroport.coins;
+            // currently all supported tokens will be queried.
+            // This could be optimized by storing possible reward tokens for each LP and only query these
             user_balance_start = asset_infos.query_balances(&deps.querier, &user)?;
 
             let msg = astroport.generator.claim_rewards_msg(lps)?.to_authz_msg(&user, &env)?;
@@ -119,10 +99,7 @@ pub fn execute_id(
         } => {
             let current = over.info.query_pool(&deps.querier, &user)?;
             if current <= over.amount {
-                return Err(StdError::generic_err(format!(
-                    "current balance less than execution start {}",
-                    over.amount
-                )));
+                return Err(ContractError::BalanceLessThanThreshold {});
             }
 
             if let Destination::DepositAmplifier {} = execution.destination {
@@ -135,10 +112,13 @@ pub fn execute_id(
             asset_infos = vec![over.info.clone()];
             deposit_max_amount =
                 max_amount.map(|max_amount| vec![over.info.with_balance(max_amount)]);
+
+            // instead of querying the user balance, we take the over / min threshold
             user_balance_start = vec![over];
         },
     }
 
+    state.last_execution.save(deps.storage, id, &env.block.time.seconds())?;
     state.is_executing.save(deps.storage, &true)?;
 
     msgs.push(
@@ -150,11 +130,16 @@ pub fn execute_id(
     );
 
     if requires_swap {
+        let native_asset = native_asset_info(CONTRACT_DENOM.to_string());
+
         let swap_msg = CallbackMsg::Swap {
             asset_infos: asset_infos.clone(),
-            into: native_asset_info(CONTRACT_DENOM.to_string()),
+            into: native_asset.clone(),
         }
         .into_cosmos_msg(&env.contract.address, id, &user)?;
+
+        // if we swap the results will always be in the native asset (e.g. uluna)
+        asset_infos = vec![native_asset];
         msgs.push(swap_msg);
     }
 
@@ -162,7 +147,7 @@ pub fn execute_id(
         CallbackMsg::FinishExecution {
             destination: execution.destination,
             asset_infos,
-            operator: info.sender,
+            executor: info.sender,
         }
         .into_cosmos_msg(&env.contract.address, id, &user)?,
     );

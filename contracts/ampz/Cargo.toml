@@ -22,7 +22,7 @@ eris = { path = "../../packages/eris" }
 itertools = "0.10"
 protobuf = "3"
 astroport = { git = "https://github.com/astroport-fi/astroport-core.git", default-features = false, rev = "bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62" }
-
+thiserror = { version = "1.0" }
 
 [dev-dependencies]
 cw-multi-test = "0.13.2"

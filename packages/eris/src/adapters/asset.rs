@@ -26,7 +26,7 @@ impl AssetInfosEx for Vec<AssetInfo> {
             })
             .collect::<StdResult<_>>()?;
 
-        Ok(assets.into_iter().filter(|asset| !asset.amount.is_zero()).collect())
+        Ok(assets.into_iter().collect())
     }
 }
 

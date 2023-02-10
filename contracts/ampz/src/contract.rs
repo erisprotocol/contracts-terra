@@ -2,16 +2,15 @@ use std::vec;
 
 use astroport::asset::Asset;
 use cosmwasm_std::{
-    entry_point, to_binary, Addr, Binary, CosmosMsg, Deps, DepsMut, Env, Event, MessageInfo,
-    Response, StdError, StdResult,
+    entry_point, to_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
 };
 use cw2::set_contract_version;
 
 use eris::adapters::asset::AssetEx;
 use eris::ampz::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 
-use crate::config::update_config;
 use crate::constants::{CONTRACT_NAME, CONTRACT_VERSION};
+use crate::error::{ContractError, ContractResult};
 use crate::instantiate::exec_instantiate;
 use crate::queries;
 use crate::state::State;
@@ -27,12 +26,11 @@ pub fn instantiate(
 }
 
 #[entry_point]
-pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
+pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> ContractResult {
     match msg {
         ExecuteMsg::Execute {
             id,
-            user,
-        } => crate::domain::execute::execute_id(deps, env, info, id, user),
+        } => crate::domain::execute::execute_id(deps, env, info, id),
         ExecuteMsg::AddExecution {
             execution,
             overwrite,
@@ -45,11 +43,16 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
         },
         ExecuteMsg::TransferOwnership {
             new_owner,
-        } => transfer_ownership(deps, info.sender, new_owner),
-        ExecuteMsg::AcceptOwnership {} => accept_ownership(deps, info.sender),
+        } => crate::domain::ownership::transfer_ownership(deps, info.sender, new_owner),
+        ExecuteMsg::DropOwnershipProposal {} => {
+            crate::domain::ownership::drop_ownership_proposal(deps, info.sender)
+        },
+        ExecuteMsg::AcceptOwnership {} => {
+            crate::domain::ownership::accept_ownership(deps, info.sender)
+        },
         ExecuteMsg::UpdateConfig {
             ..
-        } => update_config(deps, env, info, msg),
+        } => crate::domain::config::update_config(deps, env, info, msg),
 
         ExecuteMsg::Deposit {
             assets,
@@ -57,10 +60,10 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
     }
 }
 
-fn deposit(deps: DepsMut, env: Env, info: MessageInfo, assets: Vec<Asset>) -> StdResult<Response> {
+fn deposit(deps: DepsMut, env: Env, info: MessageInfo, assets: Vec<Asset>) -> ContractResult {
     let state = State::default();
     if state.is_executing.load(deps.storage).is_err() {
-        return Err(StdError::generic_err("no execution at the moment"));
+        return Err(ContractError::IsNotExecuting {});
     }
 
     let mut msgs: Vec<CosmosMsg> = vec![];
@@ -69,35 +72,6 @@ fn deposit(deps: DepsMut, env: Env, info: MessageInfo, assets: Vec<Asset>) -> St
     }
 
     Ok(Response::new().add_attribute("action", "ampz/deposit").add_messages(msgs))
-}
-
-pub fn transfer_ownership(deps: DepsMut, sender: Addr, new_owner: String) -> StdResult<Response> {
-    let state = State::default();
-
-    state.assert_owner(deps.storage, &sender)?;
-    state.new_owner.save(deps.storage, &deps.api.addr_validate(&new_owner)?)?;
-
-    Ok(Response::new().add_attribute("action", "ampz/transfer_ownership"))
-}
-
-pub fn accept_ownership(deps: DepsMut, sender: Addr) -> StdResult<Response> {
-    let state = State::default();
-
-    let previous_owner = state.owner.load(deps.storage)?;
-    let new_owner = state.new_owner.load(deps.storage)?;
-
-    if sender != new_owner {
-        return Err(StdError::generic_err("unauthorized: sender is not new owner"));
-    }
-
-    state.owner.save(deps.storage, &sender)?;
-    state.new_owner.remove(deps.storage);
-
-    let event = Event::new("ampz/ownership_transferred")
-        .add_attribute("new_owner", new_owner)
-        .add_attribute("previous_owner", previous_owner);
-
-    Ok(Response::new().add_event(event).add_attribute("action", "ampz/transfer_ownership"))
 }
 
 #[entry_point]

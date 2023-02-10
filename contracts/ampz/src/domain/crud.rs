@@ -1,5 +1,8 @@
-use cosmwasm_std::{DepsMut, Env, MessageInfo, Response, StdError, StdResult};
+use std::vec;
 
+use cosmwasm_std::{attr, Attribute, DepsMut, Env, MessageInfo, Response};
+
+use crate::error::{ContractError, ContractResult};
 use crate::state::State;
 use eris::adapters::farm::Farm;
 use eris::ampz::{Destination, Execution};
@@ -10,9 +13,9 @@ pub fn add_execution(
     info: MessageInfo,
     execution: Execution,
     overwrite: bool,
-) -> StdResult<Response> {
+) -> ContractResult {
     if execution.user != info.sender {
-        return Err(StdError::generic_err("can only be added by same user"));
+        return Err(ContractError::MustBeSameUser {});
     }
 
     let state = State::default();
@@ -27,6 +30,7 @@ pub fn add_execution(
                 .load(deps.storage, (execution.user.to_string(), source.clone()));
 
             if let Ok(old_id) = result {
+                // remove existing execution
                 state.executions.remove(deps.storage, old_id)?;
                 state
                     .execution_user_source
@@ -36,7 +40,7 @@ pub fn add_execution(
             .execution_user_source
             .has(deps.storage, (execution.user.to_string(), source.clone()))
         {
-            return Err(StdError::generic_err("source already defined for the user"));
+            return Err(ContractError::ExecutionSourceCanOnlyBeUsedOnce {});
         }
 
         state.execution_user_source.save(
@@ -46,32 +50,6 @@ pub fn add_execution(
         )?;
     }
 
-    // match &execution.source {
-    //     eris::ampz::Source::Claim => (),
-    //     eris::ampz::Source::AstroRewards {
-    //         ..
-    //     } => (),
-    //     eris::ampz::Source::Wallet {
-    //         over,
-    //         ..
-    //     } => {
-
-    //         if let AssetInfo::NativeToken { denom } = over.info {
-    //             if denom == CONTRACT_DENOM {
-    //                 if over.amount < Uint128::new(1e6) {
-    //                     return Err(StdError::generic_err(format!("for the gas token threshold must be higher than 1_000_000", over.info)));
-    //                 }
-    //             }
-    //         }
-
-    //         let astro = state.astroport.load(deps.storage)?;
-
-    //         if !astro.coins.contains(&over.info) {
-    //             return Err(StdError::generic_err(format!("token {} not supported", over.info)));
-    //         }
-    //     },
-    // }
-
     match &execution.destination {
         Destination::DepositAmplifier {} => (),
         Destination::DepositFarm {
@@ -80,13 +58,14 @@ pub fn add_execution(
             let allowed_farms = state.farms.load(deps.storage)?;
             let farm = Farm(deps.api.addr_validate(farm)?);
             if !allowed_farms.contains(&farm) {
-                return Err(StdError::generic_err(format!("farm {} does not exist", farm.0)));
+                return Err(ContractError::FarmNotSupported(farm.0.to_string()));
             }
         },
     }
 
     state.executions.save(deps.storage, new_id, &execution)?;
 
+    // subbing the interval from the start allows the first execution to be on the start time.
     let initial_execution = execution
         .schedule
         .start
@@ -108,8 +87,10 @@ pub fn remove_executions(
     _env: Env,
     info: MessageInfo,
     ids: Option<Vec<u128>>,
-) -> StdResult<Response> {
+) -> ContractResult {
     let state = State::default();
+
+    let mut attrs: Vec<Attribute> = vec![];
 
     if let Some(ids) = ids {
         // if ids specified remove all ids
@@ -117,7 +98,7 @@ pub fn remove_executions(
             let execution = state.get_by_id(deps.storage, id)?;
 
             if execution.user != info.sender {
-                return Err(StdError::generic_err("can only be removed by creator"));
+                return Err(ContractError::MustBeSameUser {});
             }
 
             state.executions.remove(deps.storage, id)?;
@@ -127,6 +108,8 @@ pub fn remove_executions(
             if let Some(source) = source {
                 state.execution_user_source.remove(deps.storage, (execution.user, source));
             }
+
+            attrs.push(attr("removed_id", id.to_string()));
         }
     } else {
         // if nothing specified remove all from user
@@ -139,8 +122,9 @@ pub fn remove_executions(
             if let Some(source) = source {
                 state.execution_user_source.remove(deps.storage, (execution.1.user, source));
             }
+            attrs.push(attr("removed_id", execution.0.to_string()));
         }
     }
 
-    Ok(Response::new().add_attribute("action", "ampz/remove_executions"))
+    Ok(Response::new().add_attribute("action", "ampz/remove_executions").add_attributes(attrs))
 }

@@ -7,6 +7,7 @@ use cosmwasm_std::{
 };
 
 use crate::constants::CONTRACT_DENOM;
+use crate::error::{ContractError, ContractResult};
 use crate::protos::msgex::CosmosMsgEx;
 use crate::state::State;
 use eris::adapters::ampz::Ampz;
@@ -22,9 +23,9 @@ pub fn callback(
     env: Env,
     info: MessageInfo,
     callback_wrapper: CallbackWrapper,
-) -> StdResult<Response> {
+) -> ContractResult {
     if env.contract.address != info.sender {
-        return Err(StdError::generic_err("callbacks can only be invoked by the contract itself"));
+        return Err(ContractError::CallbackOnlyCalledByContract {});
     }
 
     let state = State::default();
@@ -87,29 +88,35 @@ pub fn callback(
         CallbackMsg::FinishExecution {
             destination,
             asset_infos,
-            operator,
+            executor: operator,
         } => {
             match destination {
                 eris::ampz::Destination::DepositAmplifier {} => {
                     attrs.push(attr("type", "deposit_amplifier"));
-                    let balances =
-                        asset_infos.query_balances(&deps.querier, &env.contract.address)?;
-                    let balances =
-                        pay_fees(&state, &deps, &mut msgs, &mut attrs, balances, operator, &user)?;
                     let main_token = native_asset_info(CONTRACT_DENOM.to_string());
-                    let amount = balances
-                        .iter()
-                        .find(|a| a.info == main_token)
-                        .ok_or_else(|| StdError::generic_err("main token not found"))?;
+                    let amount = main_token.query_pool(&deps.querier, env.contract.address)?;
+
+                    if amount.is_zero() {
+                        return Err(ContractError::NothingToDeposit {});
+                    }
+
+                    let balances = pay_fees(
+                        &state,
+                        &deps,
+                        &mut msgs,
+                        &mut attrs,
+                        vec![main_token.with_balance(amount)],
+                        operator,
+                        &user,
+                    )?;
+
+                    // always 1 result if it inputs a non-zero token
+                    let balance = balances.first().unwrap();
 
                     let hub = state.hub.load(deps.storage)?;
                     let bond_msg =
-                        hub.bond_msg(CONTRACT_DENOM, amount.amount.u128(), Some(user.into()))?;
+                        hub.bond_msg(CONTRACT_DENOM, balance.amount.u128(), Some(user.into()))?;
                     msgs.push(bond_msg);
-
-                    for asset in balances {
-                        attrs.push(attr("amount", asset.to_string()));
-                    }
                 },
 
                 eris::ampz::Destination::DepositFarm {
@@ -120,10 +127,6 @@ pub fn callback(
                         asset_infos.query_balances(&deps.querier, &env.contract.address)?;
                     let balances =
                         pay_fees(&state, &deps, &mut msgs, &mut attrs, balances, operator, &user)?;
-
-                    for asset in balances.iter() {
-                        attrs.push(attr("amount", asset.to_string()));
-                    }
 
                     deposit_in_farm(&deps, farm, &env, &user, balances, &mut msgs)?;
                 },
@@ -160,12 +163,15 @@ fn pay_fees(
     let total_fee = operator_bps.checked_add(fee.fee_bps)?;
     // when no total fee, nothing needs to be paid
     if total_fee.is_zero() {
+        add_balances_to_attributes(&balances, attrs);
         return Ok(balances);
     }
 
+    let controller = state.controller.load(deps.storage)?;
+
     // share of what the operator will receive
     // if the operator is the treasury, operator will receive 0 and all the treasury (only single transfer)
-    let operator_share = if operator == fee.receiver {
+    let operator_share = if operator == fee.receiver || operator == controller {
         Decimal::zero()
     } else {
         operator_bps.div_decimal(total_fee)
@@ -199,8 +205,16 @@ fn pay_fees(
         }
     }
 
+    add_balances_to_attributes(&result, attrs);
+
     // return the assets without the fees
     Ok(result)
+}
+
+fn add_balances_to_attributes(balances: &[Asset], attrs: &mut Vec<Attribute>) {
+    for asset in balances.iter() {
+        attrs.push(attr("amount", asset.to_string()));
+    }
 }
 
 fn deposit_in_farm(

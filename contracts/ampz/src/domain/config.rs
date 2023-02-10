@@ -1,18 +1,21 @@
 use cosmwasm_std::{DepsMut, Env, MessageInfo, Response, StdError, StdResult};
 use eris::{
-    adapters::{compounder::Compounder, farm::Farm},
+    adapters::{compounder::Compounder, farm::Farm, hub::Hub},
     ampz::ExecuteMsg,
 };
 use itertools::Itertools;
 
-use crate::state::State;
+use crate::{
+    error::{ContractError, ContractResult},
+    state::State,
+};
 
 pub fn update_config(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
-) -> StdResult<Response> {
+) -> ContractResult {
     match msg {
         ExecuteMsg::UpdateConfig {
             add_farms,
@@ -20,7 +23,9 @@ pub fn update_config(
             controller,
             astroport,
             zapper,
+
             fee,
+            hub,
         } => {
             let state = State::default();
             state.assert_owner(deps.storage, &info.sender)?;
@@ -67,6 +72,9 @@ pub fn update_config(
             if let Some(zapper) = zapper {
                 state.zapper.save(deps.storage, &Compounder(deps.api.addr_validate(&zapper)?))?;
             }
+            if let Some(hub) = hub {
+                state.hub.save(deps.storage, &Hub(deps.api.addr_validate(&hub)?))?;
+            }
 
             if let Some(fee) = fee {
                 state.fee.save(deps.storage, &fee.validate(deps.api)?)?;
@@ -74,6 +82,6 @@ pub fn update_config(
 
             Ok(Response::new().add_attribute("action", "ampz/update_config"))
         },
-        _ => Err(StdError::generic_err("not supported")),
+        _ => Err(ContractError::NotSupported {}),
     }
 }
