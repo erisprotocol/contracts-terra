@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::vec;
 
 use astroport::asset::Asset;
@@ -64,6 +65,11 @@ fn deposit(deps: DepsMut, env: Env, info: MessageInfo, assets: Vec<Asset>) -> Co
     let state = State::default();
     if state.is_executing.load(deps.storage).is_err() {
         return Err(ContractError::IsNotExecuting {});
+    }
+
+    let mut uniq = HashSet::new();
+    if !assets.clone().into_iter().all(|a| uniq.insert(a.info.to_string())) {
+        return Err(ContractError::DuplicatedAsset {});
     }
 
     let mut msgs: Vec<CosmosMsg> = vec![];

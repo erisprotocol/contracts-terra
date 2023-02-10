@@ -49,6 +49,9 @@ pub enum ContractError {
     #[error("Contract is not executing")]
     IsNotExecuting {},
 
+    #[error("Cannot deposit duplicate asset")]
+    DuplicatedAsset {},
+
     #[error("No active delegations")]
     NoActiveDelegation {},
 

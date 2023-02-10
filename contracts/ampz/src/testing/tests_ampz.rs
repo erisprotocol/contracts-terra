@@ -1,14 +1,18 @@
 use std::vec;
 
-use cosmwasm_std::attr;
+use astroport::asset::{native_asset, token_asset};
 use cosmwasm_std::testing::mock_info;
+use cosmwasm_std::{attr, coins, Addr, Uint128};
 
+use cw2::CONTRACT;
 use eris::ampz::{
     ExecuteMsg, Execution, ExecutionDetail, ExecutionResponse, QueryMsg, Schedule, StateResponse,
 };
 
+use crate::constants::CONTRACT_DENOM;
 use crate::contract::execute;
 use crate::error::ContractError;
+use crate::state::State;
 use crate::testing::helpers::{mock_env_at_timestamp, query_helper, query_helper_fail, setup_test};
 
 //--------------------------------------------------------------------------------------------------
@@ -85,7 +89,7 @@ fn setup_execution() {
         }
     );
 
-    // add same again without override -> error
+    // add same again with override -> no error
     let res = execute(
         deps.as_mut(),
         mock_env_at_timestamp(2000),
@@ -125,4 +129,168 @@ fn setup_execution() {
             can_execute: true
         }
     );
+}
+
+#[test]
+fn setup_execution_farm() {
+    let mut deps = setup_test();
+    let mut execution = Execution {
+        destination: eris::ampz::DestinationState::DepositFarm {
+            farm: "unknown".into(),
+        },
+        schedule: Schedule {
+            interval_s: 100,
+            start: None,
+        },
+        user: "user".into(),
+        source: eris::ampz::Source::Claim,
+    };
+
+    // add with invalid farm
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info("user", &[]),
+        ExecuteMsg::AddExecution {
+            overwrite: false,
+            execution: execution.clone(),
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(res, ContractError::FarmNotSupported("unknown".into()));
+
+    // add with valid farm
+    execution.destination = eris::ampz::DestinationState::DepositFarm {
+        farm: "farm1".into(),
+    };
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info("user", &[]),
+        ExecuteMsg::AddExecution {
+            overwrite: false,
+            execution: execution.clone(),
+        },
+    )
+    .unwrap();
+    assert_eq!(res.messages.len(), 0);
+    assert_eq!(res.attributes, vec![attr("action", "ampz/add_execution"), attr("id", "1")]);
+
+    let res = query_helper::<ExecutionResponse>(
+        deps.as_ref(),
+        QueryMsg::Execution {
+            id: 1,
+        },
+    );
+    assert_eq!(
+        res.detail,
+        ExecutionDetail {
+            id: 1,
+            execution: execution.clone(),
+            last_execution: 1000 - 100,
+            can_execute: true
+        }
+    );
+}
+
+#[test]
+fn test_deposit() {
+    let mut deps = setup_test();
+
+    let state = State::default();
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info("user", &coins(10, CONTRACT_DENOM)),
+        ExecuteMsg::Deposit {
+            assets: vec![
+                native_asset(CONTRACT_DENOM.into(), Uint128::new(10)),
+                token_asset(Addr::unchecked("astro"), Uint128::new(50)),
+            ],
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, ContractError::IsNotExecuting {});
+
+    state.is_executing.save(deps.as_mut().storage, &true).unwrap();
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info("user", &coins(10, CONTRACT_DENOM)),
+        ExecuteMsg::Deposit {
+            assets: vec![
+                native_asset(CONTRACT_DENOM.into(), Uint128::new(10)),
+                native_asset(CONTRACT_DENOM.into(), Uint128::new(10)),
+                token_asset(Addr::unchecked(CONTRACT_DENOM), Uint128::new(50)),
+            ],
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, ContractError::DuplicatedAsset {});
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info("user", &coins(10, CONTRACT_DENOM)),
+        ExecuteMsg::Deposit {
+            assets: vec![
+                native_asset(CONTRACT_DENOM.into(), Uint128::new(10)),
+                token_asset(Addr::unchecked(CONTRACT_DENOM), Uint128::new(50)),
+                token_asset(Addr::unchecked(CONTRACT_DENOM), Uint128::new(50)),
+            ],
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, ContractError::DuplicatedAsset {});
+
+    // duplicated asset for token + native should not throw
+    execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info("user", &coins(10, CONTRACT_DENOM)),
+        ExecuteMsg::Deposit {
+            assets: vec![
+                native_asset(CONTRACT_DENOM.into(), Uint128::new(10)),
+                token_asset(Addr::unchecked(CONTRACT_DENOM), Uint128::new(50)),
+            ],
+        },
+    )
+    .unwrap_err();
+    // we are also not allowing native assets that have the same denom as token assets
+    assert_eq!(res, ContractError::DuplicatedAsset {});
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info("user", &coins(12, CONTRACT_DENOM)),
+        ExecuteMsg::Deposit {
+            assets: vec![
+                native_asset(CONTRACT_DENOM.into(), Uint128::new(10)),
+                token_asset(Addr::unchecked("astro"), Uint128::new(50)),
+            ],
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        res.to_string(),
+        "Generic error: Native token balance mismatch between the argument and the transferred"
+            .to_string()
+    );
+
+    execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info("user", &coins(10, CONTRACT_DENOM)),
+        ExecuteMsg::Deposit {
+            assets: vec![
+                native_asset(CONTRACT_DENOM.into(), Uint128::new(10)),
+                token_asset(Addr::unchecked("astro"), Uint128::new(50)),
+            ],
+        },
+    )
+    .unwrap();
 }

@@ -19,6 +19,20 @@ pub fn add_execution(
     }
 
     let state = State::default();
+
+    match &execution.destination {
+        DestinationState::DepositAmplifier {} => (),
+        DestinationState::DepositFarm {
+            farm,
+        } => {
+            let allowed_farms = state.farms.load(deps.storage)?;
+            let farm = Farm(deps.api.addr_validate(farm)?);
+            if !allowed_farms.contains(&farm) {
+                return Err(ContractError::FarmNotSupported(farm.0.to_string()));
+            }
+        },
+    }
+
     let source = execution.source.try_get_uniq_key();
     let new_id = state.id.load(deps.storage)?;
 
@@ -48,19 +62,6 @@ pub fn add_execution(
             (execution.user.clone(), source),
             &new_id,
         )?;
-    }
-
-    match &execution.destination {
-        DestinationState::DepositAmplifier {} => (),
-        DestinationState::DepositFarm {
-            farm,
-        } => {
-            let allowed_farms = state.farms.load(deps.storage)?;
-            let farm = Farm(deps.api.addr_validate(farm)?);
-            if !allowed_farms.contains(&farm) {
-                return Err(ContractError::FarmNotSupported(farm.0.to_string()));
-            }
-        },
     }
 
     state.executions.save(deps.storage, new_id, &execution)?;
