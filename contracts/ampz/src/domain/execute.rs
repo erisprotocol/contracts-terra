@@ -1,7 +1,7 @@
 use std::vec;
 
 use astroport::asset::{native_asset_info, Asset, AssetInfo, AssetInfoExt};
-use cosmwasm_std::{CosmosMsg, DepsMut, Env, MessageInfo, Response};
+use cosmwasm_std::{CosmosMsg, DepsMut, Env, MessageInfo, OverflowError, Response};
 
 use crate::error::ContractError;
 use crate::helpers::query_all_delegations;
@@ -24,7 +24,13 @@ pub fn execute_id(deps: DepsMut, env: Env, info: MessageInfo, id: u128) -> Contr
 
     let last_execution = state.last_execution.load(deps.storage, id)?;
     let next_execution =
-        last_execution.checked_add(execution.schedule.interval_s).unwrap_or_default();
+        last_execution.checked_add(execution.schedule.interval_s).ok_or_else(|| {
+            ContractError::Overflow(OverflowError {
+                operation: cosmwasm_std::OverflowOperation::Add,
+                operand1: "last_execution".into(),
+                operand2: "interval_s".into(),
+            })
+        })?;
 
     // it is ok to ignore the schedule e.g. for manual executions.
     let ignore_schedule = info.sender == execution.user;

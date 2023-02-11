@@ -89,6 +89,10 @@ pub(super) fn query_helper<T: DeserializeOwned>(deps: Deps, msg: QueryMsg) -> T 
     from_binary(&query(deps, mock_env(), msg).unwrap()).unwrap()
 }
 
+pub(super) fn query_helper_time<T: DeserializeOwned>(deps: Deps, msg: QueryMsg, time: u64) -> T {
+    from_binary(&query(deps, mock_env_at_timestamp(time), msg).unwrap()).unwrap()
+}
+
 pub(super) fn query_helper_fail(deps: Deps, msg: QueryMsg) -> StdError {
     query(deps, mock_env(), msg).unwrap_err()
 }
@@ -133,7 +137,7 @@ pub(super) fn setup_test() -> OwnedDeps<MockStorage, MockApi, CustomQuerier> {
 
 pub(super) fn add_default_execution(
     deps: &mut OwnedDeps<cosmwasm_std::MemoryStorage, MockApi, CustomQuerier>,
-) -> u128 {
+) -> (u128, Execution) {
     let interval_s = 100;
     let execution = Execution {
         destination: eris::ampz::DestinationState::DepositAmplifier {},
@@ -155,12 +159,12 @@ pub(super) fn add_default_execution(
         mock_info("user", &[]),
         ExecuteMsg::AddExecution {
             overwrite: false,
-            execution,
+            execution: execution.clone(),
         },
     )
     .unwrap();
 
-    res.attributes[1].value.parse().unwrap()
+    (res.attributes[1].value.parse().unwrap(), execution)
 }
 
 pub(super) fn finish_amplifier(

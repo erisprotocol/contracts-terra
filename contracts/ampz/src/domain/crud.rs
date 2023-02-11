@@ -71,8 +71,8 @@ pub fn add_execution(
         .schedule
         .start
         .unwrap_or_else(|| env.block.time.seconds())
-        .checked_sub(execution.schedule.interval_s)
-        .unwrap_or_default();
+        // can't go below epoch start
+        .saturating_sub(execution.schedule.interval_s);
 
     state.last_execution.save(deps.storage, new_id, &initial_execution)?;
 

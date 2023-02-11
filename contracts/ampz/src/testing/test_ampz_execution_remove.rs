@@ -8,7 +8,7 @@ use super::helpers::{add_default_execution, mock_env_at_timestamp, setup_test};
 fn check_execution_remove() {
     let mut deps = setup_test();
 
-    let id = add_default_execution(&mut deps);
+    let (id, _) = add_default_execution(&mut deps);
     add_default_execution(&mut deps);
     add_default_execution(&mut deps);
 

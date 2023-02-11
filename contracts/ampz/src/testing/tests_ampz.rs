@@ -4,7 +4,6 @@ use astroport::asset::{native_asset, token_asset};
 use cosmwasm_std::testing::mock_info;
 use cosmwasm_std::{attr, coins, Addr, Uint128};
 
-use cw2::CONTRACT;
 use eris::ampz::{
     ExecuteMsg, Execution, ExecutionDetail, ExecutionResponse, QueryMsg, Schedule, StateResponse,
 };
@@ -187,7 +186,7 @@ fn setup_execution_farm() {
         res.detail,
         ExecutionDetail {
             id: 1,
-            execution: execution.clone(),
+            execution,
             last_execution: 1000 - 100,
             can_execute: true
         }
