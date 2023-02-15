@@ -3,17 +3,20 @@ use cosmwasm_std::{Deps, Order, StdResult};
 use cw_storage_plus::Bound;
 use eris::{
     adapters::pair::Pair,
-    compound_proxy::{LpConfig, LpStateResponse, RouteResponseItem},
+    compound_proxy::{ConfigResponse, LpConfig, LpStateResponse, RouteResponseItem},
 };
 
 use crate::{
     constants::{DEFAULT_LIMIT, MAX_LIMIT},
-    state::{Config, State},
+    state::State,
 };
 
-pub fn query_config(deps: Deps) -> StdResult<Config> {
+pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     let state = State::default();
-    state.config.load(deps.storage)
+    state.config.load(deps.storage).map(|c| ConfigResponse {
+        factory: c.factory.map(|f| f.0),
+        owner: c.owner,
+    })
 }
 
 pub fn get_lp(deps: Deps, lp_addr: String) -> StdResult<LpConfig> {

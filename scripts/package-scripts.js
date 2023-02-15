@@ -7,15 +7,26 @@ module.exports = {
     },
     schema: {
       default:
-        "nps schema.create schema.hub schema.token schema.ampextractor schema.farm schema.compound schema.fees schema.generator",
+        "nps schema.create schema.transform schema.hub schema.ampz schema.token schema.ampextractor schema.farm  schema.compound schema.fees schema.generator schema.votingescrow schema.ampgauges schema.empgauges",
+
+      transform: "ts-node transform.ts",
 
       create: "bash build_schema.sh",
 
       hub: "cd .. && json2ts -i contracts/hub/**/*.json -o ../liquid-staking-scripts/types/hub",
+      ampz: "cd .. && json2ts -i contracts/ampz/schema/*.json -o ../liquid-staking-scripts/types/ampz",
+
       token:
         "cd .. && json2ts -i contracts/token/**/*.json -o ../liquid-staking-scripts/types/token",
       ampextractor:
         "cd .. && json2ts -i contracts/amp-extractor/**/*.json -o ../liquid-staking-scripts/types/amp-extractor",
+
+      votingescrow:
+        "cd .. && json2ts -i contracts/amp-governance/voting_escrow/**/*.json -o ../liquid-staking-scripts/types/voting_escrow",
+      ampgauges:
+        "cd .. && json2ts -i contracts/amp-governance/amp_gauges/**/*.json -o ../liquid-staking-scripts/types/amp_gauges",
+      empgauges:
+        "cd .. && json2ts -i contracts/amp-governance/emp_gauges/**/*.json -o ../liquid-staking-scripts/types/emp_gauges",
 
       farm: "cd .. && json2ts -i contracts/amp-compounder/astroport_farm/**/*.json -o ../liquid-staking-scripts/types/amp-compounder/astroport_farm",
       compound:

@@ -1,11 +1,10 @@
 use astroport::asset::Asset;
+use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{to_binary, Addr, CosmosMsg, Decimal, StdResult, Uint128, WasmMsg};
 use cw20::Cw20ReceiveMsg;
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 
 /// This structure describes the parameters for creating a contract.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[cw_serde]
 pub struct InstantiateMsg {
     /// The owner address
     pub owner: String,
@@ -28,7 +27,7 @@ pub struct InstantiateMsg {
     pub amp_lp: TokenInit,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[cw_serde]
 pub struct TokenInit {
     /// Code Id of the amp[LP] token
     pub cw20_code_id: u64,
@@ -41,8 +40,7 @@ pub struct TokenInit {
 }
 
 /// This structure describes the execute messages available in the contract.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
 pub enum ExecuteMsg {
     /// Receives a message of type [`Cw20ReceiveMsg`]
     Receive(Cw20ReceiveMsg),
@@ -74,6 +72,8 @@ pub enum ExecuteMsg {
         no_swap: Option<bool>,
         /// Slippage tolerance when providing LP
         slippage_tolerance: Option<Decimal>,
+        /// receiver of the ampLP
+        receiver: Option<String>,
     },
     /// Creates a request to change the contract's ownership
     ProposeNewOwner {
@@ -91,8 +91,7 @@ pub enum ExecuteMsg {
 }
 
 /// This structure describes the callback messages of the contract.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
 pub enum CallbackMsg {
     Stake {
         /// The previous LP balance in the contract
@@ -123,8 +122,7 @@ impl CallbackMsg {
 }
 
 /// This structure describes custom hooks for the CW20.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
 pub enum Cw20HookMsg {
     // Bond LP token
     Bond {
@@ -138,23 +136,26 @@ pub enum Cw20HookMsg {
 }
 
 /// This structure describes query messages available in the contract.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
+#[derive(QueryResponses)]
 pub enum QueryMsg {
     /// Returns the contract config
+    #[returns(ConfigResponse)]
     Config {},
     /// Returns the deposited balances
+    #[returns(UserInfoResponse)]
     UserInfo {
         addr: String,
     },
     /// Returns the global state
+    #[returns(StateResponse)]
     State {
         addr: Option<String>,
     },
 }
 
 /// This structure holds the parameters for reward info query response
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[cw_serde]
 pub struct UserInfoResponse {
     /// The LP token amount bonded
     pub user_lp_amount: Uint128,
@@ -168,10 +169,10 @@ pub struct UserInfoResponse {
 
 /// This structure describes a migration message.
 /// We currently take no arguments for migrations
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[cw_serde]
 pub struct MigrateMsg {}
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[cw_serde]
 pub struct ConfigResponse {
     // Addr of the underlying lp token
     pub lp_token: Addr,
@@ -187,7 +188,7 @@ pub struct ConfigResponse {
     pub base_reward_token: Addr,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[cw_serde]
 pub struct StateResponse {
     // total amount of underlying LP managed in the pool.
     pub total_lp: Uint128,
@@ -203,7 +204,7 @@ pub struct StateResponse {
     pub user_info: Option<UserInfo>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[cw_serde]
 pub struct UserInfo {
     /// The LP token amount bonded
     pub user_lp_amount: Uint128,

@@ -3,15 +3,15 @@ use serde::{Deserialize, Serialize};
 
 use astroport::asset::{Asset, AssetInfo};
 
-use cosmwasm_std::{Decimal};
-use cw20::Cw20ReceiveMsg;
 use crate::adapters::router::RouterType;
+use cosmwasm_std::Decimal;
+use cw20::Cw20ReceiveMsg;
 
 /// Maximum assets in the swap route
 pub const MAX_ASSETS: usize = 50;
 
 /// This structure describes the basic settings for creating a contract.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct InstantiateMsg {
     /// The list of asset in the swap route
     pub asset_infos: Vec<AssetInfo>,
@@ -46,7 +46,7 @@ pub enum ExecuteMsg {
 
 /// ## Description
 /// This structure describes a CW20 hook message.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Cw20HookMsg {
     /// Sell a given amount of asset
@@ -79,5 +79,5 @@ pub enum QueryMsg {
 
 /// This structure describes a migration message.
 /// We currently take no arguments for migrations.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct MigrateMsg {}

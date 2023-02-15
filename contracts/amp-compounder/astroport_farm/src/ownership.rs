@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 /// ## Description
 /// This structure describes the basic settings for creating a request for a change of ownership.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct OwnershipProposal {
     /// a new ownership.
     pub owner: Addr,

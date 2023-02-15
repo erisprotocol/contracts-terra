@@ -1,0 +1,42 @@
+[package]
+name = "eris-gov-voting-escrow"
+version = "1.3.0"
+authors = ["devs <devs@erisprotocol.com>"]
+edition = "2021"
+repository = "https://github.com/erisprotocol/contracts-terra"
+homepage = "https://erisprotocol.com"
+
+exclude = [
+    # Those files are rust-optimizer artifacts. You might want to commit them for convenience but they should not be part of the source code publication.
+    "contract.wasm",
+    "hash.txt",
+]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# for quicker tests, cargo test --lib
+# for more explicit tests, cargo test --features=backtraces
+backtraces = ["cosmwasm-std/backtraces"]
+
+[dependencies]
+cw2 = "0.13.2"
+cw20 = "0.13.2"
+cw20-base = { version = "0.13.2", features = ["library"] }
+cosmwasm-std = "1.1"
+cw-storage-plus = "0.13.2"
+thiserror = { version = "1.0" }
+eris = { path = "../../../packages/eris" }
+cosmwasm-schema = "1.1"
+astroport = { git = "https://github.com/astroport-fi/astroport-core.git", default-features = false, rev = "bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62" }
+
+[dev-dependencies]
+cw-multi-test = "0.13.2"
+astroport-token = { git = "https://github.com/astroport-fi/astroport-core.git", default-features = false, rev = "bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62" }
+astroport-staking = { git = "https://github.com/astroport-fi/astroport-core.git", default-features = false, rev = "bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62" }
+anyhow = "1"
+proptest = "1.0"

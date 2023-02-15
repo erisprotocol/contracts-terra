@@ -728,7 +728,10 @@ fn compound_token_path() -> Result<(), ContractError> {
     );
 
     assert_eq!(res.messages[1].msg, transfer);
-    assert_eq!(res.messages[2].msg, config.create_swap(&astro_amount(109), Decimal::percent(50))?);
+    assert_eq!(
+        res.messages[2].msg,
+        config.create_swap(&astro_amount(109), Decimal::percent(50), None)?
+    );
 
     match res.messages[3].msg.clone() {
         CosmosMsg::Wasm(WasmMsg::Execute {

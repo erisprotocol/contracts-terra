@@ -17,7 +17,7 @@ use crate::{
 use cw20::Cw20ReceiveMsg;
 use eris::{
     adapters::{compounder::Compounder, generator::Generator},
-    helper::unwrap_reply,
+    helper::{addr_opt_validate, unwrap_reply},
 };
 
 use crate::bond::unbond;
@@ -89,7 +89,21 @@ pub fn execute(
             minimum_receive,
             no_swap,
             slippage_tolerance,
-        } => bond_assets(deps, env, info, assets, minimum_receive, no_swap, slippage_tolerance),
+            receiver,
+        } => {
+            let receiver_addr = addr_opt_validate(deps.api, &receiver)?;
+            let receiver_addr = receiver_addr.unwrap_or_else(|| info.sender.clone());
+            bond_assets(
+                deps,
+                env,
+                info,
+                assets,
+                minimum_receive,
+                no_swap,
+                slippage_tolerance,
+                receiver_addr,
+            )
+        },
         ExecuteMsg::Compound {
             minimum_receive,
             slippage_tolerance,
@@ -181,7 +195,7 @@ pub fn update_config(
 
     CONFIG.save(deps.storage, &config)?;
 
-    Ok(Response::new().add_attributes(vec![attr("action", "update_config")]))
+    Ok(Response::new().add_attributes(vec![attr("action", "ampf/update_config")]))
 }
 
 /// # Description

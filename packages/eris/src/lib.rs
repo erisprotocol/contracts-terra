@@ -1,31 +1,44 @@
 pub mod adapters;
 pub mod amp_extractor;
+pub mod amp_gauges;
+pub mod ampz;
 pub mod astroport_farm;
 pub mod compound_proxy;
+pub mod emp_gauges;
 pub mod fees_collector;
+pub mod governance_helper;
 pub mod helper;
+pub mod helpers;
 pub mod hub;
 pub mod pair_proxy;
+pub mod voting_escrow;
 
-mod decimal_checked_ops {
-    use cosmwasm_std::{Decimal, Decimal256, Fraction, OverflowError, StdError, Uint128, Uint256};
+mod extensions {
+    use cosmwasm_std::{
+        CosmosMsg, Decimal, Decimal256, Empty, Env, Fraction, OverflowError, Response, StdError,
+        StdResult, Uint128, Uint256,
+    };
     use std::{convert::TryInto, str::FromStr};
 
-    // pub trait Decimal256CheckedOps {
-    //     fn to_decimal(self) -> Result<Decimal, StdError>;
-    // }
+    use crate::hub::CallbackMsg;
 
-    // impl Decimal256CheckedOps for Decimal256 {
-    //     fn to_decimal(self) -> Result<Decimal, StdError> {
-    //         let U256(ref arr) = self.0;
-    //         if arr[2] == 0u64 || arr[3] == 0u64 {
-    //             return Err(StdError::generic_err(
-    //                 "overflow error by casting decimal256 to decimal",
-    //             ));
-    //         }
-    //         Decimal::from_str(&self.to_string())
-    //     }
-    // }
+    pub trait CustomResponse<T>: Sized {
+        fn add_optional_message(self, msg: Option<CosmosMsg<T>>) -> Self;
+        fn add_callback_message(self, env: &Env, msg: CallbackMsg) -> StdResult<Self>;
+    }
+
+    impl CustomResponse<Empty> for Response {
+        fn add_optional_message(self, msg: Option<CosmosMsg>) -> Self {
+            match msg {
+                Some(msg) => self.add_message(msg),
+                None => self,
+            }
+        }
+
+        fn add_callback_message(self, env: &Env, msg: CallbackMsg) -> StdResult<Self> {
+            Ok(self.add_message(msg.into_cosmos_msg(&env.contract.address)?))
+        }
+    }
 
     pub trait DecimalCheckedOps {
         fn checked_add(self, other: Decimal) -> Result<Decimal, StdError>;
@@ -64,4 +77,5 @@ mod decimal_checked_ops {
     }
 }
 
-pub use decimal_checked_ops::DecimalCheckedOps;
+pub use extensions::CustomResponse;
+pub use extensions::DecimalCheckedOps;

@@ -161,7 +161,7 @@ fn collect(
     });
     messages.push(distribute_fee);
 
-    Ok(response.add_messages(messages).add_attribute("action", "collect"))
+    Ok(response.add_messages(messages).add_attribute("action", "ampfee/collect"))
 }
 
 /// ## Description
@@ -303,7 +303,7 @@ fn swap_bridge_assets(
         messages.push(build_swap_bridge_msg(env, bridge_assets, depth + 1)?)
     }
 
-    Ok(Response::new().add_messages(messages).add_attribute("action", "swap_bridge_assets"))
+    Ok(Response::new().add_messages(messages).add_attribute("action", "ampfee/swap_bridge_assets"))
 }
 
 /// ## Description
@@ -353,7 +353,7 @@ fn distribute(
         }
     }
 
-    attributes.push(("action".to_string(), "distribute_fees".to_string()));
+    attributes.push(("action".to_string(), "ampfee/distribute_fees".to_string()));
 
     Ok((messages, attributes))
 }
@@ -459,7 +459,7 @@ fn update_bridges(
         )?;
     }
 
-    Ok(Response::default().add_attribute("action", "update_bridges"))
+    Ok(Response::default().add_attribute("action", "ampfee/update_bridges"))
 }
 
 /// ## Description

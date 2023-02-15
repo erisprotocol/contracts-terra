@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use super::pair::Pair;
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Factory(pub Addr);
 
 impl Factory {
@@ -15,9 +15,10 @@ impl Factory {
         offer_asset: &Asset,
         wanted: &AssetInfo,
         max_spread: Decimal,
+        to: Option<String>,
     ) -> StdResult<CosmosMsg> {
         let pair_info = self.get_pair(querier, offer_asset, wanted)?;
-        Pair(pair_info.contract_addr).swap_msg(offer_asset, None, Some(max_spread), None)
+        Pair(pair_info.contract_addr).swap_msg(offer_asset, None, Some(max_spread), to)
     }
 
     pub fn simulate(

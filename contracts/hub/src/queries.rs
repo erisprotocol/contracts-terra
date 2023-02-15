@@ -1,13 +1,19 @@
 use cosmwasm_std::{Addr, Decimal, Deps, Env, Order, StdResult, Uint128};
 use cw_storage_plus::Bound;
 
+use eris::governance_helper::get_period;
 use eris::hub::{
     Batch, ConfigResponse, PendingBatch, StateResponse, UnbondRequestsByBatchResponseItem,
     UnbondRequestsByUserResponseItem, UnbondRequestsByUserResponseItemDetails,
+    WantedDelegationsResponse,
 };
+use itertools::Itertools;
 
-use crate::helpers::{query_cw20_total_supply, query_delegations};
+use crate::constants::CONTRACT_DENOM;
+use crate::helpers::{get_wanted_delegations, query_all_delegations, query_cw20_total_supply};
+use crate::math::get_uluna_per_validator_prepared;
 use crate::state::State;
+use crate::types::gauges::PeriodGaugeLoader;
 
 const MAX_LIMIT: u32 = 30;
 const DEFAULT_LIMIT: u32 = 10;
@@ -23,6 +29,28 @@ pub fn config(deps: Deps) -> StdResult<ConfigResponse> {
         unbond_period: state.unbond_period.load(deps.storage)?,
         validators: state.validators.load(deps.storage)?,
         fee_config: state.fee_config.load(deps.storage)?,
+        delegation_strategy: match state
+            .delegation_strategy
+            .may_load(deps.storage)?
+            .unwrap_or(eris::hub::DelegationStrategy::Uniform)
+        {
+            eris::hub::DelegationStrategy::Uniform => eris::hub::DelegationStrategy::Uniform,
+            eris::hub::DelegationStrategy::Gauges {
+                amp_gauges,
+                emp_gauges,
+                amp_factor_bps,
+                min_delegation_bps,
+                max_delegation_bps,
+                validator_count,
+            } => eris::hub::DelegationStrategy::Gauges {
+                amp_gauges: amp_gauges.to_string(),
+                emp_gauges: emp_gauges.map(|a| a.to_string()),
+                amp_factor_bps,
+                min_delegation_bps,
+                max_delegation_bps,
+                validator_count,
+            },
+        },
     })
 }
 
@@ -32,8 +60,7 @@ pub fn state(deps: Deps, env: Env) -> StdResult<StateResponse> {
     let stake_token = state.stake_token.load(deps.storage)?;
     let total_ustake = query_cw20_total_supply(&deps.querier, &stake_token)?;
 
-    let validators = state.validators.load(deps.storage)?;
-    let delegations = query_delegations(&deps.querier, &validators, &env.contract.address)?;
+    let delegations = query_all_delegations(&deps.querier, &env.contract.address)?;
     let total_uluna: u128 = delegations.iter().map(|d| d.amount).sum();
 
     // only not reconciled batches are relevant as they are still unbonding and estimated unbond time in the future.
@@ -51,7 +78,7 @@ pub fn state(deps: Deps, env: Env) -> StdResult<StateResponse> {
         .map(|item| item.uluna_unclaimed.u128())
         .sum();
 
-    let available = deps.querier.query_balance(&env.contract.address, "uluna")?.amount;
+    let available = deps.querier.query_balance(&env.contract.address, CONTRACT_DENOM)?.amount;
 
     let exchange_rate = if total_ustake.is_zero() {
         Decimal::one()
@@ -70,6 +97,72 @@ pub fn state(deps: Deps, env: Env) -> StdResult<StateResponse> {
             .checked_add(Uint128::from(unbonding))?
             .checked_add(available)?,
     })
+}
+
+pub fn wanted_delegations(deps: Deps, env: Env) -> StdResult<WantedDelegationsResponse> {
+    let state = State::default();
+
+    let (delegations, _, _, share) = get_uluna_per_validator_prepared(
+        &state,
+        deps.storage,
+        &deps.querier,
+        &env.contract.address,
+        None,
+    )?;
+
+    Ok(WantedDelegationsResponse {
+        delegations: sort_delegations(delegations),
+        tune_time_period: share.map(|s| (s.tune_time, s.tune_period)),
+    })
+}
+
+pub fn simulate_wanted_delegations(
+    deps: Deps,
+    env: Env,
+    period: Option<u64>,
+) -> StdResult<WantedDelegationsResponse> {
+    let state = State::default();
+
+    let period = period.unwrap_or(get_period(env.block.time.seconds())? + 1);
+
+    let (delegation_goal, _) = get_wanted_delegations(
+        &state,
+        &env,
+        deps.storage,
+        &deps.querier,
+        PeriodGaugeLoader {
+            period,
+        },
+    )?;
+
+    let (delegations, _, _, share) = get_uluna_per_validator_prepared(
+        &state,
+        deps.storage,
+        &deps.querier,
+        &env.contract.address,
+        Some(delegation_goal),
+    )?;
+
+    Ok(WantedDelegationsResponse {
+        delegations: sort_delegations(delegations), // Sort in descending order
+        tune_time_period: share.map(|s| (s.tune_time, s.tune_period)),
+    })
+}
+
+/// Sort delegations by amount descending and then by address ascending
+fn sort_delegations(
+    delegations: std::collections::HashMap<String, Uint128>,
+) -> Vec<(String, Uint128)> {
+    delegations
+        .into_iter()
+        .sorted_by(|(vala, a), (valb, b)| {
+            let result = b.cmp(a);
+            if result == std::cmp::Ordering::Equal {
+                return vala.cmp(valb);
+            }
+            result
+        })
+        .collect()
 }
 
 pub fn pending_batch(deps: Deps) -> StdResult<PendingBatch> {

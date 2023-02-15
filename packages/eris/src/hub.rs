@@ -1,11 +1,60 @@
 use cosmwasm_std::{
-    to_binary, Addr, Coin, CosmosMsg, Decimal, Empty, StdResult, Timestamp, Uint128, WasmMsg,
+    to_binary, Addr, Api, Coin, CosmosMsg, Decimal, Empty, QuerierWrapper, StdResult, Timestamp,
+    Uint128, VoteOption, WasmMsg,
 };
 use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+use crate::helper::addr_opt_validate;
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum DelegationStrategy<T = String> {
+    /// all validators receive the same delegation.
+    Uniform,
+    /// validators receive delegations based on community voting + merit points
+    Gauges {
+        /// gauges based on vAmp voting
+        amp_gauges: T,
+        /// gauges based on eris merit points
+        emp_gauges: Option<T>,
+        /// weight between amp and emp gauges between 0 and 1
+        amp_factor_bps: u16,
+        /// min amount of delegation needed
+        min_delegation_bps: u16,
+        /// max amount of delegation needed
+        max_delegation_bps: u16,
+        /// count of validators that should receive delegations
+        validator_count: u8,
+    },
+}
+
+impl DelegationStrategy<String> {
+    pub fn validate(self, api: &dyn Api) -> StdResult<DelegationStrategy<Addr>> {
+        let result = match self {
+            DelegationStrategy::Uniform {} => DelegationStrategy::Uniform {},
+            DelegationStrategy::Gauges {
+                amp_gauges,
+                emp_gauges,
+                amp_factor_bps: amp_factor,
+                min_delegation_bps,
+                validator_count,
+                max_delegation_bps,
+            } => DelegationStrategy::Gauges {
+                amp_gauges: api.addr_validate(&amp_gauges)?,
+                emp_gauges: addr_opt_validate(api, &emp_gauges)?,
+                amp_factor_bps: amp_factor,
+                min_delegation_bps,
+                validator_count,
+                max_delegation_bps,
+            },
+        };
+        Ok(result)
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct InstantiateMsg {
     /// Code ID of the CW20 token contract
     pub cw20_code_id: u64,
@@ -28,6 +77,10 @@ pub struct InstantiateMsg {
     pub protocol_fee_contract: String,
     /// Fees that are being applied during reinvest of staking rewards
     pub protocol_reward_fee: Decimal, // "1 is 100%, 0.05 is 5%"
+    /// Strategy how delegations should be handled
+    pub delegation_strategy: Option<DelegationStrategy>,
+    /// Contract address that is allowed to vote
+    pub vote_operator: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -57,16 +110,28 @@ pub enum ExecuteMsg {
     TransferOwnership {
         new_owner: String,
     },
+    /// Remove the ownership transfer proposal
+    DropOwnershipProposal {},
     /// Accept an ownership transfer
     AcceptOwnership {},
     /// Claim staking rewards, swap all for Luna, and restake
     Harvest {},
+
+    TuneDelegations {},
     /// Use redelegations to balance the amounts of Luna delegated to validators
-    Rebalance {},
+    Rebalance {
+        min_redelegation: Option<Uint128>,
+    },
     /// Update Luna amounts in unbonding batches to reflect any slashing or rounding errors
     Reconcile {},
     /// Submit the current pending batch of unbonding requests to be unbonded
     SubmitBatch {},
+    /// Vote on a proposal (only allowed by the vote_operator)
+    Vote {
+        proposal_id: u64,
+        vote: VoteOption,
+    },
+
     /// Callbacks; can only be invoked by the contract itself
     Callback(CallbackMsg),
 
@@ -76,10 +141,16 @@ pub enum ExecuteMsg {
         protocol_fee_contract: Option<String>,
         /// Fees that are being applied during reinvest of staking rewards
         protocol_reward_fee: Option<Decimal>, // "1 is 100%, 0.05 is 5%"
+        /// Specifies wether donations are allowed.
+        allow_donations: Option<bool>,
+        /// Strategy how delegations should be handled
+        delegation_strategy: Option<DelegationStrategy>,
+        /// Update the vote_operator
+        vote_operator: Option<String>,
     },
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ReceiveMsg {
     /// Submit an unbonding request to the current unbonding queue; automatically invokes `unbond`
@@ -89,13 +160,17 @@ pub enum ReceiveMsg {
     },
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum CallbackMsg {
     /// Swap Terra stablecoins held by the contract to Luna
     // Swap {},
     /// Following the swaps, stake the Luna acquired to the whitelisted validators
     Reinvest {},
+
+    CheckReceivedCoin {
+        snapshot: Coin,
+    },
 }
 
 impl CallbackMsg {
@@ -108,13 +183,20 @@ impl CallbackMsg {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     /// The contract's configurations. Response: `ConfigResponse`
     Config {},
     /// The contract's current state. Response: `StateResponse`
     State {},
+    /// The contract's current delegation distribution goal. Response: `WantedDelegationsResponse`
+    WantedDelegations {},
+    /// The contract's delegation distribution goal based on period. Response: `WantedDelegationsResponse`
+    SimulateWantedDelegations {
+        /// by default uses the next period to look into the future.
+        period: Option<u64>,
+    },
     /// The current batch on unbonding requests pending submission. Response: `PendingBatch`
     PendingBatch {},
     /// Query an individual batch that has previously been submitted for unbonding but have not yet
@@ -146,7 +228,7 @@ pub enum QueryMsg {
     },
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct ConfigResponse {
     /// Account who can call certain privileged functions
     pub owner: String,
@@ -163,9 +245,12 @@ pub struct ConfigResponse {
 
     /// Information about applied fees
     pub fee_config: FeeConfig,
+
+    /// Defines how delegations are spread out
+    pub delegation_strategy: DelegationStrategy<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct StateResponse {
     /// Total supply to the Stake token
     pub total_ustake: Uint128,
@@ -183,7 +268,20 @@ pub struct StateResponse {
     pub tvl_uluna: Uint128,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+pub struct WantedDelegationsResponse {
+    pub tune_time_period: Option<(u64, u64)>,
+    pub delegations: Vec<(String, Uint128)>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+pub struct WantedDelegationsShare {
+    pub tune_time: u64,
+    pub tune_period: u64,
+    pub shares: Vec<(String, Decimal)>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct SteakStateResponse {
     /// Total supply to the Stake token
     pub total_ustake: Uint128,
@@ -195,12 +293,12 @@ pub struct SteakStateResponse {
     pub unlocked_coins: Vec<Coin>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct StaderStateResponse {
     pub state: StaderState,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct StaderState {
     pub total_staked: Uint128,
     pub exchange_rate: Decimal, // shares to token value. 1 share = (ExchangeRate) tokens.
@@ -213,7 +311,7 @@ pub struct StaderState {
     pub reconciled_funds_to_withdraw: Uint128,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct PendingBatch {
     /// ID of this batch
     pub id: u64,
@@ -223,7 +321,7 @@ pub struct PendingBatch {
     pub est_unbond_start_time: u64,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct FeeConfig {
     /// Contract address where fees are sent
     pub protocol_fee_contract: Addr,
@@ -231,7 +329,7 @@ pub struct FeeConfig {
     pub protocol_reward_fee: Decimal, // "1 is 100%, 0.05 is 5%"
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Batch {
     /// ID of this batch
     pub id: u64,
@@ -245,7 +343,7 @@ pub struct Batch {
     pub est_unbond_end_time: u64,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct UnbondRequest {
     /// ID of the batch
     pub id: u64,
@@ -255,7 +353,7 @@ pub struct UnbondRequest {
     pub shares: Uint128,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct UnbondRequestsByBatchResponseItem {
     /// The user's address
     pub user: String,
@@ -272,7 +370,7 @@ impl From<UnbondRequest> for UnbondRequestsByBatchResponseItem {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct UnbondRequestsByUserResponseItem {
     /// ID of the batch
     pub id: u64,
@@ -289,7 +387,7 @@ impl From<UnbondRequest> for UnbondRequestsByUserResponseItem {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct UnbondRequestsByUserResponseItemDetails {
     /// ID of the batch
     pub id: u64,
@@ -307,3 +405,11 @@ pub struct UnbondRequestsByUserResponseItemDetails {
 }
 
 pub type MigrateMsg = Empty;
+
+pub fn get_hub_validators(
+    querier: &QuerierWrapper,
+    hub_addr: impl Into<String>,
+) -> StdResult<Vec<String>> {
+    let config: ConfigResponse = querier.query_wasm_smart(hub_addr.into(), &QueryMsg::Config {})?;
+    Ok(config.validators)
+}

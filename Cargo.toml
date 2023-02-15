@@ -3,7 +3,9 @@ members = [
     "contracts/amp-extractor",
     "contracts/hub",
     "contracts/token",
+    "contracts/ampz",
     "contracts/amp-compounder/*",
+    "contracts/amp-governance/*",
     "packages/*",
 ]
 

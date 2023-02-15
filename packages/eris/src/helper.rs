@@ -1,18 +1,12 @@
-use cosmwasm_std::{Reply, StdError, StdResult, SubMsgResponse, Uint128, Uint256};
+use astroport::asset::Asset;
+use cosmwasm_std::{
+    Addr, Api, Coin, CosmosMsg, Env, MessageInfo, Reply, StdError, StdResult, SubMsgResponse,
+    Uint128, Uint256,
+};
+use cw20::Expiration;
 use std::convert::TryInto;
 
-// pub fn compute_deposit_time(
-//     last_deposit_amount: Uint128,
-//     new_deposit_amount: Uint128,
-//     last_deposit_time: u64,
-//     new_deposit_time: u64,
-// ) -> StdResult<u64> {
-//     let last_weight = last_deposit_amount.u128() * (last_deposit_time as u128);
-//     let new_weight = new_deposit_amount.u128() * (new_deposit_time as u128);
-//     let weight_avg =
-//         (last_weight + new_weight) / (last_deposit_amount.u128() + new_deposit_amount.u128());
-//     u64::try_from(weight_avg).map_err(|_| StdError::generic_err("Overflow in compute_deposit_time"))
-// }
+use crate::adapters::asset::AssetEx;
 
 /// Unwrap a `Reply` object to extract the response
 pub fn unwrap_reply(reply: Reply) -> StdResult<SubMsgResponse> {
@@ -21,6 +15,49 @@ pub fn unwrap_reply(reply: Reply) -> StdResult<SubMsgResponse> {
 
 pub trait ScalingUint128 {
     fn multiply_ratio_and_ceil(&self, numerator: Uint128, denominator: Uint128) -> Uint128;
+}
+
+/// Returns a lowercased, validated address upon success if present.
+pub fn addr_opt_validate(api: &dyn Api, addr: &Option<String>) -> StdResult<Option<Addr>> {
+    addr.as_ref().map(|addr| api.addr_validate(addr)).transpose()
+}
+
+/// Bulk validation and conversion between [`String`] -> [`Addr`] for an array of addresses.
+/// If any address is invalid, the function returns [`StdError`].
+pub fn validate_addresses(api: &dyn Api, admins: &[String]) -> StdResult<Vec<Addr>> {
+    admins.iter().map(|addr| api.addr_validate(addr)).collect()
+}
+
+pub fn funds_or_allowance(
+    env: &Env,
+    spender: &Addr,
+    assets: &[Asset],
+    deposit_info: Option<&MessageInfo>,
+) -> StdResult<(Vec<Coin>, Vec<CosmosMsg>)> {
+    let mut funds: Vec<Coin> = vec![];
+    let mut msgs: Vec<CosmosMsg> = vec![];
+
+    for asset in assets.iter() {
+        if let Some(deposit_info) = deposit_info {
+            asset.deposit_asset(deposit_info, &env.contract.address, &mut msgs)?;
+        }
+
+        if !asset.amount.is_zero() {
+            if asset.is_native_token() {
+                funds.push(cosmwasm_std::Coin {
+                    denom: asset.info.to_string(),
+                    amount: asset.amount,
+                });
+            } else {
+                msgs.push(asset.increase_allowance_msg(
+                    spender.to_string(),
+                    Some(Expiration::AtHeight(env.block.height + 1)),
+                )?);
+            }
+        }
+    }
+
+    Ok((funds, msgs))
 }
 
 impl ScalingUint128 for Uint128 {

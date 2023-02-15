@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     entry_point, from_binary, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response,
-    StdError, StdResult,
+    StdResult,
 };
 use cw2::set_contract_version;
 use cw20::Cw20ReceiveMsg;
@@ -8,10 +8,11 @@ use cw20::Cw20ReceiveMsg;
 use eris::helper::unwrap_reply;
 use eris::hub::{CallbackMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, ReceiveMsg};
 
-use crate::constants::{CONTRACT_NAME, CONTRACT_VERSION};
+use crate::constants::{CONTRACT_DENOM, CONTRACT_NAME, CONTRACT_VERSION};
+use crate::error::{ContractError, ContractResult};
 use crate::helpers::parse_received_fund;
 use crate::state::State;
-use crate::{execute, queries};
+use crate::{execute, gov, queries};
 
 #[entry_point]
 pub fn instantiate(
@@ -19,12 +20,12 @@ pub fn instantiate(
     env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
-) -> StdResult<Response> {
+) -> ContractResult {
     execute::instantiate(deps, env, msg)
 }
 
 #[entry_point]
-pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
+pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> ContractResult {
     let api = deps.api;
     match msg {
         ExecuteMsg::Receive(cw20_msg) => receive(deps, env, info, cw20_msg),
@@ -34,12 +35,16 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
             deps,
             env,
             receiver.map(|s| api.addr_validate(&s)).transpose()?.unwrap_or(info.sender),
-            parse_received_fund(&info.funds, "uluna")?,
+            parse_received_fund(&info.funds, CONTRACT_DENOM)?,
             false,
         ),
-        ExecuteMsg::Donate {} => {
-            execute::bond(deps, env, info.sender, parse_received_fund(&info.funds, "uluna")?, true)
-        },
+        ExecuteMsg::Donate {} => execute::bond(
+            deps,
+            env,
+            info.sender,
+            parse_received_fund(&info.funds, CONTRACT_DENOM)?,
+            true,
+        ),
         ExecuteMsg::WithdrawUnbonded {
             receiver,
         } => execute::withdraw_unbonded(
@@ -57,25 +62,39 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
         ExecuteMsg::TransferOwnership {
             new_owner,
         } => execute::transfer_ownership(deps, info.sender, new_owner),
+        ExecuteMsg::DropOwnershipProposal {} => execute::drop_ownership_proposal(deps, info.sender),
         ExecuteMsg::AcceptOwnership {} => execute::accept_ownership(deps, info.sender),
         ExecuteMsg::Harvest {} => execute::harvest(deps, env),
-        ExecuteMsg::Rebalance {} => execute::rebalance(deps, env),
+        ExecuteMsg::TuneDelegations {} => execute::tune_delegations(deps, env, info.sender),
+        ExecuteMsg::Rebalance {
+            min_redelegation,
+        } => execute::rebalance(deps, env, info.sender, min_redelegation),
         ExecuteMsg::Reconcile {} => execute::reconcile(deps, env),
         ExecuteMsg::SubmitBatch {} => execute::submit_batch(deps, env),
+        ExecuteMsg::Vote {
+            proposal_id,
+            vote,
+        } => gov::vote(deps, env, info, proposal_id, vote),
         ExecuteMsg::Callback(callback_msg) => callback(deps, env, info, callback_msg),
         ExecuteMsg::UpdateConfig {
             protocol_fee_contract,
             protocol_reward_fee,
-        } => execute::update_config(deps, info.sender, protocol_fee_contract, protocol_reward_fee),
+            delegation_strategy,
+            allow_donations,
+            vote_operator,
+        } => execute::update_config(
+            deps,
+            info.sender,
+            protocol_fee_contract,
+            protocol_reward_fee,
+            delegation_strategy,
+            allow_donations,
+            vote_operator,
+        ),
     }
 }
 
-fn receive(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    cw20_msg: Cw20ReceiveMsg,
-) -> StdResult<Response> {
+fn receive(deps: DepsMut, env: Env, info: MessageInfo, cw20_msg: Cw20ReceiveMsg) -> ContractResult {
     let api = deps.api;
     match from_binary(&cw20_msg.msg)? {
         ReceiveMsg::QueueUnbond {
@@ -85,10 +104,7 @@ fn receive(
 
             let stake_token = state.stake_token.load(deps.storage)?;
             if info.sender != stake_token {
-                return Err(StdError::generic_err(format!(
-                    "expecting Stake token, received {}",
-                    info.sender
-                )));
+                return Err(ContractError::ExpectingStakeToken(info.sender.into()));
             }
 
             execute::queue_unbond(
@@ -106,29 +122,25 @@ fn callback(
     env: Env,
     info: MessageInfo,
     callback_msg: CallbackMsg,
-) -> StdResult<Response> {
+) -> ContractResult {
     if env.contract.address != info.sender {
-        return Err(StdError::generic_err("callbacks can only be invoked by the contract itself"));
+        return Err(ContractError::CallbackOnlyCalledByContract {});
     }
 
     match callback_msg {
         CallbackMsg::Reinvest {} => execute::reinvest(deps, env),
+
+        CallbackMsg::CheckReceivedCoin {
+            snapshot,
+        } => execute::callback_received_coin(deps, env, snapshot),
     }
 }
 
 #[entry_point]
-pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> StdResult<Response> {
+pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> ContractResult {
     match reply.id {
         1 => execute::register_stake_token(deps, unwrap_reply(reply)?),
-        2 => execute::register_received_coins(
-            deps,
-            env,
-            unwrap_reply(reply)?.events,
-            "coin_received",
-            "receiver",
-            "amount",
-        ),
-        id => Err(StdError::generic_err(format!("invalid reply id: {}; must be 1-2", id))),
+        id => Err(ContractError::InvalidReplyId(id)),
     }
 }
 
@@ -153,7 +165,6 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             start_after,
             limit,
         } => to_binary(&queries::unbond_requests_by_user(deps, user, start_after, limit)?),
-
         QueryMsg::UnbondRequestsByUserDetails {
             user,
             start_after,
@@ -165,11 +176,15 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             limit,
             env,
         )?),
+        QueryMsg::WantedDelegations {} => to_binary(&queries::wanted_delegations(deps, env)?),
+        QueryMsg::SimulateWantedDelegations {
+            period,
+        } => to_binary(&queries::simulate_wanted_delegations(deps, env, period)?),
     }
 }
 
 #[entry_point]
-pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> ContractResult {
     // let contract_version = get_contract_version(deps.storage)?;
 
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;

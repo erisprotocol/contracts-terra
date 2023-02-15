@@ -1,5 +1,4 @@
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use cosmwasm_schema::{cw_serde, QueryResponses};
 
 use astroport::asset::{Asset, AssetInfo, PairInfo};
 
@@ -8,8 +7,7 @@ use cosmwasm_std::{to_binary, Addr, CosmosMsg, Decimal, StdResult, Uint128, Wasm
 use crate::adapters::router::RouterType;
 
 /// This structure describes the basic settings for creating a contract.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
 pub struct InstantiateMsg {
     // supported LPs
     pub lps: Vec<LpInit>,
@@ -21,8 +19,7 @@ pub struct InstantiateMsg {
     pub owner: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
 pub struct LpInit {
     /// The pair info
     pub pair_contract: String,
@@ -34,8 +31,7 @@ pub struct LpInit {
     pub wanted_token: AssetInfo,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
 pub enum RouteInit {
     Path {
         router: String,
@@ -49,8 +45,7 @@ pub enum RouteInit {
     },
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
 pub struct RouteDelete {
     pub from: AssetInfo,
     pub to: AssetInfo,
@@ -59,8 +54,7 @@ pub struct RouteDelete {
 }
 
 /// This structure describes the execute messages of the contract.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
 pub enum ExecuteMsg {
     // /// Implements the Cw20 receiver interface
     // Receive(Cw20ReceiveMsg),
@@ -77,17 +71,15 @@ pub enum ExecuteMsg {
         /// slippage tolerance when providing LP
         slippage_tolerance: Option<Decimal>,
     },
-    // /// Swaps a number of assets to a single result
-    // Swap {
-    //     /// LP into which the assets should be compounded into
-    //     into: AssetInfo,
-    //     /// List of reward asset send to compound
-    //     rewards: Vec<Asset>,
-    //     /// Receiver address for LP token
-    //     receiver: Option<String>,
-    //     /// slippage tolerance when providing LP
-    //     slippage_tolerance: Option<Decimal>,
-    // },
+    /// Swaps a number of assets to a single result
+    MultiSwap {
+        /// LP into which the assets should be compounded into
+        into: AssetInfo,
+        /// List of reward asset send to compound
+        assets: Vec<Asset>,
+        /// Receiver address for LP token
+        receiver: Option<String>,
+    },
     /// Creates a request to change the contract's ownership
     ProposeNewOwner {
         /// The newly proposed owner
@@ -115,8 +107,7 @@ pub enum ExecuteMsg {
     Callback(CallbackMsg),
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
 pub enum ReceiveMsg {
     /// splits an asset into it's parts and then converts them to the wanted result
     Split {
@@ -130,8 +121,7 @@ pub enum ReceiveMsg {
 }
 
 /// This structure describes the callback messages of the contract.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
 pub enum CallbackMsg {
     /// Performs optimal swap
     OptimalSwap {
@@ -143,6 +133,10 @@ pub enum CallbackMsg {
         receiver: String,
         slippage_tolerance: Option<Decimal>,
         lp_token: String,
+    },
+    SendSwapResult {
+        token: AssetInfo,
+        receiver: String,
     },
 }
 
@@ -159,38 +153,50 @@ impl CallbackMsg {
 }
 
 /// This structure describes the query messages of the contract.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
+#[derive(QueryResponses)]
 pub enum QueryMsg {
     /// Returns controls settings that specified in custom [`ConfigResponse`] structure.
+    #[returns(ConfigResponse)]
     Config {},
     /// Return LP token amount received after compound
+    #[returns(CompoundSimulationResponse)]
     CompoundSimulation {
         rewards: Vec<Asset>,
         lp_token: String,
     },
+    #[returns(LpConfig)]
     GetLp {
         lp_addr: String,
     },
     // returns the state and assets of a pair by using the LP token addr
+    #[returns(LpStateResponse)]
     GetLpState {
         lp_addr: String,
     },
     // return all allowed lps
+    #[returns(Vec<LpConfig>)]
     GetLps {
         // start after the provided liquidity_token
         start_after: Option<String>,
         limit: Option<u32>,
     },
     // return all known pairs
+    #[returns(Vec<RouteResponseItem>)]
     GetRoutes {
         start_after: Option<(AssetInfo, AssetInfo)>,
         limit: Option<u32>,
     },
 }
 
+#[cw_serde]
+pub struct ConfigResponse {
+    pub factory: Option<Addr>,
+    pub owner: Addr,
+}
+
 /// This structure holds the parameters that are returned from a compound simulation response
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[cw_serde]
 pub struct CompoundSimulationResponse {
     /// The amount of LP returned from compound
     pub lp_amount: Uint128,
@@ -204,7 +210,7 @@ pub struct CompoundSimulationResponse {
     pub return_b_amount: Uint128,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[cw_serde]
 pub struct LpConfig {
     /// The pair info
     pub pair_info: PairInfo,
@@ -216,7 +222,7 @@ pub struct LpConfig {
     pub wanted_token: AssetInfo,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[cw_serde]
 pub struct LpStateResponse {
     /// Pair contract address
     pub contract_addr: Addr,
@@ -230,16 +236,16 @@ pub struct LpStateResponse {
 
 /// This structure describes a migration message.
 /// We currently take no arguments for migrations.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[cw_serde]
 pub struct MigrateMsg {}
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[cw_serde]
 pub struct RouteResponseItem {
     pub key: (String, String),
     pub route_type: RouteTypeResponseItem,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[cw_serde]
 pub enum RouteTypeResponseItem {
     Path {
         router: String,

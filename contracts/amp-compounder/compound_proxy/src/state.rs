@@ -20,7 +20,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// This structure describes the main control config of pair.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Config {
     pub factory: Option<Factory>,
     pub owner: Addr,
@@ -55,7 +55,12 @@ pub enum RouteType {
 }
 
 impl RouteConfig {
-    pub fn create_swap(&self, offer_asset: &Asset, max_spread: Decimal) -> StdResult<CosmosMsg> {
+    pub fn create_swap(
+        &self,
+        offer_asset: &Asset,
+        max_spread: Decimal,
+        to: Option<Addr>,
+    ) -> StdResult<CosmosMsg> {
         match &self.route_type {
             RouteType::Path {
                 route,
@@ -65,7 +70,7 @@ impl RouteConfig {
                 offer_asset.clone(),
                 router_type.create_swap_operations(route)?,
                 None,
-                None,
+                to,
                 Some(max_spread),
             ),
             RouteType::PairProxy {
@@ -74,7 +79,7 @@ impl RouteConfig {
                 offer_asset,
                 None,
                 Some(max_spread),
-                None,
+                to.map(|to| to.to_string()),
             ),
         }
     }
@@ -166,7 +171,7 @@ impl<'a> State<'a> {
         Ok(())
     }
 
-    pub fn remove_route(
+    pub fn delete_route(
         &self,
         deps: &mut DepsMut,
         assets: (AssetInfo, AssetInfo),
@@ -180,7 +185,7 @@ impl<'a> State<'a> {
 
         self.routes.remove(deps.storage, key);
         if both {
-            self.remove_route(deps, (assets.1, assets.0), false)?;
+            self.delete_route(deps, (assets.1, assets.0), false)?;
         }
         Ok(())
     }

@@ -22,7 +22,6 @@ pub enum ContractError {
 
     #[error("The limit exceeded of swap assets!")]
     SwapLimitExceeded {},
-
 }
 
 impl From<OverflowError> for ContractError {
