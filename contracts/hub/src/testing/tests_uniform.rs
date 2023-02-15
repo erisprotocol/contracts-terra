@@ -3,8 +3,9 @@ use std::vec;
 
 use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    coin, to_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, DistributionMsg, Event, GovMsg,
-    Order, OwnedDeps, Reply, StdError, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
+    coin, to_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, DistributionMsg, Event, Fraction,
+    GovMsg, Order, OwnedDeps, Reply, StdError, StdResult, SubMsg, SubMsgResponse, Uint128,
+    VoteOption, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, MinterResponse};
 use cw20_base::msg::InstantiateMsg as Cw20InstantiateMsg;
@@ -16,6 +17,7 @@ use eris::hub::{
     UnbondRequestsByUserResponseItem, UnbondRequestsByUserResponseItemDetails,
 };
 use itertools::Itertools;
+use protobuf::SpecialFields;
 
 use crate::constants::CONTRACT_DENOM;
 use crate::contract::{execute, instantiate, reply};
@@ -24,6 +26,7 @@ use crate::helpers::{dedupe, parse_received_fund};
 use crate::math::{
     compute_redelegations_for_rebalancing, compute_redelegations_for_removal, compute_undelegations,
 };
+use crate::protos::proto::{self, MsgVoteWeighted, WeightedVoteOption};
 use crate::state::State;
 use crate::testing::helpers::query_helper_env;
 use crate::types::{Coins, Delegation, Redelegation, SendFee, Undelegation};
@@ -1681,6 +1684,102 @@ fn vote() {
     );
 }
 
+#[test]
+fn vote_weighted() {
+    let mut deps = setup_test();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("jake", &[]),
+        ExecuteMsg::VoteWeighted {
+            proposal_id: 3,
+            votes: vec![
+                (Decimal::from_str("0.4").unwrap(), VoteOption::Yes),
+                (Decimal::from_str("0.6").unwrap(), VoteOption::No),
+            ],
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, ContractError::NoVoteOperatorSet {});
+
+    execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        ExecuteMsg::UpdateConfig {
+            protocol_fee_contract: None,
+            protocol_reward_fee: None,
+            delegation_strategy: None,
+            allow_donations: None,
+            vote_operator: Some("vote_operator".to_string()),
+        },
+    )
+    .unwrap();
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("jake", &[]),
+        ExecuteMsg::VoteWeighted {
+            proposal_id: 3,
+            votes: vec![
+                (Decimal::from_str("0.4").unwrap(), VoteOption::Yes),
+                (Decimal::from_str("0.6").unwrap(), VoteOption::No),
+            ],
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, ContractError::UnauthorizedSenderNotVoteOperator {});
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("vote_operator", &[]),
+        ExecuteMsg::VoteWeighted {
+            proposal_id: 3,
+            votes: vec![
+                (Decimal::from_str("0.1").unwrap(), VoteOption::Yes),
+                (Decimal::from_str("0.2").unwrap(), VoteOption::No),
+                (Decimal::from_str("0.3").unwrap(), VoteOption::Abstain),
+                (Decimal::from_str("0.4").unwrap(), VoteOption::NoWithVeto),
+            ],
+        },
+    )
+    .unwrap();
+    assert_eq!(res.messages.len(), 1);
+
+    assert_eq!(
+        res.messages[0].msg,
+        MsgVoteWeighted {
+            proposal_id: 3,
+            voter: MOCK_CONTRACT_ADDR.into(),
+            options: vec![
+                WeightedVoteOption {
+                    option: proto::VoteOption::VOTE_OPTION_YES.into(),
+                    weight: Decimal::from_str("0.1").unwrap().numerator().to_string(),
+                    special_fields: SpecialFields::default()
+                },
+                WeightedVoteOption {
+                    option: proto::VoteOption::VOTE_OPTION_NO.into(),
+                    weight: Decimal::from_str("0.2").unwrap().numerator().to_string(),
+                    special_fields: SpecialFields::default()
+                },
+                WeightedVoteOption {
+                    option: proto::VoteOption::VOTE_OPTION_ABSTAIN.into(),
+                    weight: Decimal::from_str("0.3").unwrap().numerator().to_string(),
+                    special_fields: SpecialFields::default()
+                },
+                WeightedVoteOption {
+                    option: proto::VoteOption::VOTE_OPTION_NO_WITH_VETO.into(),
+                    weight: Decimal::from_str("0.4").unwrap().numerator().to_string(),
+                    special_fields: SpecialFields::default()
+                },
+            ],
+            special_fields: SpecialFields::default()
+        }
+        .to_cosmos_msg()
+    );
+}
 //--------------------------------------------------------------------------------------------------
 // Queries
 //--------------------------------------------------------------------------------------------------
