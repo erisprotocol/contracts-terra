@@ -153,6 +153,11 @@ pub enum ExecuteMsg {
         delegation_strategy: Option<DelegationStrategy>,
         /// Update the vote_operator
         vote_operator: Option<String>,
+
+        /// How often the unbonding queue is to be executed, in seconds
+        epoch_period: Option<u64>,
+        /// The staking module's unbonding time, in seconds
+        unbond_period: Option<u64>,
     },
 }
 

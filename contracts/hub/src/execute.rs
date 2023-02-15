@@ -795,6 +795,7 @@ pub fn accept_ownership(deps: DepsMut, sender: Addr) -> ContractResult {
     Ok(Response::new().add_event(event).add_attribute("action", "erishub/transfer_ownership"))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn update_config(
     deps: DepsMut,
     sender: Addr,
@@ -803,6 +804,8 @@ pub fn update_config(
     delegation_strategy: Option<DelegationStrategy>,
     allow_donations: Option<bool>,
     vote_operator: Option<String>,
+    epoch_period: Option<u64>,
+    unbond_period: Option<u64>,
 ) -> ContractResult {
     let state = State::default();
 
@@ -823,6 +826,20 @@ pub fn update_config(
         }
 
         state.fee_config.save(deps.storage, &fee_config)?;
+    }
+
+    if let Some(epoch_period) = epoch_period {
+        if epoch_period == 0 {
+            return Err(ContractError::CantBeZero("epoch_period".into()));
+        }
+        state.epoch_period.save(deps.storage, &epoch_period)?;
+    }
+
+    if let Some(unbond_period) = unbond_period {
+        if unbond_period == 0 {
+            return Err(ContractError::CantBeZero("unbond_period".into()));
+        }
+        state.unbond_period.save(deps.storage, &unbond_period)?;
     }
 
     if let Some(delegation_strategy) = delegation_strategy {

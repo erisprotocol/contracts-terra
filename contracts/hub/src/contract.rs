@@ -86,6 +86,8 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> C
             delegation_strategy,
             allow_donations,
             vote_operator,
+            epoch_period,
+            unbond_period,
         } => execute::update_config(
             deps,
             info.sender,
@@ -94,6 +96,8 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> C
             delegation_strategy,
             allow_donations,
             vote_operator,
+            epoch_period,
+            unbond_period,
         ),
     }
 }

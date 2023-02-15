@@ -275,6 +275,8 @@ impl BaseErisTestPackage {
                     delegation_strategy,
                     allow_donations: None,
                     vote_operator: None,
+                    epoch_period: None,
+                    unbond_period: None,
                 },
                 &[],
             )

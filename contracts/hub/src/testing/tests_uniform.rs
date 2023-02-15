@@ -341,6 +341,8 @@ fn donating() {
             allow_donations: Some(true),
             delegation_strategy: None,
             vote_operator: None,
+            epoch_period: None,
+            unbond_period: None,
         },
     )
     .unwrap();
@@ -1572,6 +1574,8 @@ fn update_fee() {
             delegation_strategy: None,
             allow_donations: None,
             vote_operator: None,
+            epoch_period: None,
+            unbond_period: None,
         },
     )
     .unwrap_err();
@@ -1587,6 +1591,8 @@ fn update_fee() {
             delegation_strategy: None,
             allow_donations: None,
             vote_operator: None,
+            epoch_period: None,
+            unbond_period: None,
         },
     )
     .unwrap_err();
@@ -1602,6 +1608,8 @@ fn update_fee() {
             delegation_strategy: None,
             allow_donations: None,
             vote_operator: None,
+            epoch_period: None,
+            unbond_period: None,
         },
     )
     .unwrap();
@@ -1647,6 +1655,8 @@ fn vote() {
             delegation_strategy: None,
             allow_donations: None,
             vote_operator: Some("vote_operator".to_string()),
+            epoch_period: None,
+            unbond_period: None,
         },
     )
     .unwrap();
@@ -1712,6 +1722,8 @@ fn vote_weighted() {
             delegation_strategy: None,
             allow_donations: None,
             vote_operator: Some("vote_operator".to_string()),
+            epoch_period: None,
+            unbond_period: None,
         },
     )
     .unwrap();
@@ -2110,7 +2122,8 @@ fn computing_undelegations() -> StdResult<()> {
         Uint128::new(451),
         &current_delegations,
         current_delegations.iter().map(|a| a.validator.to_string()).collect_vec(),
-    )?;
+    )
+    .unwrap();
     let expected = vec![
         Undelegation::new("alice", 249),
         Undelegation::new("bob", 151),
