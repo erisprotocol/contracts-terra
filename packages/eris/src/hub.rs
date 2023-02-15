@@ -122,6 +122,7 @@ pub enum ExecuteMsg {
     Rebalance {
         min_redelegation: Option<Uint128>,
     },
+
     /// Update Luna amounts in unbonding batches to reflect any slashing or rounding errors
     Reconcile {},
     /// Submit the current pending batch of unbonding requests to be unbonded
@@ -130,6 +131,11 @@ pub enum ExecuteMsg {
     Vote {
         proposal_id: u64,
         vote: VoteOption,
+    },
+    /// Vote on a proposal weighted (only allowed by the vote_operator)
+    VoteWeighted {
+        proposal_id: u64,
+        votes: Vec<(Decimal, VoteOption)>,
     },
 
     /// Callbacks; can only be invoked by the contract itself

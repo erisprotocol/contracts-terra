@@ -52,6 +52,10 @@ pub fn instantiate(deps: DepsMut, env: Env, msg: InstantiateMsg) -> ContractResu
     state.epoch_period.save(deps.storage, &msg.epoch_period)?;
     state.unbond_period.save(deps.storage, &msg.unbond_period)?;
 
+    if let Some(vote_operator) = msg.vote_operator {
+        state.vote_operator.save(deps.storage, &deps.api.addr_validate(&vote_operator)?)?;
+    }
+
     // by default donations are set to false
     state.allow_donations.save(deps.storage, &false)?;
 
@@ -650,7 +654,7 @@ pub fn rebalance(
     let new_redelegations =
         compute_redelegations_for_rebalancing(&state, deps.storage, &delegations, validators)?
             .into_iter()
-            .filter(|redelegation| redelegation.amount > min_redelegation.u128())
+            .filter(|redelegation| redelegation.amount >= min_redelegation.u128())
             .collect::<Vec<_>>();
 
     let redelegate_msgs = new_redelegations.iter().map(|rd| rd.to_cosmos_msg()).collect::<Vec<_>>();
