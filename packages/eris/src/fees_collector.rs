@@ -1,6 +1,6 @@
 use astroport::asset::{Asset, AssetInfo};
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Api, Binary, Decimal, StdResult, Uint128};
+use cosmwasm_std::{Addr, Api, Binary, Decimal, StdError, StdResult, Uint128};
 
 /// This structure stores general parameters for the contract.
 #[cw_serde]
@@ -14,7 +14,7 @@ pub struct InstantiateMsg {
     /// The stablecoin asset info
     pub stablecoin: AssetInfo,
     /// The beneficiary addresses to received fees in stablecoin
-    pub target_list: Vec<TargetConfigUnchecked>,
+    pub target_list: Vec<TargetConfig<String>>,
     /// The maximum spread used when swapping fee tokens
     pub max_spread: Option<Decimal>,
 }
@@ -34,7 +34,7 @@ pub enum ExecuteMsg {
         /// The factory contract address
         factory_contract: Option<String>,
         /// The list of target address to receive fees in stablecoin
-        target_list: Option<Vec<TargetConfigUnchecked>>,
+        target_list: Option<Vec<TargetConfig<String>>>,
         /// The maximum spread used when swapping fee tokens
         max_spread: Option<Decimal>,
     },
@@ -101,26 +101,35 @@ pub struct AssetWithLimit {
 
 /// This struct holds parameters to configure receiving contracts and messages.
 #[cw_serde]
-pub struct TargetConfigUnchecked {
-    pub addr: String,
+pub struct TargetConfig<T> {
+    pub addr: T,
     pub weight: u64,
     pub msg: Option<Binary>,
+    #[serde(default = "default_type")]
+    pub target_type: TargetType,
 }
 
-/// This struct holds parameters to configure receiving contracts and messages.
+fn default_type() -> TargetType {
+    TargetType::Weight
+}
+
 #[cw_serde]
-pub struct TargetConfigChecked {
-    pub addr: Addr,
-    pub weight: u64,
-    pub msg: Option<Binary>,
+pub enum TargetType {
+    // for backward compatibility weight is stored outside.
+    Weight,
+    FillUpFirst {
+        filled_to: Uint128,
+        min_fill: Option<Uint128>,
+    },
 }
 
-impl TargetConfigUnchecked {
+impl TargetConfig<String> {
     pub fn new(addr: String, weight: u64) -> Self {
         Self {
             addr,
             weight,
             msg: None,
+            target_type: TargetType::Weight,
         }
     }
 
@@ -129,24 +138,41 @@ impl TargetConfigUnchecked {
             addr,
             weight,
             msg,
+            target_type: TargetType::Weight,
         }
     }
 
-    pub fn check(&self, api: &dyn Api) -> StdResult<TargetConfigChecked> {
-        Ok(TargetConfigChecked {
+    pub fn validate(&self, api: &dyn Api) -> StdResult<TargetConfig<Addr>> {
+        match self.target_type {
+            TargetType::Weight => (),
+            TargetType::FillUpFirst {
+                ..
+            } => {
+                if self.weight > 0 {
+                    Err(StdError::generic_err(format!(
+                        "FillUp can't have a weight ({})",
+                        self.weight
+                    )))?
+                }
+            },
+        }
+
+        Ok(TargetConfig {
             addr: api.addr_validate(&self.addr)?,
             weight: self.weight,
             msg: self.msg.clone(),
+            target_type: self.target_type.clone(),
         })
     }
 }
 
-impl TargetConfigChecked {
+impl TargetConfig<Addr> {
     pub fn new(addr: Addr, weight: u64) -> Self {
         Self {
             addr,
             weight,
             msg: None,
+            target_type: TargetType::Weight,
         }
     }
 }

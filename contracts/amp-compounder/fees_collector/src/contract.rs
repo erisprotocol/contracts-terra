@@ -15,8 +15,9 @@ use cosmwasm_std::{
 use eris::adapters::asset::AssetEx;
 use eris::fees_collector::{
     AssetWithLimit, BalancesResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
-    TargetConfigUnchecked,
+    TargetConfig,
 };
+use std::cmp;
 use std::collections::{HashMap, HashSet};
 
 /// Sets the default maximum spread (as a percentage) used when swapping fee tokens to stablecoin.
@@ -51,7 +52,7 @@ pub fn instantiate(
         target_list: msg
             .target_list
             .into_iter()
-            .map(|target| target.check(deps.api))
+            .map(|target| target.validate(deps.api))
             .collect::<StdResult<_>>()?,
         max_spread,
     };
@@ -315,7 +316,7 @@ fn distribute_fees(deps: DepsMut, env: Env, info: MessageInfo) -> Result<Respons
     }
 
     let config = CONFIG.load(deps.storage)?;
-    let (distribute_msg, attributes) = distribute(deps, env, &config)?;
+    let (distribute_msg, attributes) = distribute(deps, env, config)?;
 
     Ok(Response::new().add_messages(distribute_msg).add_attributes(attributes))
 }
@@ -328,22 +329,53 @@ type DistributeMsgParts = (Vec<CosmosMsg>, Vec<(String, String)>);
 fn distribute(
     deps: DepsMut,
     env: Env,
-    config: &Config,
+    config: Config,
 ) -> Result<DistributeMsgParts, ContractError> {
     let mut messages = vec![];
     let mut attributes = vec![];
 
     let stablecoin = config.stablecoin.clone();
 
-    let total_weight = config.target_list.iter().map(|target| target.weight).sum::<u64>();
-
-    let total_amount = stablecoin.query_pool(&deps.querier, env.contract.address)?;
-
+    let mut total_amount = stablecoin.query_pool(&deps.querier, env.contract.address)?;
     if total_amount.is_zero() {
         return Ok((messages, attributes));
     }
 
-    for target in &config.target_list {
+    let mut weighted = vec![];
+    for target in config.target_list {
+        match target.target_type {
+            eris::fees_collector::TargetType::Weight => weighted.push(target),
+            eris::fees_collector::TargetType::FillUpFirst {
+                filled_to,
+                min_fill,
+            } => {
+                let filled_asset = &stablecoin;
+                let current_asset_amount =
+                    filled_asset.query_pool(&deps.querier, target.addr.to_string())?;
+
+                if filled_to > current_asset_amount {
+                    let amount =
+                        cmp::min(total_amount, filled_to.checked_sub(current_asset_amount)?);
+                    let min_fill = min_fill.unwrap_or_default();
+                    if amount > min_fill {
+                        // reduce amount from total_amount. Rest is distributed by share
+                        total_amount = total_amount.checked_sub(amount)?;
+
+                        let send_msg =
+                            stablecoin.with_balance(amount).transfer_msg_target(&target)?;
+                        messages.push(send_msg);
+                        attributes.push(("type".to_string(), "fill_up".to_string()));
+                        attributes.push(("to".to_string(), target.addr.to_string()));
+                        attributes.push(("amount".to_string(), amount.to_string()));
+                    }
+                }
+            },
+        }
+    }
+
+    let total_weight = weighted.iter().map(|target| target.weight).sum::<u64>();
+
+    for target in &weighted {
         let amount = total_amount.multiply_ratio(target.weight, total_weight);
         if !amount.is_zero() {
             let send_msg = stablecoin.with_balance(amount).transfer_msg_target(target)?;
@@ -366,7 +398,7 @@ pub fn update_config(
     info: MessageInfo,
     operator: Option<String>,
     factory_contract: Option<String>,
-    target_list: Option<Vec<TargetConfigUnchecked>>,
+    target_list: Option<Vec<TargetConfig<String>>>,
     max_spread: Option<Decimal>,
 ) -> Result<Response, ContractError> {
     let mut config: Config = CONFIG.load(deps.storage)?;
@@ -393,7 +425,7 @@ pub fn update_config(
     if let Some(target_list) = target_list {
         config.target_list = target_list
             .into_iter()
-            .map(|target| target.check(deps.api))
+            .map(|target| target.validate(deps.api))
             .collect::<StdResult<_>>()?
     }
 

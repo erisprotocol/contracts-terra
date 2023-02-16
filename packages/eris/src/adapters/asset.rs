@@ -7,7 +7,7 @@ use cosmwasm_std::{
 };
 use cw20::{Cw20ExecuteMsg, Expiration};
 
-use crate::fees_collector::TargetConfigChecked;
+use crate::fees_collector::TargetConfig;
 
 pub trait AssetInfosEx {
     fn query_balances(&self, querier: &QuerierWrapper, address: &Addr) -> StdResult<Vec<Asset>>;
@@ -79,7 +79,7 @@ impl AssetsEx for Vec<Asset> {
 
 pub trait AssetEx {
     fn transfer_msg(&self, to: &Addr) -> StdResult<CosmosMsg>;
-    fn transfer_msg_target(&self, to: &TargetConfigChecked) -> StdResult<CosmosMsg>;
+    fn transfer_msg_target(&self, to: &TargetConfig<Addr>) -> StdResult<CosmosMsg>;
     fn transfer_from_msg(&self, from: &Addr, to: &Addr) -> StdResult<CosmosMsg>;
     fn increase_allowance_msg(
         &self,
@@ -120,7 +120,7 @@ impl AssetEx for Asset {
         }
     }
 
-    fn transfer_msg_target(&self, to: &TargetConfigChecked) -> StdResult<CosmosMsg> {
+    fn transfer_msg_target(&self, to: &TargetConfig<Addr>) -> StdResult<CosmosMsg> {
         if let Some(msg) = to.msg.clone() {
             match &self.info {
                 AssetInfo::Token {
