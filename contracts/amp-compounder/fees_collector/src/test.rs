@@ -1,4 +1,4 @@
-use astroport::asset::{native_asset, native_asset_info, AssetInfo, PairInfo};
+use astroport::asset::{native_asset_info, AssetInfo, PairInfo};
 use astroport::factory::PairType;
 use astroport::pair::Cw20HookMsg as AstroportPairCw20HookMsg;
 use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
