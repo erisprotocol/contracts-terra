@@ -12,6 +12,7 @@ use eris::{
 };
 
 use crate::{
+    error::ContractError,
     helpers::query_all_delegations,
     state::State,
     types::{Delegation, Redelegation, Undelegation},
@@ -69,7 +70,7 @@ pub(crate) fn compute_undelegations(
     uluna_to_unbond: Uint128,
     current_delegations: &[Delegation],
     validators: Vec<String>,
-) -> StdResult<Vec<Undelegation>> {
+) -> Result<Vec<Undelegation>, ContractError> {
     let uluna_staked: u128 = current_delegations.iter().map(|d| d.amount).sum();
     let uluna_to_distribute = uluna_staked - uluna_to_unbond.u128();
 
@@ -100,6 +101,10 @@ pub(crate) fn compute_undelegations(
                 break;
             }
         }
+    }
+
+    if uluna_available > 0 {
+        Err(ContractError::ComputeUndelegationsWrong(uluna_available))?
     }
 
     Ok(new_undelegations)
@@ -155,6 +160,7 @@ pub(crate) fn compute_redelegations_for_removal(
     Ok(new_redelegations)
 }
 
+// adds all validators stored in the config that do not received delegations right now
 fn merge_with_validators(
     current_delegations: &[Delegation],
     validators: Vec<String>,

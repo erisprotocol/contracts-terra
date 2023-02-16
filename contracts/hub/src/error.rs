@@ -64,6 +64,9 @@ pub enum ContractError {
     #[error("No vote operator set")]
     NoVoteOperatorSet {},
 
+    #[error("Not all wanted undelegations calculated, missing: {0}")]
+    ComputeUndelegationsWrong(u128),
+
     #[error("Contract can't be migrated!")]
     MigrationError {},
 }
