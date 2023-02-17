@@ -10,6 +10,15 @@ pub enum ContractError {
 
     #[error("Unauthorized")]
     Unauthorized {},
+
+    #[error("The pair contract addr {0} can't be added multiple times.")]
+    AddPairContractDuplicated(String),
+
+    #[error("The wanted token {0} is not an asset of the pair")]
+    WantedTokenNotInPair(String),
+
+    #[error("The slippage tolarance must be less than or equal 50%")]
+    SlippageTolaranaceTooHigh,
 }
 
 impl From<OverflowError> for ContractError {

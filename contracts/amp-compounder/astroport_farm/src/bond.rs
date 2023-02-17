@@ -49,7 +49,7 @@ pub fn bond_assets(
         .into_cosmos_msg(&env.contract.address)?,
     );
 
-    Ok(Response::new().add_messages(messages).add_attribute("action", "bond_assets"))
+    Ok(Response::new().add_messages(messages).add_attribute("action", "ampf/bond_assets"))
 }
 
 /// ## Description
@@ -117,8 +117,6 @@ fn bond_internal(
     let mut messages: Vec<CosmosMsg> = vec![];
 
     let mut state = STATE.load(deps.storage)?;
-
-    //TODO: withdraw reward to pending reward; before changing share
 
     // calculate share
     let bond_share = state.calc_bond_share(amount, lp_balance, ScalingOperation::Truncate);

@@ -9,9 +9,10 @@ use cosmwasm_std::{from_binary, CosmosMsg, Deps, StdError, StdResult, Uint128};
 use eris::adapters::factory::Factory;
 use eris::compound_proxy::CompoundSimulationResponse;
 
-use astroport::asset::Asset;
+use astroport::asset::{Asset, MINIMUM_LIQUIDITY_AMOUNT};
 use astroport::factory::PairType;
 use eris::adapters::pair::Pair;
+use eris::helper::assert_uniq_assets;
 
 const ITERATIONS: u8 = 32;
 
@@ -26,6 +27,8 @@ pub fn query_compound_simulation(
     lp_token: String,
 ) -> StdResult<CompoundSimulationResponse> {
     let state = State::default();
+    assert_uniq_assets(&rewards)?;
+
     let lp_config = state.lps.load(deps.storage, lp_token)?;
     let factory: Option<Factory> = state.config.load(deps.storage)?.factory;
     let asset_a_info = lp_config.pair_info.asset_infos[0].clone();
@@ -70,6 +73,7 @@ pub fn query_compound_simulation(
         lp_config.pair_info.query_pools(&deps.querier, &lp_config.pair_info.contract_addr)?;
 
     let total_share = query_supply(&deps.querier, &lp_config.pair_info.liquidity_token)?;
+    let max_spread = state.get_default_max_spread(deps.storage);
 
     let (lp_amount, swap_asset_a_amount, swap_asset_b_amount, return_a_amount, return_b_amount) =
         match lp_config.pair_info.pair_type {
@@ -90,6 +94,7 @@ pub fn query_compound_simulation(
                         asset_a,
                         asset_b,
                         &mut _messages,
+                        max_spread,
                     )?;
 
                 if !swap_asset_a_amount.is_zero() {
@@ -112,6 +117,8 @@ pub fn query_compound_simulation(
                             .integer_sqrt()
                             .as_u128(),
                     )
+                    .checked_sub(MINIMUM_LIQUIDITY_AMOUNT)
+                    .map_err(|_| StdError::generic_err("minimum liquidity not reached"))?
                 } else {
                     std::cmp::min(
                         asset_a_amount.multiply_ratio(total_share, pools[0].amount),
@@ -156,6 +163,8 @@ pub fn query_compound_simulation(
                         greater_precision,
                         liquidity_token_precision,
                     )?
+                    .checked_sub(MINIMUM_LIQUIDITY_AMOUNT)
+                    .map_err(|_| StdError::generic_err("minimum liquidity not reached"))?
                 } else {
                     let params = pair
                         .query_config(&deps.querier)?
