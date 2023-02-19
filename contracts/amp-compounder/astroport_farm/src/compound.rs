@@ -3,6 +3,7 @@ use cosmwasm_std::{
     attr, Attribute, Coin, CosmosMsg, Decimal, DepsMut, Env, MessageInfo, Response, Uint128,
 };
 
+use crate::state::{EXCHANGE_HISTORY, STATE};
 use crate::{error::ContractError, state::CONFIG};
 
 use astroport::asset::{token_asset, AssetInfo, AssetInfoExt};
@@ -136,9 +137,9 @@ pub fn stake(
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
-    let staking_token = config.lp_token;
+    let lp_token = config.lp_token;
 
-    let balance = query_token_balance(&deps.querier, &staking_token, env.contract.address)?;
+    let balance = query_token_balance(&deps.querier, &lp_token, env.contract.address.clone())?;
     let amount = balance - prev_balance;
 
     if let Some(minimum_receive) = minimum_receive {
@@ -150,11 +151,17 @@ pub fn stake(
         }
     }
 
+    let current_lp =
+        config.staking_contract.query_deposit(&deps.querier, &lp_token, &env.contract.address)?;
+    let total_lp = current_lp.checked_add(amount)?;
+    let exchange_rate = STATE.load(deps.storage)?.calc_exchange_rate(total_lp);
+    EXCHANGE_HISTORY.save(deps.storage, env.block.time.seconds(), &exchange_rate)?;
+
     Ok(Response::new()
-        .add_message(config.staking_contract.deposit_msg(staking_token.to_string(), amount)?)
+        .add_message(config.staking_contract.deposit_msg(lp_token.to_string(), amount)?)
         .add_attributes(vec![
             attr("action", "ampf/stake"),
-            attr("staking_token", staking_token),
+            attr("staking_token", lp_token),
             attr("amount", amount),
         ]))
 }

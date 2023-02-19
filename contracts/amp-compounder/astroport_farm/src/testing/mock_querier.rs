@@ -83,7 +83,7 @@ impl WasmMockQuerier {
         self.balances.insert((addr.to_string(), token.to_string()), amount.into());
     }
 
-    fn get_balance(&self, token: String, addr: String) -> Uint128 {
+    pub fn get_balance(&self, token: String, addr: String) -> Uint128 {
         *self.balances.get(&(token, addr)).unwrap_or(&Uint128::zero())
     }
 

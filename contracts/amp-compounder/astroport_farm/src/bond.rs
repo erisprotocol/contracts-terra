@@ -4,7 +4,7 @@ use cosmwasm_std::{attr, Addr, CosmosMsg, Decimal, DepsMut, Env, MessageInfo, Re
 use eris::helper::{assert_uniq_assets, funds_or_allowance};
 
 use crate::error::ContractError;
-use crate::state::{Config, ScalingOperation, CONFIG, STATE};
+use crate::state::{Config, CONFIG, STATE};
 
 use eris::adapters::asset::AssetEx;
 use eris::astroport_farm::CallbackMsg;
@@ -119,9 +119,12 @@ fn bond_internal(
     let mut state = STATE.load(deps.storage)?;
 
     // calculate share
-    let bond_share = state.calc_bond_share(amount, lp_balance, ScalingOperation::Truncate);
-    state.total_bond_share += bond_share;
-    messages.push(state.amp_lp_token.mint(bond_share, staker_addr)?);
+    let bond_share = state.calc_bond_share(amount, lp_balance);
+    let bond_share_adjusted =
+        config.deposit_profit_delay.calc_adjusted_share(deps.storage, bond_share)?;
+
+    state.total_bond_share += bond_share_adjusted;
+    messages.push(state.amp_lp_token.mint(bond_share_adjusted, staker_addr)?);
 
     STATE.save(deps.storage, &state)?;
 
@@ -130,6 +133,7 @@ fn bond_internal(
         attr("action", "ampf/bond"),
         attr("amount", amount),
         attr("bond_amount", amount),
+        attr("bond_share_adjusted", bond_share_adjusted),
         attr("bond_share", bond_share),
     ]))
 }

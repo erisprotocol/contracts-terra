@@ -1,6 +1,6 @@
+use crate::constants::DAY;
 use crate::contract::{execute, instantiate, query, reply};
 use crate::error::ContractError;
-use crate::state::Config;
 use astroport::asset::{native_asset, token_asset, Asset, AssetInfo};
 use astroport::generator::{
     Cw20HookMsg as GeneratorCw20HookMsg, ExecuteMsg as GeneratorExecuteMsg,
@@ -8,16 +8,14 @@ use astroport::generator::{
 
 use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    coin, from_binary, to_binary, Addr, Coin, CosmosMsg, Decimal, DepsMut, Env, Event, MessageInfo,
-    OwnedDeps, Reply, Response, StdError, SubMsgResponse, Timestamp, Uint128, WasmMsg,
+    attr, coin, from_binary, to_binary, Addr, Coin, CosmosMsg, Decimal, DepsMut, Env, Event,
+    MessageInfo, OwnedDeps, Reply, Response, StdError, SubMsgResponse, Timestamp, Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg, Expiration};
-use eris::adapters::compounder::Compounder;
-use eris::adapters::generator::Generator;
 use eris::adapters::token::Token;
 use eris::astroport_farm::{
-    CallbackMsg, Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg, StateResponse, TokenInit,
-    UserInfoResponse,
+    CallbackMsg, ConfigResponse, Cw20HookMsg, ExchangeRatesResponse, ExecuteMsg, InstantiateMsg,
+    QueryMsg, StateResponse, TokenInit, UserInfoResponse,
 };
 use eris::compound_proxy::ExecuteMsg as CompoundProxyExecuteMsg;
 
@@ -50,7 +48,7 @@ fn test() -> Result<(), ContractError> {
     owner(&mut deps)?;
     bond(&mut deps)?;
     // _deposit_time(&mut deps)?;
-    compound(&mut deps)?;
+    compound(&mut deps, 700)?;
     callback(&mut deps)?;
 
     Ok(())
@@ -90,6 +88,7 @@ fn create(
             name: "ampLP-AXL-LUNA".to_string(),
             symbol: "ampLP".to_string(),
         },
+        deposit_profit_delay_s: 0,
     };
     let res = instantiate(deps.as_mut(), env.clone(), info.clone(), msg);
     assert_error(res, "fee must be 0 to 1");
@@ -110,6 +109,7 @@ fn create(
             name: "ampLP-AXL-LUNA".to_string(),
             symbol: "ampLP".to_string(),
         },
+        deposit_profit_delay_s: 0,
     };
 
     let res = instantiate(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
@@ -136,18 +136,20 @@ fn create(
 
     // query config
     let msg = QueryMsg::Config {};
-    let res: Config = from_binary(&query(deps.as_ref(), env.clone(), msg)?)?;
+    let res: ConfigResponse = from_binary(&query(deps.as_ref(), env.clone(), msg)?)?;
     assert_eq!(
         res,
-        Config {
+        ConfigResponse {
             owner: Addr::unchecked(USER_1),
             controller: Addr::unchecked(CONTROLLER),
             fee_collector: Addr::unchecked(FEE_COLLECTOR),
-            staking_contract: Generator(Addr::unchecked(GENERATOR_PROXY)),
-            compound_proxy: Compounder(Addr::unchecked(COMPOUND_PROXY)),
+            staking_contract: Addr::unchecked(GENERATOR_PROXY),
+            compound_proxy: Addr::unchecked(COMPOUND_PROXY),
             fee: Decimal::percent(5),
             lp_token: Addr::unchecked(LP_TOKEN.to_string()),
             base_reward_token: Addr::unchecked(ASTRO_TOKEN.to_string()),
+            deposit_profit_delay_s: 0,
+            amp_lp_token: Addr::unchecked(AMP_LP_TOKEN)
         }
     );
 
@@ -166,6 +168,7 @@ fn config(
         controller: None,
         fee: Some(Decimal::percent(101)),
         fee_collector: None,
+        deposit_profit_delay_s: None,
     };
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
     assert_error(res, "Unauthorized");
@@ -179,6 +182,7 @@ fn config(
         controller: None,
         fee: Some(Decimal::percent(3)),
         fee_collector: None,
+        deposit_profit_delay_s: None,
     };
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
     assert!(res.is_ok());
@@ -188,6 +192,7 @@ fn config(
         controller: None,
         fee: None,
         fee_collector: None,
+        deposit_profit_delay_s: None,
     };
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
     assert!(res.is_ok());
@@ -197,6 +202,7 @@ fn config(
         controller: Some(CONTROLLER_2.to_string()),
         fee: None,
         fee_collector: None,
+        deposit_profit_delay_s: None,
     };
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
     assert!(res.is_ok());
@@ -206,23 +212,26 @@ fn config(
         controller: None,
         fee: None,
         fee_collector: Some(FEE_COLLECTOR_2.to_string()),
+        deposit_profit_delay_s: None,
     };
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
     assert!(res.is_ok());
 
     let msg = QueryMsg::Config {};
-    let res: Config = from_binary(&query(deps.as_ref(), env.clone(), msg)?)?;
+    let res: ConfigResponse = from_binary(&query(deps.as_ref(), env.clone(), msg)?)?;
     assert_eq!(
         res,
-        Config {
+        ConfigResponse {
             owner: Addr::unchecked(USER_1),
             controller: Addr::unchecked(CONTROLLER_2),
             fee_collector: Addr::unchecked(FEE_COLLECTOR_2),
-            staking_contract: Generator(Addr::unchecked(GENERATOR_PROXY)),
-            compound_proxy: Compounder(Addr::unchecked(COMPOUND_PROXY_2)),
+            staking_contract: Addr::unchecked(GENERATOR_PROXY),
+            compound_proxy: Addr::unchecked(COMPOUND_PROXY_2),
             fee: Decimal::percent(3),
             lp_token: Addr::unchecked(LP_TOKEN.to_string()),
             base_reward_token: Addr::unchecked(ASTRO_TOKEN.to_string()),
+            deposit_profit_delay_s: 0,
+            amp_lp_token: Addr::unchecked(AMP_LP_TOKEN)
         }
     );
 
@@ -231,23 +240,26 @@ fn config(
         controller: Some(CONTROLLER.to_string()),
         fee: Some(Decimal::percent(5)),
         fee_collector: Some(FEE_COLLECTOR.to_string()),
+        deposit_profit_delay_s: None,
     };
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
     assert!(res.is_ok());
 
     let msg = QueryMsg::Config {};
-    let res: Config = from_binary(&query(deps.as_ref(), env.clone(), msg)?)?;
+    let res: ConfigResponse = from_binary(&query(deps.as_ref(), env.clone(), msg)?)?;
     assert_eq!(
         res,
-        Config {
+        ConfigResponse {
             owner: Addr::unchecked(USER_1),
             controller: Addr::unchecked(CONTROLLER),
             fee_collector: Addr::unchecked(FEE_COLLECTOR),
-            staking_contract: Generator(Addr::unchecked(GENERATOR_PROXY)),
-            compound_proxy: Compounder(Addr::unchecked(COMPOUND_PROXY)),
+            staking_contract: Addr::unchecked(GENERATOR_PROXY),
+            compound_proxy: Addr::unchecked(COMPOUND_PROXY),
             fee: Decimal::percent(5),
             lp_token: Addr::unchecked(LP_TOKEN.to_string()),
             base_reward_token: Addr::unchecked(ASTRO_TOKEN.to_string()),
+            deposit_profit_delay_s: 0,
+            amp_lp_token: Addr::unchecked(AMP_LP_TOKEN)
         }
     );
 
@@ -316,7 +328,8 @@ fn owner(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Result<
     assert_eq!(0, res.messages.len());
 
     // query config
-    let config: Config = from_binary(&query(deps.as_ref(), env.clone(), QueryMsg::Config {})?)?;
+    let config: ConfigResponse =
+        from_binary(&query(deps.as_ref(), env.clone(), QueryMsg::Config {})?)?;
     assert_eq!(OWNER, config.owner);
     Ok(())
 }
@@ -851,8 +864,8 @@ fn bond_same_assets() -> Result<(), ContractError> {
         slippage_tolerance: Some(Decimal::percent(2)),
     };
 
-    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
-    assert_error(res, "duplicated asset");
+    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap_err();
+    assert_eq!(res.to_string(), "Generic error: duplicated asset");
 
     // Check with tokens
     let assets = vec![
@@ -868,6 +881,121 @@ fn bond_same_assets() -> Result<(), ContractError> {
     };
     let res = execute(deps.as_mut(), env.clone(), info, msg.clone());
     assert_error(res, "duplicated asset");
+
+    Ok(())
+}
+
+#[allow(clippy::redundant_clone)]
+#[test]
+fn bond_delayed_profit() -> Result<(), ContractError> {
+    let mut deps = mock_dependencies();
+
+    create(&mut deps)?;
+    owner(&mut deps)?;
+    bond(&mut deps)?;
+
+    compound(&mut deps, 0)?;
+    compound(&mut deps, 300)?;
+    compound(&mut deps, DAY)?;
+
+    let exchange_rates: ExchangeRatesResponse = from_binary(&query(
+        deps.as_ref(),
+        mock_env(),
+        QueryMsg::ExchangeRates {
+            start_after: None,
+            limit: None,
+        },
+    )?)?;
+    assert_eq!(
+        exchange_rates
+            .exchange_rates
+            .into_iter()
+            .map(|a| format!("{0};{1}", a.0, a.1))
+            .collect::<Vec<String>>(),
+        vec![
+            "86400;2.73772992988531363".to_string(),
+            "300;2.2251555723175561".to_string(),
+            "0;1.71258121474979857".to_string()
+        ]
+    );
+
+    // 0.59 means 59% per day (1.71258121474979857 -> 2.73772992988531363)
+    assert_eq!(exchange_rates.apr.map(|a| a.to_string()), Some("0.598598598598598598".to_string()));
+
+    // query single value
+    let exchange_rates: ExchangeRatesResponse = from_binary(&query(
+        deps.as_ref(),
+        mock_env(),
+        QueryMsg::ExchangeRates {
+            start_after: Some(86400),
+            limit: Some(1),
+        },
+    )?)?;
+    assert_eq!(
+        exchange_rates
+            .exchange_rates
+            .into_iter()
+            .map(|a| format!("{0};{1}", a.0, a.1))
+            .collect::<Vec<String>>(),
+        vec!["300;2.2251555723175561".to_string()]
+    );
+    // cant calculate with a single value
+    assert_eq!(exchange_rates.apr, None);
+
+    // set deposit_profit_delay
+    execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info(OWNER, &[]),
+        ExecuteMsg::UpdateConfig {
+            compound_proxy: None,
+            controller: None,
+            fee: None,
+            fee_collector: None,
+            deposit_profit_delay_s: Some(DAY),
+        },
+    )
+    .unwrap();
+
+    // SKIPPING BOND ASSETS PART as share is calculated within the callback
+
+    deps.querier.set_cw20_balance(LP_TOKEN, MOCK_CONTRACT_ADDR, 10142);
+    let msg = ExecuteMsg::Callback(CallbackMsg::BondTo {
+        to: Addr::unchecked(USER_1),
+        prev_balance: Uint128::from(142u128),
+        minimum_receive: Some(Uint128::from(10000u128)),
+    });
+    let info = mock_info(MOCK_CONTRACT_ADDR, &[]);
+    let res = execute(deps.as_mut(), mock_env().clone(), info, msg)?;
+
+    assert_eq!(
+        res.attributes,
+        vec![
+            attr("action", "ampf/bond"),
+            attr("amount", "10000"),
+            attr("bond_amount", "10000"),
+            attr("bond_share_adjusted", "2284"),
+            // the normal amount is 3652 without the change in deposit_profit_delay_s
+            // which is ~59% higher than what is received
+            attr("bond_share", "3652")
+        ]
+    );
+
+    assert_eq!(
+        res.messages.into_iter().map(|it| it.msg).collect::<Vec<CosmosMsg>>(),
+        [
+            mint_and_msg(&mut deps, AMP_LP_TOKEN, USER_1, 2284),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: LP_TOKEN.to_string(),
+                msg: to_binary(&Cw20ExecuteMsg::Send {
+                    contract: GENERATOR_PROXY.to_string(),
+                    amount: Uint128::from(10000u128),
+                    msg: to_binary(&GeneratorCw20HookMsg::Deposit {})?,
+                })?,
+                funds: vec![],
+            }),
+        ]
+    );
 
     Ok(())
 }
@@ -1063,6 +1191,7 @@ fn _deposit_time(
 #[allow(clippy::redundant_clone)]
 fn compound(
     deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>,
+    seconds: u64,
 ) -> Result<(), ContractError> {
     let mut env = mock_env();
 
@@ -1075,6 +1204,7 @@ fn compound(
 
     // set block height
     env.block.height = 700;
+    env.block.time = Timestamp::from_seconds(seconds);
 
     // only controller can execute compound
     let info = mock_info(USER_1, &[]);
@@ -1193,6 +1323,10 @@ fn compound(
             funds: vec![],
         }),]
     );
+
+    // updates exchange rate (reversed for Deposit query)
+    let balance = deps.querier.get_balance(GENERATOR_PROXY.to_string(), LP_TOKEN.to_string());
+    deps.querier.set_balance(GENERATOR_PROXY, LP_TOKEN, balance.u128() + 29900);
 
     Ok(())
 }

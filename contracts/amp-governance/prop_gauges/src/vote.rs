@@ -149,7 +149,6 @@ fn calc_voting_power_for_prop(
     ve_lock_info: &LockInfoResponse,
     prop: &PropInfo,
 ) -> Uint128 {
-    // println!("{:?} {:?}", ve_lock_info, prop);
     let period = prop.period;
     let start = current_period;
 
