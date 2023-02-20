@@ -6,7 +6,7 @@ use cosmwasm_std::{
 use crate::{
     bond::{bond, bond_assets, bond_to},
     compound::{compound, stake},
-    constants::TOKEN_INSTANTIATE_REPLY,
+    constants::{TOKEN_INSTANTIATE_REPLY, WEEK},
     error::ContractError,
     execute::register_amp_lp_token,
     ownership::{claim_ownership, drop_ownership_proposal, propose_new_owner},
@@ -35,6 +35,14 @@ fn validate_percentage(value: Decimal, field: &str) -> StdResult<()> {
     }
 }
 
+fn validate_deposit_profit_delay(deposit_profit_delay_s: u64) -> Result<u64, ContractError> {
+    if deposit_profit_delay_s > WEEK {
+        Err(ContractError::ConfigValueTooHigh("deposit_profit_delay_s".to_string()))
+    } else {
+        Ok(deposit_profit_delay_s)
+    }
+}
+
 /// ## Description
 /// Creates a new contract with the specified parameters in the [`InstantiateMsg`].
 /// Returns the [`Response`] with the specified attributes if the operation was successful, or a [`ContractError`] if the contract was not created.
@@ -59,7 +67,7 @@ pub fn instantiate(
             lp_token: deps.api.addr_validate(&msg.liquidity_token)?,
             base_reward_token: deps.api.addr_validate(&msg.base_reward_token)?,
             deposit_profit_delay: DepositProfitDelay {
-                seconds: msg.deposit_profit_delay_s,
+                seconds: validate_deposit_profit_delay(msg.deposit_profit_delay_s)?,
             },
         },
     )?;
@@ -207,7 +215,8 @@ pub fn update_config(
     }
 
     if let Some(deposit_profit_delay_s) = deposit_profit_delay_s {
-        config.deposit_profit_delay.seconds = deposit_profit_delay_s
+        config.deposit_profit_delay.seconds =
+            validate_deposit_profit_delay(deposit_profit_delay_s)?;
     }
 
     CONFIG.save(deps.storage, &config)?;

@@ -17,6 +17,9 @@ pub enum ContractError {
     #[error("Cannot unbond more than balance")]
     UnbondExceedBalance {},
 
+    #[error("The config value for {0} is too high")]
+    ConfigValueTooHigh(String),
+
     #[error(
         "Assertion failed; minimum receive amount: {minimum_receive}, actual amount: {amount}"
     )]
