@@ -23,6 +23,7 @@ impl GaugeLoader for TuneInfoGaugeLoader {
 /// This loader is only used to simulate delegation queries at any period
 pub struct PeriodGaugeLoader {
     pub period: u64,
+    pub validators: Vec<String>,
 }
 impl GaugeLoader for PeriodGaugeLoader {
     fn get_amp_tune_info(&self, querier: &QuerierWrapper, amp_gauges: Addr) -> StdResult<AmpGauge> {
@@ -32,7 +33,13 @@ impl GaugeLoader for PeriodGaugeLoader {
             tune_ts: get_s_from_period(self.period),
             vamp_points: infos
                 .into_iter()
-                .map(|(val, info)| (val, info.fixed_amount + info.voting_power))
+                .filter_map(|(val, info)| {
+                    if self.validators.contains(&val) {
+                        Some((val, info.fixed_amount + info.voting_power))
+                    } else {
+                        None
+                    }
+                })
                 .sorted_by(|(_, a), (_, b)| b.cmp(a)) // Sort in descending order
                 .collect_vec(),
         })

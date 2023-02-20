@@ -268,10 +268,16 @@ pub(crate) fn get_uluna_per_validator_prepared(
     querier: &QuerierWrapper,
     contract: &Addr,
     goal: Option<WantedDelegationsShare>,
+    validators: Option<Vec<String>>,
 ) -> StdResult<UtokenPerValidator> {
     let current_delegations = query_all_delegations(querier, contract)?;
     let uluna_staked: u128 = current_delegations.iter().map(|d| d.amount).sum();
-    let validators = state.validators.load(storage)?;
+    let validators = if let Some(validators) = validators {
+        validators
+    } else {
+        state.validators.load(storage)?
+    };
+
     get_uluna_per_validator(state, storage, uluna_staked, &validators, goal)
 }
 

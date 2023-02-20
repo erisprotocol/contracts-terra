@@ -108,6 +108,7 @@ pub fn wanted_delegations(deps: Deps, env: Env) -> StdResult<WantedDelegationsRe
         &deps.querier,
         &env.contract.address,
         None,
+        None,
     )?;
 
     Ok(WantedDelegationsResponse {
@@ -124,6 +125,7 @@ pub fn simulate_wanted_delegations(
     let state = State::default();
 
     let period = period.unwrap_or(get_period(env.block.time.seconds())? + 1);
+    let validators = state.validators.load(deps.storage)?;
 
     let (delegation_goal, _) = get_wanted_delegations(
         &state,
@@ -132,6 +134,7 @@ pub fn simulate_wanted_delegations(
         &deps.querier,
         PeriodGaugeLoader {
             period,
+            validators: validators.clone(),
         },
     )?;
 
@@ -141,6 +144,7 @@ pub fn simulate_wanted_delegations(
         &deps.querier,
         &env.contract.address,
         Some(delegation_goal),
+        Some(validators),
     )?;
 
     Ok(WantedDelegationsResponse {
