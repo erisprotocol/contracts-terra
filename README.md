@@ -59,6 +59,12 @@ For interacting with the smart contract clone <https://github.com/erisprotocol/l
 
 - Integrate audit feedback
 
+## WARNINGS
+
+### Amp Compounder/Compound Proxy - ERIS Zapper
+
+This contract never holds any funds after an execution. Do not send funds to the contract without providing the right ExecuteMsg. Funds can and will get lost if they are sent to the contract with a normal MsgSend operation.
+
 ## License
 
 Contents of this repository are open source under [GNU General Public License v3](./LICENSE) or later.

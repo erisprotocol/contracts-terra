@@ -52,6 +52,11 @@ pub fn propose_new_owner(
         return Err(StdError::generic_err("New owner cannot be same"));
     }
 
+    // max 14 days
+    if expires_in > 14 * 24 * 60 * 60 {
+        return Err(StdError::generic_err("Expiry must be in less than 14 days"));
+    }
+
     proposal.save(
         deps.storage,
         &OwnershipProposal {

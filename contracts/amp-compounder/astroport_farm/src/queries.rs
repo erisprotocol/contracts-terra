@@ -1,8 +1,19 @@
-use astroport::asset::{Asset, AssetInfoExt};
-use cosmwasm_std::{Decimal, Deps, Env, StdResult};
-use eris::astroport_farm::{ConfigResponse, StateResponse, UserInfo, UserInfoResponse};
+use std::ops::Div;
 
-use crate::state::{CONFIG, STATE};
+use astroport::asset::{Asset, AssetInfoExt};
+use cosmwasm_std::{Decimal, Deps, Env, Order, StdResult};
+use cw_storage_plus::Bound;
+use eris::{
+    astroport_farm::{
+        ConfigResponse, ExchangeRatesResponse, StateResponse, UserInfo, UserInfoResponse,
+    },
+    voting_escrow::{DEFAULT_LIMIT, MAX_LIMIT},
+};
+
+use crate::{
+    constants::DAY,
+    state::{CONFIG, EXCHANGE_HISTORY, STATE},
+};
 
 /// ## Description
 /// Returns contract config
@@ -20,6 +31,7 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
         fee: config.fee,
         fee_collector: config.fee_collector,
         base_reward_token: config.base_reward_token,
+        deposit_profit_delay_s: config.deposit_profit_delay.seconds,
     })
 }
 
@@ -61,11 +73,7 @@ pub fn query_state(deps: Deps, env: Env, addr: Option<String>) -> StdResult<Stat
     Ok(StateResponse {
         total_lp,
         total_amp_lp,
-        exchange_rate: if total_amp_lp.is_zero() {
-            Decimal::zero()
-        } else {
-            Decimal::from_ratio(total_lp, total_amp_lp)
-        },
+        exchange_rate: state.calc_exchange_rate(total_lp),
         pair_contract: lp_state.contract_addr,
         locked_assets,
         user_info,
@@ -97,5 +105,36 @@ pub fn query_user_info(deps: Deps, env: Env, addr: String) -> StdResult<UserInfo
         total_amp_lp: state.total_bond_share,
         user_lp_amount,
         user_amp_lp_amount,
+    })
+}
+
+pub fn query_exchange_rates(
+    deps: Deps,
+    _env: Env,
+    start_after: Option<u64>,
+    limit: Option<u32>,
+) -> StdResult<ExchangeRatesResponse> {
+    let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
+    let end = start_after.map(Bound::exclusive);
+    let exchange_rates = EXCHANGE_HISTORY
+        .range(deps.storage, None, end, Order::Descending)
+        .take(limit)
+        .collect::<StdResult<Vec<(u64, Decimal)>>>()?;
+
+    let apr: Option<Decimal> = if exchange_rates.len() > 1 {
+        let current = exchange_rates[0];
+        let last = exchange_rates[exchange_rates.len() - 1];
+
+        let delta_time_s = current.0 - last.0;
+        let delta_rate = current.1.checked_sub(last.1).unwrap_or_default();
+
+        Some(delta_rate.checked_mul(Decimal::from_ratio(DAY, delta_time_s).div(last.1))?)
+    } else {
+        None
+    };
+
+    Ok(ExchangeRatesResponse {
+        exchange_rates,
+        apr,
     })
 }

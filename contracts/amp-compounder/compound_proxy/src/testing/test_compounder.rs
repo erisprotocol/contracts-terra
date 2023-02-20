@@ -237,6 +237,7 @@ fn add_remove_lps() -> StdResult<()> {
             delete_lps: None,
             insert_routes: None,
             delete_routes: None,
+            default_max_spread: None,
         },
     )
     .unwrap_err();
@@ -258,6 +259,7 @@ fn add_remove_lps() -> StdResult<()> {
             delete_lps: None,
             insert_routes: None,
             delete_routes: None,
+            default_max_spread: None,
         },
     )
     .expect("should update lps");
@@ -307,6 +309,7 @@ fn add_remove_lps() -> StdResult<()> {
             delete_lps: Some(vec!["not_existing".to_string()]),
             insert_routes: None,
             delete_routes: None,
+            default_max_spread: None,
         },
     )
     .expect_err("should not update lps");
@@ -322,6 +325,7 @@ fn add_remove_lps() -> StdResult<()> {
             delete_lps: Some(vec!["astro_token_lp".to_string()]),
             insert_routes: None,
             delete_routes: None,
+            default_max_spread: None,
         },
     )
     .expect("should update lps");
@@ -385,6 +389,7 @@ fn add_remove_routes() -> StdResult<()> {
                     both: Some(false),
                 },
             ]),
+            default_max_spread: None,
         },
     )
     .expect("should update lps");
@@ -431,6 +436,7 @@ fn add_remove_routes() -> StdResult<()> {
                 route: vec![astro(), any(), token(), uluna()],
             }]),
             delete_routes: None,
+            default_max_spread: None,
         },
     )
     .expect_err("shouldnt add routes");
@@ -456,6 +462,7 @@ fn add_remove_routes() -> StdResult<()> {
                 router_type: RouterType::AstroSwap,
                 route: vec![astro(), any(), token(), uluna()],
             }]),
+            default_max_spread: None,
         },
     )
     .unwrap();
@@ -650,7 +657,7 @@ fn compound_native_proxy() -> Result<(), ContractError> {
     assert_eq!(
         res.messages.into_iter().map(|it| it.msg).collect::<Vec<CosmosMsg>>(),
         vec![
-            pair.swap_msg(&ibc_amount(1000), None, Some(Decimal::percent(50)), None)?,
+            pair.swap_msg(&ibc_amount(1000), None, Some(Decimal::percent(10)), None)?,
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: env.contract.address.to_string(),
                 funds: vec![],
@@ -722,7 +729,7 @@ fn compound_token_path() -> Result<(), ContractError> {
         pair.swap_msg(
             &native_asset("ibc/token".to_string(), Uint128::new(1000)),
             None,
-            Some(Decimal::percent(50)),
+            Some(Decimal::percent(10)),
             None
         )?
     );
@@ -730,7 +737,7 @@ fn compound_token_path() -> Result<(), ContractError> {
     assert_eq!(res.messages[1].msg, transfer);
     assert_eq!(
         res.messages[2].msg,
-        config.create_swap(&astro_amount(109), Decimal::percent(50), None)?
+        config.create_swap(&astro_amount(109), Decimal::percent(10), None)?
     );
 
     match res.messages[3].msg.clone() {
@@ -905,7 +912,7 @@ fn optimal_swap() -> Result<(), ContractError> {
                 msg: to_binary(&AstroportPairCw20HookMsg::Swap {
                     ask_asset_info: None,
                     belief_price: None,
-                    max_spread: Some(Decimal::percent(50)),
+                    max_spread: Some(Decimal::percent(10)),
                     to: None,
                 })?
             })?,

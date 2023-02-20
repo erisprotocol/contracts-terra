@@ -6,12 +6,12 @@ use cosmwasm_std::{
 use crate::{
     bond::{bond, bond_assets, bond_to},
     compound::{compound, stake},
-    constants::TOKEN_INSTANTIATE_REPLY,
+    constants::{TOKEN_INSTANTIATE_REPLY, WEEK},
     error::ContractError,
     execute::register_amp_lp_token,
     ownership::{claim_ownership, drop_ownership_proposal, propose_new_owner},
-    queries::{query_config, query_state, query_user_info},
-    state::{Config, CONFIG, OWNERSHIP_PROPOSAL},
+    queries::{query_config, query_exchange_rates, query_state, query_user_info},
+    state::{Config, DepositProfitDelay, CONFIG, OWNERSHIP_PROPOSAL},
 };
 
 use cw20::Cw20ReceiveMsg;
@@ -32,6 +32,14 @@ fn validate_percentage(value: Decimal, field: &str) -> StdResult<()> {
         Err(StdError::generic_err(field.to_string() + " must be 0 to 1"))
     } else {
         Ok(())
+    }
+}
+
+fn validate_deposit_profit_delay(deposit_profit_delay_s: u64) -> Result<u64, ContractError> {
+    if deposit_profit_delay_s > WEEK {
+        Err(ContractError::ConfigValueTooHigh("deposit_profit_delay_s".to_string()))
+    } else {
+        Ok(deposit_profit_delay_s)
     }
 }
 
@@ -58,6 +66,9 @@ pub fn instantiate(
             fee_collector: deps.api.addr_validate(&msg.fee_collector)?,
             lp_token: deps.api.addr_validate(&msg.liquidity_token)?,
             base_reward_token: deps.api.addr_validate(&msg.base_reward_token)?,
+            deposit_profit_delay: DepositProfitDelay {
+                seconds: validate_deposit_profit_delay(msg.deposit_profit_delay_s)?,
+            },
         },
     )?;
 
@@ -83,7 +94,16 @@ pub fn execute(
             controller,
             fee,
             fee_collector,
-        } => update_config(deps, info, compound_proxy, controller, fee, fee_collector),
+            deposit_profit_delay_s,
+        } => update_config(
+            deps,
+            info,
+            compound_proxy,
+            controller,
+            fee,
+            fee_collector,
+            deposit_profit_delay_s,
+        ),
         ExecuteMsg::BondAssets {
             assets,
             minimum_receive,
@@ -169,6 +189,7 @@ pub fn update_config(
     controller: Option<String>,
     fee: Option<Decimal>,
     fee_collector: Option<String>,
+    deposit_profit_delay_s: Option<u64>,
 ) -> Result<Response, ContractError> {
     let mut config: Config = CONFIG.load(deps.storage)?;
 
@@ -191,6 +212,11 @@ pub fn update_config(
 
     if let Some(fee_collector) = fee_collector {
         config.fee_collector = deps.api.addr_validate(&fee_collector)?;
+    }
+
+    if let Some(deposit_profit_delay_s) = deposit_profit_delay_s {
+        config.deposit_profit_delay.seconds =
+            validate_deposit_profit_delay(deposit_profit_delay_s)?;
     }
 
     CONFIG.save(deps.storage, &config)?;
@@ -243,6 +269,10 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::State {
             addr,
         } => to_binary(&query_state(deps, env, addr)?),
+        QueryMsg::ExchangeRates {
+            start_after,
+            limit,
+        } => to_binary(&query_exchange_rates(deps, env, start_after, limit)?),
     }
 }
 /// ## Description

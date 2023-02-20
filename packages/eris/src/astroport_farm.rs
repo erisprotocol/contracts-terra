@@ -18,6 +18,8 @@ pub struct InstantiateMsg {
     pub fee: Decimal,
     /// The fee collector contract address
     pub fee_collector: String,
+    // based on the tracked exchange rate new deposits will only be profitable after the delay.
+    pub deposit_profit_delay_s: u64,
     /// The LP token contract address
     pub liquidity_token: String,
     /// the base reward token contract address
@@ -54,6 +56,8 @@ pub enum ExecuteMsg {
         fee: Option<Decimal>,
         /// The fee collector contract address
         fee_collector: Option<String>,
+        // based on the tracked exchange rate new deposits will only be profitable after the delay.
+        deposit_profit_delay_s: Option<u64>,
     },
     /// Compound LP rewards
     Compound {
@@ -152,6 +156,13 @@ pub enum QueryMsg {
     State {
         addr: Option<String>,
     },
+
+    #[returns(ExchangeRatesResponse)]
+    ExchangeRates {
+        // start after the provided timestamp in s
+        start_after: Option<u64>,
+        limit: Option<u32>,
+    },
 }
 
 /// This structure holds the parameters for reward info query response
@@ -186,6 +197,8 @@ pub struct ConfigResponse {
     pub fee: Decimal,
     pub fee_collector: Addr,
     pub base_reward_token: Addr,
+    // based on the tracked exchange rate new deposits will only be profitable after the delay.
+    pub deposit_profit_delay_s: u64,
 }
 
 #[cw_serde]
@@ -210,4 +223,11 @@ pub struct UserInfo {
     pub user_lp_amount: Uint128,
     /// The share of total LP token bonded
     pub user_amp_lp_amount: Uint128,
+}
+
+#[cw_serde]
+pub struct ExchangeRatesResponse {
+    pub exchange_rates: Vec<(u64, Decimal)>,
+    // APR normalized per DAY
+    pub apr: Option<Decimal>,
 }

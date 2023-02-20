@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::error::ContractError;
 use crate::execute::{compound, handle_callback, multi_swap, update_config};
 use crate::queries::{get_lp, get_lp_state, get_lps, get_routes, query_config};
@@ -38,7 +40,11 @@ pub fn instantiate(
         },
     )?;
 
+    let mut used_pairs = HashSet::new();
     for lp in msg.lps {
+        if !used_pairs.insert(lp.pair_contract.to_string()) {
+            return Err(ContractError::AddPairContractDuplicated(lp.pair_contract));
+        }
         state.add_lp(&mut deps, lp)?;
     }
 
@@ -46,7 +52,7 @@ pub fn instantiate(
         state.add_route(&mut deps, route)?;
     }
 
-    Ok(Response::new())
+    Ok(Response::new().add_attribute("action", "ampc/instantiate"))
 }
 
 /// ## Description
@@ -59,7 +65,6 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        // ExecuteMsg::Receive(cw20_msg) => receive(deps, env, info, cw20_msg),
         ExecuteMsg::Compound {
             rewards,
             receiver,
@@ -135,35 +140,8 @@ pub fn execute(
             .map_err(|e| e.into())
         },
         ExecuteMsg::Callback(msg) => handle_callback(deps, env, info, msg),
-        // ExecuteMsg::Swap {
-        //     ..
-        // } => Err(StdError::generic_err("not supported ".to_string()).into()),
     }
 }
-
-// fn receive(
-//     deps: DepsMut,
-//     env: Env,
-//     info: MessageInfo,
-//     cw20_msg: Cw20ReceiveMsg,
-// ) -> Result<Response, ContractError> {
-//     let api = deps.api;
-//     match from_binary(&cw20_msg.msg)? {
-//         ReceiveMsg::Split {
-//             into,
-//             receiver,
-//             slippage_tolerance,
-//         } => split(
-//             deps,
-//             env,
-//             info,
-//             token_asset(info.sender, cw20_msg.amount),
-//             into,
-//             deps.api.addr_validate( &receiver.unwrap_or(cw20_msg.sender))?,
-//             slippage_tolerance,
-//         ),
-//     }
-// }
 
 /// ## Description
 /// Exposes all the queries available in the contract.

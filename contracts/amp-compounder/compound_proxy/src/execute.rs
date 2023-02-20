@@ -1,7 +1,7 @@
-use crate::constants::{COMMISSION_DENOM, MAX_SPREAD};
+use crate::constants::COMMISSION_DENOM;
 use crate::error::ContractError;
-use crate::state::State;
-use std::collections::HashMap;
+use crate::state::{validate_slippage, State};
+use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 
 use astroport::factory::PairType;
@@ -44,6 +44,7 @@ pub fn compound(
 
     let mut messages: Vec<CosmosMsg> = vec![];
     let mut native_reward_map: HashMap<AssetInfo, Uint128> = HashMap::new();
+    let max_spread = state.get_default_max_spread(deps.storage);
     // Swap reward to asset in the pair
     for reward in rewards {
         reward.deposit_asset(&info, &env.contract.address, &mut messages)?;
@@ -55,18 +56,14 @@ pub fn compound(
             let route_config = state.routes.load(deps.storage, key);
 
             if let Ok(route_config) = route_config {
-                messages.push(route_config.create_swap(
-                    &reward,
-                    Decimal::percent(MAX_SPREAD),
-                    None,
-                )?);
+                messages.push(route_config.create_swap(&reward, max_spread, None)?);
             } else if let Some(factory) = &factory {
                 // if factory is set, allowed to query pairs from factory
                 messages.push(factory.create_swap(
                     &deps.querier,
                     &reward,
                     &lp_config.wanted_token,
-                    Decimal::percent(MAX_SPREAD),
+                    max_spread,
                     None,
                 )?);
             } else {
@@ -136,6 +133,7 @@ pub fn multi_swap(
     let wanted_token = into;
 
     let mut send_back = false;
+    let max_spread = state.get_default_max_spread(deps.storage);
 
     // Swap reward to asset in the pair
     for reward in rewards {
@@ -151,7 +149,7 @@ pub fn multi_swap(
             if let Ok(route_config) = route_config {
                 messages.push(route_config.create_swap(
                     &reward,
-                    Decimal::percent(MAX_SPREAD),
+                    max_spread,
                     Some(receiver.clone()),
                 )?);
             } else if let Some(factory) = &factory {
@@ -160,7 +158,7 @@ pub fn multi_swap(
                     &deps.querier,
                     &reward,
                     &wanted_token,
-                    Decimal::percent(MAX_SPREAD),
+                    max_spread,
                     Some(receiver.to_string()),
                 )?);
             } else {
@@ -239,8 +237,16 @@ fn optimal_swap(
             let assets = lp_config.pair_info.query_pools(&deps.querier, env.contract.address)?;
             let asset_a = assets[0].clone();
             let asset_b = assets[1].clone();
+            let max_spread = state.get_default_max_spread(deps.storage);
             if !asset_a.amount.is_zero() || !asset_b.amount.is_zero() {
-                calculate_optimal_swap(&deps.querier, &lp_config, asset_a, asset_b, &mut messages)?;
+                calculate_optimal_swap(
+                    &deps.querier,
+                    &lp_config,
+                    asset_a,
+                    asset_b,
+                    &mut messages,
+                    max_spread,
+                )?;
             }
         },
     }
@@ -273,6 +279,7 @@ pub fn calculate_optimal_swap(
     asset_a: Asset,
     asset_b: Asset,
     messages: &mut Vec<CosmosMsg>,
+    max_spread: Decimal,
 ) -> StdResult<(Uint128, Uint128, Uint128, Uint128)> {
     let mut swap_asset_a_amount = Uint128::zero();
     let mut swap_asset_b_amount = Uint128::zero();
@@ -313,7 +320,7 @@ pub fn calculate_optimal_swap(
                 messages.push(Pair(pair_contract).swap_msg(
                     &swap_asset,
                     None,
-                    Some(Decimal::percent(MAX_SPREAD)),
+                    Some(max_spread),
                     None,
                 )?);
             }
@@ -342,7 +349,7 @@ pub fn calculate_optimal_swap(
                 messages.push(Pair(pair_contract).swap_msg(
                     &swap_asset,
                     None,
-                    Some(Decimal::percent(MAX_SPREAD)),
+                    Some(max_spread),
                     None,
                 )?);
             }
@@ -469,6 +476,7 @@ pub fn update_config(
             delete_lps,
             insert_routes,
             delete_routes,
+            default_max_spread: default_slippage,
         } => {
             let state = State::default();
 
@@ -496,7 +504,13 @@ pub fn update_config(
             }
 
             if let Some(added_lps) = upsert_lps {
+                let mut used_pairs = HashSet::new();
                 for added_lp in added_lps {
+                    if !used_pairs.insert(added_lp.pair_contract.to_string()) {
+                        return Err(ContractError::AddPairContractDuplicated(
+                            added_lp.pair_contract,
+                        ));
+                    }
                     state.add_lp(&mut deps, added_lp)?;
                 }
             }
@@ -517,29 +531,13 @@ pub fn update_config(
                 }
             }
 
-            Ok(Response::new())
+            if let Some(default_slippage) = default_slippage {
+                validate_slippage(Decimal::percent(default_slippage))?;
+                state.default_max_spread.save(deps.storage, &default_slippage)?;
+            }
+
+            Ok(Response::new().add_attribute("action", "ampc/update_config"))
         },
         _ => Err(StdError::generic_err("not supported").into()),
     }
 }
-
-// pub fn split(
-//     deps: DepsMut,
-//     env: Env,
-//     clone: MessageInfo,
-//     from: Asset,
-//     into: AssetInfo,
-//     receiver: Addr,
-//     slippage_tolerance: Option<Decimal>,
-// ) -> Result<Response, ContractError> {
-//     let state = State::default();
-//     let lp_config = state
-//         .lps
-//         .load(deps.storage, from.info.to_string())
-//         .map_err(|_| StdError::generic_err("could not find registered LP"))?;
-
-//     let pair = Pair(lp_config.pair_info.contract_addr);
-//     pair.provide_liquidity_msg(assets, slippage_tolerance, receiver, funds)
-
-//     Ok(Response::new())
-// }
