@@ -260,7 +260,7 @@ fn remove_votes_of_user(
     storage: &mut dyn Storage,
 ) -> Result<(), ContractError> {
     if user_info.lock_end > block_period {
-        let user_last_vote_period = get_period(user_info.vote_ts).unwrap_or(block_period);
+        let user_last_vote_period = get_period(user_info.vote_ts)?;
         // Calculate voting power before changes
         let old_vp_at_period = calc_voting_power(
             user_info.slope,
@@ -486,11 +486,11 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::UserInfo {
             user,
-        } => to_binary(&user_info(deps, user)?),
+        } => to_binary(&user_info(deps, env, user)?),
         QueryMsg::UserInfos {
             start_after,
             limit,
-        } => to_binary(&user_infos(deps, start_after, limit)?),
+        } => to_binary(&user_infos(deps, env, start_after, limit)?),
         QueryMsg::TuneInfo {} => to_binary(&TUNE_INFO.load(deps.storage)?),
         QueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
         QueryMsg::ValidatorInfo {
@@ -508,17 +508,20 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
 }
 
 /// Returns user information.
-fn user_info(deps: Deps, user: String) -> StdResult<UserInfoResponse> {
+fn user_info(deps: Deps, env: Env, user: String) -> StdResult<UserInfoResponse> {
     let user_addr = deps.api.addr_validate(&user)?;
-    USER_INFO
+    let user = USER_INFO
         .may_load(deps.storage, &user_addr)?
-        .map(UserInfo::into_response)
-        .ok_or_else(|| StdError::generic_err("User not found"))
+        .ok_or_else(|| StdError::generic_err("User not found"))?;
+
+    let block_period = get_period(env.block.time.seconds())?;
+    UserInfo::into_response(user, block_period)
 }
 
 // returns all user votes
 fn user_infos(
     deps: Deps,
+    env: Env,
     start_after: Option<String>,
     limit: Option<u32>,
 ) -> StdResult<UserInfosResponse> {
@@ -533,12 +536,14 @@ fn user_infos(
         }
     }
 
+    let block_period = get_period(env.block.time.seconds())?;
+
     let users = USER_INFO
         .range(deps.storage, start, None, Order::Ascending)
         .take(limit)
         .map(|item| {
             let (user, v) = item?;
-            Ok((user, UserInfo::into_response(v)))
+            Ok((user, UserInfo::into_response(v, block_period)?))
         })
         .collect::<StdResult<Vec<(Addr, UserInfoResponse)>>>()?;
 

@@ -43,6 +43,7 @@ pub struct BaseErisTestPackage {
     pub voting_escrow: ContractInfoWrapper,
     pub emp_gauges: ContractInfoWrapper,
     pub amp_gauges: ContractInfoWrapper,
+    pub prop_gauges: ContractInfoWrapper,
     pub amp_lp: ContractInfoWrapper,
     pub amp_token: ContractInfoWrapper,
 }
@@ -65,13 +66,15 @@ impl BaseErisTestPackage {
             emp_gauges: None.into(),
             amp_gauges: None.into(),
             amp_token: None.into(),
+            prop_gauges: None.into(),
         };
 
         base_pack.init_token(router, msg.owner.clone());
         base_pack.init_hub(router, msg.owner.clone());
         base_pack.init_voting_escrow(router, msg.owner.clone());
-        base_pack.init_emp_registry(router, msg.owner.clone());
+        base_pack.init_emp_gauges(router, msg.owner.clone());
         base_pack.init_amp_gauges(router, msg.owner.clone());
+        base_pack.init_prop_gauges(router, msg.owner.clone());
 
         base_pack.init_hub_delegation_strategy(router, msg.owner, msg.use_default_hub);
 
@@ -193,7 +196,7 @@ impl BaseErisTestPackage {
         .into()
     }
 
-    fn init_emp_registry(&mut self, router: &mut App, owner: Addr) {
+    fn init_emp_gauges(&mut self, router: &mut App, owner: Addr) {
         let contract = Box::new(ContractWrapper::new_with_empty(
             eris_gov_emp_gauges::contract::execute,
             eris_gov_emp_gauges::contract::instantiate,
@@ -240,6 +243,34 @@ impl BaseErisTestPackage {
             .unwrap();
 
         self.amp_gauges = Some(ContractInfo {
+            address: instance,
+            code_id,
+        })
+        .into()
+    }
+
+    fn init_prop_gauges(&mut self, router: &mut App, owner: Addr) {
+        let contract = Box::new(ContractWrapper::new_with_empty(
+            eris_gov_prop_gauges::contract::execute,
+            eris_gov_prop_gauges::contract::instantiate,
+            eris_gov_prop_gauges::contract::query,
+        ));
+
+        let code_id = router.store_code(contract);
+
+        let msg = eris::prop_gauges::InstantiateMsg {
+            owner: owner.to_string(),
+            hub_addr: self.hub.get_address_string(),
+            escrow_addr: self.voting_escrow.get_address_string(),
+            quorum_bps: 500,
+            use_weighted_vote: false,
+        };
+
+        let instance = router
+            .instantiate_contract(code_id, owner, &msg, &[], String::from("prop-gauges"), None)
+            .unwrap();
+
+        self.prop_gauges = Some(ContractInfo {
             address: instance,
             code_id,
         })

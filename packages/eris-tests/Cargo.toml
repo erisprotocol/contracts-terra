@@ -18,7 +18,7 @@ cw20-base = { version = "0.13.2", features = ["library"] }
 cosmwasm-std = "1.1"
 
 cosmwasm-schema = "1.1"
-cw-multi-test = "0.16"
+cw-multi-test = "0.16.2"
 astroport = { git = "https://github.com/astroport-fi/astroport-core.git", default-features = false, rev = "bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62" }
 
 eris = { path = "../eris" }
@@ -28,5 +28,6 @@ eris-staking-token = { path = "../../contracts/token" }
 eris-gov-voting-escrow = { path = "../../contracts/amp-governance/voting_escrow" }
 eris-gov-emp-gauges = { path = "../../contracts/amp-governance/emp_gauges" }
 eris-gov-amp-gauges = { path = "../../contracts/amp-governance/amp_gauges" }
+eris-gov-prop-gauges = { path = "../../contracts/amp-governance/prop_gauges" }
 
 anyhow = "1"
