@@ -3,6 +3,7 @@ use std::ops::Div;
 use astroport::asset::{native_asset, AssetInfo, AssetInfoExt};
 use cosmwasm_std::{attr, Decimal, DepsMut, Env, MessageInfo, Response};
 use eris::arb_vault::CallbackMsg;
+use eris::constants::DAY;
 
 use crate::error::{ContractError, ContractResult};
 use crate::extensions::ConfigEx;
@@ -37,24 +38,25 @@ pub fn execute_assert_result(
 ) -> ContractResult {
     let state = State::default();
     let config = state.config.load(deps.storage)?;
-    let mut claim_group = config.lsd_group(&env);
+    let mut lsds = config.lsd_group(&env);
 
-    let old_assets = state.assert_is_nested(deps.storage)?;
-    let new_assets = claim_group.get_total_assets_err(deps.as_ref(), &env, &state, &config)?;
+    let old_balance = state.assert_is_nested(deps.storage)?;
+    let new_balances = lsds.get_total_assets_err(deps.as_ref(), &env, &state, &config)?;
+    let total_lp_supply = config.query_lp_supply(&deps.querier)?;
 
-    let lsd_adapter = claim_group.get(result_token)?;
+    let lsd_adapter = lsds.get(result_token)?;
 
     // get the new
     let xbalance = lsd_adapter.asset().query_pool(&deps.querier, env.contract.address)?;
     let xfactor = lsd_adapter.query_factor_x_to_normal(&deps.as_ref())?;
     let xvalue = xbalance * xfactor;
 
-    let old_value = old_assets.tvl_utoken;
-    let new_value = new_assets.tvl_utoken.checked_add(xvalue)?;
+    let old_value = old_balance.tvl_utoken;
+    let new_value = new_balances.tvl_utoken.checked_add(xvalue)?;
 
-    let used_balance = old_assets
+    let used_balance = old_balance
         .vault_available
-        .checked_sub(new_assets.vault_available)
+        .checked_sub(new_balances.vault_available)
         .map_err(|e| ContractError::CalculationError("used balance".into(), e.to_string()))?;
 
     let profit = new_value
@@ -84,7 +86,7 @@ pub fn execute_assert_result(
         return Err(ContractError::NotEnoughProfit {});
     }
 
-    if new_assets.vault_available < new_assets.locked_user_withdrawls {
+    if new_balances.vault_available < new_balances.locked_user_withdrawls {
         // if locked balance bigger than the available balance, no arbitrage can be executed, as funds are marked for unbond
         return Err(ContractError::DoNotTakeLockedBalance {});
     }
@@ -96,7 +98,7 @@ pub fn execute_assert_result(
     let fee_percent = fee_config.protocol_performance_fee;
     let fee_amount = profit * fee_percent;
 
-    let (fee_msg, fee_attribute) = if new_assets.vault_takeable >= fee_amount {
+    let (fee_msg, fee_attribute) = if new_balances.vault_takeable >= fee_amount {
         // send fees in utoken if takeable allows it.
         let utoken = native_asset(config.utoken, fee_amount);
         let fee_msg = utoken.into_msg(&deps.querier, fee_config.protocol_fee_contract)?;
@@ -117,6 +119,10 @@ pub fn execute_assert_result(
 
     state.balance_checkpoint.remove(deps.storage);
 
+    // we store the exchange rate daily to not create too much data.
+    let exchange_rate = Decimal::from_ratio(new_balances.vault_total, total_lp_supply);
+    state.exchange_history.save(deps.storage, env.block.time.seconds().div(DAY), &exchange_rate)?;
+
     return Ok(Response::new()
         .add_messages(lsd_adapter.unbond(&deps.as_ref(), unbond_xamount)?)
         .add_message(fee_msg)
@@ -131,6 +137,7 @@ pub fn execute_assert_result(
             attr("xfactor", xfactor.to_string()),
             attr("xvalue", xvalue),
             attr("profit", profit),
+            attr("exchange_rate", exchange_rate.to_string()),
         ])
         .add_attributes(vec![fee_attribute]));
 }
