@@ -1,7 +1,7 @@
 use astroport::{asset::AssetInfo, common::OwnershipProposal};
 use cosmwasm_std::{Addr, Decimal};
 use cw_storage_plus::{Item, Map};
-use eris::fees_collector::TargetConfigChecked;
+use eris::fees_collector::TargetConfig;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -15,7 +15,7 @@ pub struct Config {
     /// The factory contract address
     pub factory_contract: Addr,
     /// The list of address and weight to receive fees
-    pub target_list: Vec<TargetConfigChecked>,
+    pub target_list: Vec<TargetConfig<Addr>>,
     /// The stablecoin token address
     pub stablecoin: AssetInfo,
     /// The max spread allowed when swapping fee tokens to stablecoin

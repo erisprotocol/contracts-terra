@@ -1,9 +1,10 @@
 use astroport::common::OwnershipProposal;
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Uint128};
+use cosmwasm_std::{Addr, StdResult, Uint128};
 use cw_storage_plus::{Item, Map};
 use eris::amp_gauges::{ConfigResponse, GaugeInfoResponse, UserInfoResponse};
+use eris::governance_helper::{calc_voting_power, get_period};
 use eris::helpers::bps::BasicPoints;
 
 /// This structure describes the main control config of generator controller contract.
@@ -35,21 +36,26 @@ pub struct UserInfo {
 
 impl UserInfo {
     /// The function converts [`UserInfo`] object into [`UserInfoResponse`].
-    pub(crate) fn into_response(self) -> UserInfoResponse {
+    pub(crate) fn into_response(self, period: u64) -> StdResult<UserInfoResponse> {
         let votes = self
             .votes
             .into_iter()
             .map(|(validator_addr, bps)| (validator_addr, u16::from(bps)))
             .collect();
 
-        UserInfoResponse {
+        let user_last_vote_period = get_period(self.vote_ts).unwrap_or(period);
+        let vp_at_period =
+            calc_voting_power(self.slope, self.voting_power, user_last_vote_period, period);
+
+        Ok(UserInfoResponse {
             vote_ts: self.vote_ts,
             voting_power: self.voting_power,
             slope: self.slope,
             lock_end: self.lock_end,
             votes,
             fixed_amount: self.fixed_amount,
-        }
+            current_power: self.fixed_amount.checked_add(vp_at_period)?,
+        })
     }
 }
 

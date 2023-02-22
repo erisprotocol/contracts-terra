@@ -1,6 +1,12 @@
 use cosmwasm_std::{Addr, QuerierWrapper, StdResult};
 
-use crate::{constants::CONTRACT_DENOM, types::Delegation};
+use crate::constants::CONTRACT_DENOM;
+#[derive(Clone)]
+#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
+pub struct Delegation {
+    pub validator: String,
+    pub amount: u128,
+}
 
 pub(crate) fn query_all_delegations(
     querier: &QuerierWrapper,

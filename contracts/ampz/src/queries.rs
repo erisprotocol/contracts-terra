@@ -16,7 +16,7 @@ pub fn config(deps: Deps) -> StdResult<ConfigResponse> {
 
     Ok(ConfigResponse {
         owner: state.owner.load(deps.storage)?.into(),
-        executor: state.controller.load(deps.storage)?.into(),
+        controller: state.controller.load(deps.storage)?.into(),
         new_owner: state.new_owner.may_load(deps.storage)?.map(|addr| addr.into()),
         hub: state.hub.load(deps.storage)?.0.into(),
         farms: state.farms.load(deps.storage)?.into_iter().map(|a| a.0.to_string()).collect_vec(),
@@ -37,7 +37,7 @@ pub fn state(deps: Deps) -> StdResult<StateResponse> {
     let state = State::default();
 
     Ok(StateResponse {
-        id: state.id.load(deps.storage)?,
+        next_id: state.id.load(deps.storage)?,
     })
 }
 

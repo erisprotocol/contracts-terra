@@ -19,6 +19,8 @@ use eris::{
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::error::ContractError;
+
 /// This structure describes the main control config of pair.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Config {
@@ -119,6 +121,8 @@ pub(crate) struct State<'a> {
     pub lps: Map<'a, String, LpConfig>,
     /// routes usable from (start, end)
     pub routes: Map<'a, (&'a [u8], &'a [u8]), RouteConfig>,
+    //// specifies the default allowed slippage - if unset use 10%
+    pub default_max_spread: Item<'a, u64>,
 }
 
 impl Default for State<'static> {
@@ -128,6 +132,7 @@ impl Default for State<'static> {
             ownership_proposal: Item::new("ownership_proposal"),
             lps: Map::new("lps"),
             routes: Map::new("routes"),
+            default_max_spread: Item::new("default_max_spread"),
         }
     }
 }
@@ -136,6 +141,11 @@ impl<'a> State<'a> {
     pub fn assert_owner(&self, storage: &dyn Storage, sender: &Addr) -> StdResult<()> {
         self.config.load(storage)?.assert_owner(sender)?;
         Ok(())
+    }
+
+    pub fn get_default_max_spread(&self, storage: &dyn Storage) -> Decimal {
+        // by default a max_spread of 10% is used.
+        Decimal::percent(self.default_max_spread.load(storage).unwrap_or(10))
     }
 
     pub fn remove_lp(&self, deps: &mut DepsMut, lp_token: String) -> StdResult<()> {
@@ -150,9 +160,23 @@ impl<'a> State<'a> {
         Ok(())
     }
 
-    pub fn add_lp(&self, deps: &mut DepsMut, lp_init: LpInit) -> StdResult<()> {
+    pub fn add_lp(&self, deps: &mut DepsMut, lp_init: LpInit) -> Result<(), ContractError> {
         let pair_contract = deps.api.addr_validate(lp_init.pair_contract.as_str())?;
         let pair_info = Pair(pair_contract).query_pair_info(&deps.querier)?;
+
+        if !pair_info.asset_infos.contains(&lp_init.wanted_token) {
+            return Err(ContractError::WantedTokenNotInPair(lp_init.wanted_token.to_string()));
+        }
+
+        validate_slippage(lp_init.slippage_tolerance)?;
+
+        match pair_info.pair_type {
+            astroport::factory::PairType::Xyk {} => (),
+            astroport::factory::PairType::Stable {} => (),
+            astroport::factory::PairType::Custom(_) => {
+                Err(StdError::generic_err("Custom pair type not supported"))?
+            },
+        }
 
         self.lps.save(
             deps.storage,
@@ -297,6 +321,14 @@ impl<'a> State<'a> {
             },
         )?;
         Ok(())
+    }
+}
+
+pub fn validate_slippage(slippage_tolerance: Decimal) -> Result<Decimal, ContractError> {
+    if slippage_tolerance > Decimal::percent(50) {
+        Err(ContractError::SlippageTolaranaceTooHigh)
+    } else {
+        Ok(slippage_tolerance)
     }
 }
 

@@ -96,6 +96,9 @@ pub enum ExecuteMsg {
         delete_lps: Option<Vec<String>>,
         insert_routes: Option<Vec<RouteInit>>,
         delete_routes: Option<Vec<RouteDelete>>,
+
+        // default slippage, 50 = 50%, max = 50
+        default_max_spread: Option<u64>,
     },
 
     /// Removes a request to change contract ownership

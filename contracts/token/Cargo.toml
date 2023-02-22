@@ -4,7 +4,7 @@ version = "1.0.1"
 authors = ["devs <devs@erisprotocol.com>"]
 edition = "2018"
 license = "GPL-3.0-or-later"
-repository = "https://github.com/erisprotocol/liquid-staking-contracts"
+repository = "https://github.com/erisprotocol/contracts-terra"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

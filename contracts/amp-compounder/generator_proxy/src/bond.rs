@@ -318,7 +318,7 @@ pub fn callback_after_bond_claimed(
     pool_info.last_reconcile = env.block.height;
     POOL_INFO.save(deps.storage, &lp_token, &pool_info)?;
 
-    Ok(Response::new())
+    Ok(Response::new().add_attribute("callback", "ampg/after_bond_claimed"))
 }
 
 pub fn callback_after_bond_changed(
@@ -340,7 +340,7 @@ pub fn callback_after_bond_changed(
         POOL_INFO.save(deps.storage, &lp_token, &pool_info)?;
     }
 
-    Ok(Response::default())
+    Ok(Response::default().add_attribute("callback", "ampg/after_bond_changed"))
 }
 
 pub fn reconcile_to_user_info(pool_info: &PoolInfo, user_info: &mut UserInfo) -> StdResult<()> {

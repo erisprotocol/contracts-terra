@@ -7,7 +7,7 @@ module.exports = {
     },
     schema: {
       default:
-        "nps schema.create schema.transform schema.hub schema.ampz schema.token schema.ampextractor schema.farm  schema.compound schema.fees schema.generator schema.votingescrow schema.ampgauges schema.empgauges",
+        "nps schema.create schema.transform schema.hub schema.ampz schema.token schema.ampextractor schema.farm  schema.compound schema.fees schema.generator schema.votingescrow schema.ampgauges schema.empgauges schema.propgauges",
 
       transform: "ts-node transform.ts",
 
@@ -27,6 +27,8 @@ module.exports = {
         "cd .. && json2ts -i contracts/amp-governance/amp_gauges/**/*.json -o ../liquid-staking-scripts/types/amp_gauges",
       empgauges:
         "cd .. && json2ts -i contracts/amp-governance/emp_gauges/**/*.json -o ../liquid-staking-scripts/types/emp_gauges",
+      propgauges:
+        "cd .. && json2ts -i contracts/amp-governance/prop_gauges/**/*.json -o ../liquid-staking-scripts/types/prop_gauges",
 
       farm: "cd .. && json2ts -i contracts/amp-compounder/astroport_farm/**/*.json -o ../liquid-staking-scripts/types/amp-compounder/astroport_farm",
       compound:

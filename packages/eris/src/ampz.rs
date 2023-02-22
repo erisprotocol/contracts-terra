@@ -1,6 +1,6 @@
 use astroport::asset::{Asset, AssetInfo};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{to_binary, Addr, Api, Coin, CosmosMsg, StdError, StdResult, WasmMsg};
+use cosmwasm_std::{to_binary, Addr, Api, Coin, CosmosMsg, StdError, StdResult, Uint128, WasmMsg};
 
 use crate::{adapters::generator::Generator, helpers::bps::BasicPoints};
 
@@ -29,6 +29,7 @@ pub enum Source {
     },
     Wallet {
         over: Asset,
+        max_amount: Option<Uint128>,
     },
 }
 
@@ -45,27 +46,29 @@ pub struct VestingPeriod {
     pub amount: Vec<Coin>,
 }
 
-impl From<Source> for String {
-    fn from(source: Source) -> Self {
-        match source {
-            Source::Claim => "claim".to_string(),
-            Source::AstroRewards {
-                ..
-            } => "astro_rewards".to_string(),
-            Source::Wallet {
-                over,
-                ..
-            } => format!("wallet_{}", over.info),
-        }
-    }
-}
-
 #[cw_serde]
 pub struct Execution {
     pub user: String,
     pub source: Source,
-    pub destination: Destination,
+    pub destination: DestinationState,
     pub schedule: Schedule,
+}
+
+impl Source {
+    pub fn try_get_uniq_key(&self) -> Option<String> {
+        match self {
+            Source::Claim => Some("claim".to_string()),
+            Source::AstroRewards {
+                ..
+            } => Some("astro_rewards".to_string()),
+            Source::Wallet {
+                ..
+            } => {
+                // wallet is allowed to be defined multiple times
+                None
+            },
+        }
+    }
 }
 
 #[cw_serde]
@@ -94,7 +97,6 @@ impl AstroportConfig<String> {
 pub enum ExecuteMsg {
     Execute {
         id: u128,
-        user: Option<String>,
     },
 
     // being executed via authz
@@ -117,6 +119,8 @@ pub enum ExecuteMsg {
     TransferOwnership {
         new_owner: String,
     },
+    /// Remove the ownership transfer proposal
+    DropOwnershipProposal {},
     /// Accept an ownership transfer
     AcceptOwnership {},
 
@@ -125,16 +129,10 @@ pub enum ExecuteMsg {
         remove_farms: Option<Vec<String>>,
         controller: Option<String>,
         zapper: Option<String>,
+        hub: Option<String>,
         astroport: Option<AstroportConfig<String>>,
-        // tips: Option<TipConfig>,
         fee: Option<FeeConfig<String>>,
     },
-    // AddToTipJar {
-    //     recipient: Option<String>,
-    // },
-    // WithdrawTipJar {
-    //     amount: Option<Uint128>,
-    // },
 }
 
 #[cw_serde]
@@ -176,9 +174,32 @@ pub struct CallbackWrapper {
 }
 
 #[cw_serde]
-pub enum Destination {
+pub enum DestinationState {
     DepositAmplifier {},
     DepositFarm {
+        farm: String,
+    },
+}
+
+impl DestinationState {
+    pub fn to_runtime(self, asset_infos: Vec<AssetInfo>) -> DestinationRuntime {
+        match self {
+            DestinationState::DepositAmplifier {} => DestinationRuntime::DepositAmplifier {},
+            DestinationState::DepositFarm {
+                farm,
+            } => DestinationRuntime::DepositFarm {
+                asset_infos,
+                farm,
+            },
+        }
+    }
+}
+
+#[cw_serde]
+pub enum DestinationRuntime {
+    DepositAmplifier {},
+    DepositFarm {
+        asset_infos: Vec<AssetInfo>,
         farm: String,
     },
 }
@@ -188,6 +209,7 @@ pub enum Destination {
 pub enum CallbackMsg {
     AuthzDeposit {
         user_balance_start: Vec<Asset>,
+        max_amount: Option<Vec<Asset>>,
     },
 
     Swap {
@@ -196,9 +218,8 @@ pub enum CallbackMsg {
     },
 
     FinishExecution {
-        asset_infos: Vec<AssetInfo>,
-        destination: Destination,
-        operator: Addr,
+        destination: DestinationRuntime,
+        executor: Addr,
     },
 }
 
@@ -213,13 +234,17 @@ impl CallbackMsg {
     ) -> StdResult<CosmosMsg> {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: String::from(contract_addr),
-            msg: to_binary(&ExecuteMsg::Callback(CallbackWrapper {
-                id,
-                user: user.clone(),
-                message: self.clone(),
-            }))?,
+            msg: to_binary(&ExecuteMsg::Callback(self.into_callback_wrapper(id, user)))?,
             funds: vec![],
         }))
+    }
+
+    pub fn into_callback_wrapper(&self, id: u128, user: &Addr) -> CallbackWrapper {
+        CallbackWrapper {
+            id,
+            user: user.clone(),
+            message: self.clone(),
+        }
     }
 }
 
@@ -262,7 +287,7 @@ pub struct ConfigResponse {
     /// Pending ownership transfer, awaiting acceptance by the new owner
     pub new_owner: Option<String>,
 
-    pub executor: String,
+    pub controller: String,
 
     pub zapper: String,
 
@@ -273,7 +298,7 @@ pub struct ConfigResponse {
 
 #[cw_serde]
 pub struct StateResponse {
-    pub id: u128,
+    pub next_id: u128,
 }
 
 #[cw_serde]

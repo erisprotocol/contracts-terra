@@ -34,7 +34,7 @@ impl Querier for CustomQuerier {
 
 impl CustomQuerier {
     #[allow(dead_code)]
-    pub fn set_cw20_balance(&mut self, token: &str, user: &str, balance: u128) {
+    pub fn set_cw20_balance(&mut self, user: &str, token: &str, balance: u128) {
         match self.cw20_querier.balances.get_mut(token) {
             Some(contract_balances) => {
                 contract_balances.insert(user.to_string(), balance);

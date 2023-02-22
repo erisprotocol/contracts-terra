@@ -1,11 +1,13 @@
-use astroport::asset::{Asset, AssetInfo, AssetInfoExt};
+use std::collections::HashMap;
+
+use astroport::asset::{Asset, AssetInfo};
 use cosmwasm_std::{
     to_binary, Addr, BankMsg, Coin, CosmosMsg, MessageInfo, QuerierWrapper, StdError, StdResult,
     Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, Expiration};
 
-use crate::{fees_collector::TargetConfigChecked, helpers::bps::BasicPoints};
+use crate::fees_collector::TargetConfig;
 
 pub trait AssetInfosEx {
     fn query_balances(&self, querier: &QuerierWrapper, address: &Addr) -> StdResult<Vec<Asset>>;
@@ -24,23 +26,49 @@ impl AssetInfosEx for Vec<AssetInfo> {
             })
             .collect::<StdResult<_>>()?;
 
-        Ok(assets.into_iter().filter(|asset| !asset.amount.is_zero()).collect())
+        Ok(assets.into_iter().collect())
     }
 }
 
 pub trait AssetsEx {
-    fn query_balance_diff(self, querier: &QuerierWrapper, address: &Addr) -> StdResult<Vec<Asset>>;
+    fn query_balance_diff(
+        self,
+        querier: &QuerierWrapper,
+        address: &Addr,
+        max_amount: Option<Vec<Asset>>,
+    ) -> StdResult<Vec<Asset>>;
 }
 
 impl AssetsEx for Vec<Asset> {
-    fn query_balance_diff(self, querier: &QuerierWrapper, address: &Addr) -> StdResult<Vec<Asset>> {
+    fn query_balance_diff(
+        self,
+        querier: &QuerierWrapper,
+        address: &Addr,
+        max_amount: Option<Vec<Asset>>,
+    ) -> StdResult<Vec<Asset>> {
+        let hash_map = max_amount.map(|max| {
+            let hash: HashMap<AssetInfo, Uint128> =
+                max.into_iter().map(|asset| (asset.info, asset.amount)).collect();
+            hash
+        });
+
         let assets: Vec<Asset> = self
             .into_iter()
             .map(|asset| {
                 let result = asset.info.query_pool(querier, address)?;
+                let mut amount = result.checked_sub(asset.amount)?;
+
+                if let Some(hash_map) = &hash_map {
+                    if let Some(max) = hash_map.get(&asset.info) {
+                        if !max.is_zero() {
+                            amount = std::cmp::min(amount, *max);
+                        }
+                    }
+                }
+
                 Ok(Asset {
                     info: asset.info,
-                    amount: result.checked_sub(asset.amount)?,
+                    amount,
                 })
             })
             .collect::<StdResult<_>>()?;
@@ -49,39 +77,9 @@ impl AssetsEx for Vec<Asset> {
     }
 }
 
-// impl fmt::Display for Vec<Asset> {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-
-//         let mut comma_separated = String::new();
-
-//         for num in &self.0[0..self.0.len() - 1] {
-//             comma_separated.push_str(&num.to_string());
-//             comma_separated.push_str(", ");
-//         }
-
-//         comma_separated.push_str(&self.0[self.0.len() - 1].to_string());
-//         write!(f, "{}", comma_separated)
-//     }
-// }
-
-// impl Display for Vec<Asset> {
-//     fn fmt(&self, f: &mut Formatter) -> Result {
-//         Coin
-//         let mut comma_separated = String::new();
-
-//         for num in &self.0[0..self.0.len() - 1] {
-//             comma_separated.push_str(&num.to_string());
-//             comma_separated.push_str(", ");
-//         }
-
-//         comma_separated.push_str(&self.0[self.0.len() - 1].to_string());
-//         write!(f, "{}", comma_separated)
-//     }
-// }
-
 pub trait AssetEx {
     fn transfer_msg(&self, to: &Addr) -> StdResult<CosmosMsg>;
-    fn transfer_msg_target(&self, to: &TargetConfigChecked) -> StdResult<CosmosMsg>;
+    fn transfer_msg_target(&self, to: &TargetConfig<Addr>) -> StdResult<CosmosMsg>;
     fn transfer_from_msg(&self, from: &Addr, to: &Addr) -> StdResult<CosmosMsg>;
     fn increase_allowance_msg(
         &self,
@@ -95,8 +93,6 @@ pub trait AssetEx {
         recipient: &Addr,
         messages: &mut Vec<CosmosMsg>,
     ) -> StdResult<()>;
-
-    fn subtract_fee(&self, fee: BasicPoints) -> (Asset, Uint128);
 }
 
 impl AssetEx for Asset {
@@ -124,7 +120,7 @@ impl AssetEx for Asset {
         }
     }
 
-    fn transfer_msg_target(&self, to: &TargetConfigChecked) -> StdResult<CosmosMsg> {
+    fn transfer_msg_target(&self, to: &TargetConfig<Addr>) -> StdResult<CosmosMsg> {
         if let Some(msg) = to.msg.clone() {
             match &self.info {
                 AssetInfo::Token {
@@ -212,11 +208,5 @@ impl AssetEx for Asset {
             },
         };
         Ok(())
-    }
-
-    fn subtract_fee(&self, fee_percent: BasicPoints) -> (Asset, Uint128) {
-        let fee_absolute = self.amount * fee_percent.decimal();
-        let new_amount = self.amount.saturating_sub(fee_absolute);
-        (self.info.with_balance(new_amount), fee_absolute)
     }
 }

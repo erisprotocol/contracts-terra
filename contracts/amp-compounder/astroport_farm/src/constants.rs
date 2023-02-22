@@ -1,1 +1,2 @@
 pub const TOKEN_INSTANTIATE_REPLY: u64 = 1u64;
+pub const RELAVANT_EXCHANGE_RATES: usize = 3;

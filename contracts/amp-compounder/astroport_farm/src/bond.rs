@@ -1,10 +1,10 @@
 use astroport::asset::{token_asset, Asset};
 use astroport::querier::query_token_balance;
 use cosmwasm_std::{attr, Addr, CosmosMsg, Decimal, DepsMut, Env, MessageInfo, Response, Uint128};
-use eris::helper::funds_or_allowance;
+use eris::helper::{assert_uniq_assets, funds_or_allowance};
 
 use crate::error::ContractError;
-use crate::state::{Config, ScalingOperation, CONFIG, STATE};
+use crate::state::{Config, CONFIG, STATE};
 
 use eris::adapters::asset::AssetEx;
 use eris::astroport_farm::CallbackMsg;
@@ -24,6 +24,8 @@ pub fn bond_assets(
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     let lp_token = config.lp_token;
+
+    assert_uniq_assets(&assets)?;
 
     let (funds, mut messages) =
         funds_or_allowance(&env, &config.compound_proxy.0, &assets, Some(&info))?;
@@ -47,7 +49,7 @@ pub fn bond_assets(
         .into_cosmos_msg(&env.contract.address)?,
     );
 
-    Ok(Response::new().add_messages(messages).add_attribute("action", "bond_assets"))
+    Ok(Response::new().add_messages(messages).add_attribute("action", "ampf/bond_assets"))
 }
 
 /// ## Description
@@ -116,12 +118,13 @@ fn bond_internal(
 
     let mut state = STATE.load(deps.storage)?;
 
-    //TODO: withdraw reward to pending reward; before changing share
-
     // calculate share
-    let bond_share = state.calc_bond_share(amount, lp_balance, ScalingOperation::Truncate);
-    state.total_bond_share += bond_share;
-    messages.push(state.amp_lp_token.mint(bond_share, staker_addr)?);
+    let bond_share = state.calc_bond_share(amount, lp_balance);
+    let bond_share_adjusted =
+        config.deposit_profit_delay.calc_adjusted_share(deps.storage, bond_share)?;
+
+    state.total_bond_share += bond_share_adjusted;
+    messages.push(state.amp_lp_token.mint(bond_share_adjusted, staker_addr)?);
 
     STATE.save(deps.storage, &state)?;
 
@@ -130,6 +133,7 @@ fn bond_internal(
         attr("action", "ampf/bond"),
         attr("amount", amount),
         attr("bond_amount", amount),
+        attr("bond_share_adjusted", bond_share_adjusted),
         attr("bond_share", bond_share),
     ]))
 }

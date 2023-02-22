@@ -1,0 +1,34 @@
+[package]
+name = "eris-arb-vault"
+version = "1.0.0"
+authors = ["devs <devs@erisprotocol.com>"]
+edition = "2018"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/erisprotocol/contracts-terra"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+backtraces = ["cosmwasm-std/backtraces"]
+
+[dependencies]
+cosmwasm-std = { version = "1.0.0", features = ["staking"] }
+cw2 = "0.13.2"
+cw20 = "0.13.2"
+cw20-base = { version = "0.13.2", features = ["library"] }
+cosmwasm-schema = "1.0.0"
+cw-storage-plus = "0.13.2"
+eris = { path = "../../packages/eris" }
+itertools = "0.10"
+thiserror = { version = "1.0" }
+astroport = { git = "https://github.com/astroport-fi/astroport-core.git", default-features = false, rev = "bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62" }
+steak = { git = "https://github.com/PFC-developer/steak-contracts.git", package="pfc-steak", default-features = false, rev = "34860bdd75a06c156537276fcfbb4b3a4820eef3"}
+stader = { git = "https://github.com/stader-labs/lunax.git", package="staking", default-features = false, rev = "20143548e2dea807b343fe6ad60375086af35ea9"}
+prism = { git = "https://github.com/prism-finance/prism-auto-compounding-casset.git", package="basset", default-features = false, rev = "88d833974a0f1c43cc0bf64d4919dd3229ae2b66"}
+
+[dev-dependencies]
+cw-multi-test = "0.16"
+anyhow = "1"
+eris-tests = { path = "../../packages/eris-tests" }
+serde = { version = "1.0.103", default-features = false, features = ["derive"] }

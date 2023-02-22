@@ -1,31 +1,44 @@
-use cosmwasm_std::{Addr, Order, StdError, StdResult, Storage};
+use cosmwasm_std::{Addr, Order, StdResult, Storage};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 use eris::{
     adapters::{compounder::Compounder, farm::Farm, generator::Generator, hub::Hub},
     ampz::{AstroportConfig, Execution, FeeConfig},
 };
 
+use crate::error::ContractError;
+
 pub(crate) struct State<'a> {
+    // controller that can execute executions without receiving operation fees
     pub controller: Item<'a, Addr>,
+    // addr of the zapper contract to execute multi swaps
     pub zapper: Item<'a, Compounder>,
+    // config regarding supported astroport tokens and generator address
     pub astroport: Item<'a, AstroportConfig<Generator>>,
     /// Account who can call certain privileged functions
     pub owner: Item<'a, Addr>,
     /// Pending ownership transfer, awaiting acceptance by the new owner
     pub new_owner: Item<'a, Addr>,
 
+    // address of the amplifier hub
     pub hub: Item<'a, Hub>,
+    // allowed farms to deposit
     pub farms: Item<'a, Vec<Farm>>,
 
+    // next id for storing an execution
     pub id: Item<'a, u128>,
+    // fee configuration
+    pub fee: Item<'a, FeeConfig<Addr>>,
+
+    // Runtime data
+    // contains all executions info
     pub executions: IndexedMap<'a, u128, Execution, ExecutionIndexes<'a>>,
+    // contains the timestamp when an execution was last executed
     pub last_execution: Map<'a, u128, u64>,
+
     pub execution_user_source: Map<'a, (String, String), u128>,
 
+    // temporary state if something is executing
     pub is_executing: Item<'a, bool>,
-
-    pub fee: Item<'a, FeeConfig<Addr>>, // pub tips: Item<'a, TipConfig>,
-                                        // pub tip_jar: Map<'a, String, Uint128>,
 }
 
 impl Default for State<'static> {
@@ -44,48 +57,31 @@ impl Default for State<'static> {
             astroport: Item::new("astro_generator"),
 
             id: Item::new("id"),
+
             executions: IndexedMap::new("executions", execution_indexes),
             execution_user_source: Map::new("execution_user_source"),
+
             last_execution: Map::new("last_execution"),
 
-            // temporary state
             is_executing: Item::new("is_executing"),
 
             fee: Item::new("fee_config"),
-            // tips: Item::new("tips"),
-            // tip_jar: Map::new("tip_jar"),
         }
     }
 }
 
 impl<'a> State<'a> {
-    pub fn assert_owner(&self, storage: &dyn Storage, sender: &Addr) -> StdResult<()> {
+    pub fn assert_owner(&self, storage: &dyn Storage, sender: &Addr) -> Result<(), ContractError> {
         let owner = self.owner.load(storage)?;
         if *sender == owner {
             Ok(())
         } else {
-            Err(StdError::generic_err("unauthorized: sender is not owner"))
+            Err(ContractError::Unauthorized {})
         }
     }
 
-    // pub fn assert_controller_owner(&self, storage: &dyn Storage, sender: &Addr) -> StdResult<()> {
-    //     let executor = self.controller.load(storage)?;
-    //     if *sender == executor {
-    //         Ok(())
-    //     } else {
-    //         let owner = self.owner.load(storage)?;
-    //         if *sender == owner {
-    //             Ok(())
-    //         } else {
-    //             Err(StdError::generic_err("unauthorized: sender is neither owner nor controller"))
-    //         }
-    //     }
-    // }
-
-    pub fn get_by_id(&self, storage: &dyn Storage, id: u128) -> StdResult<Execution> {
-        self.executions
-            .load(storage, id)
-            .map_err(|_| StdError::generic_err(format!("could not find execution with id {}", id)))
+    pub fn get_by_id(&self, storage: &dyn Storage, id: u128) -> Result<Execution, ContractError> {
+        self.executions.load(storage, id).map_err(|_| ContractError::ExecutionNotFound(id))
     }
 
     pub fn get_by_user(

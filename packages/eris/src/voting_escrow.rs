@@ -331,6 +331,24 @@ pub fn get_total_voting_power_at(
     Ok(vp.vamp)
 }
 
+/// Queries total voting power from the voting escrow contract by period.
+///
+/// * **timestamp** time at which we fetch the total voting power.
+pub fn get_total_voting_power_at_by_period(
+    querier: &QuerierWrapper,
+    escrow_addr: impl Into<String>,
+    period: u64,
+) -> StdResult<Uint128> {
+    let vp: VotingPowerResponse = querier.query_wasm_smart(
+        escrow_addr,
+        &QueryMsg::TotalVampAtPeriod {
+            period,
+        },
+    )?;
+
+    Ok(vp.vamp)
+}
+
 /// Queries user's lockup information from the voting escrow contract.
 ///
 /// * **user** staker for which we return lock position information.
