@@ -7,13 +7,11 @@ use eris::{
     astroport_farm::{
         ConfigResponse, ExchangeRatesResponse, StateResponse, UserInfo, UserInfoResponse,
     },
+    constants::DAY,
     voting_escrow::{DEFAULT_LIMIT, MAX_LIMIT},
 };
 
-use crate::{
-    constants::DAY,
-    state::{CONFIG, EXCHANGE_HISTORY, STATE},
-};
+use crate::state::{CONFIG, EXCHANGE_HISTORY, STATE};
 
 /// ## Description
 /// Returns contract config

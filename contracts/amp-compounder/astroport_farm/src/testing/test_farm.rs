@@ -1,4 +1,3 @@
-use crate::constants::DAY;
 use crate::contract::{execute, instantiate, query, reply};
 use crate::error::ContractError;
 use astroport::asset::{native_asset, token_asset, Asset, AssetInfo};
@@ -18,6 +17,7 @@ use eris::astroport_farm::{
     QueryMsg, StateResponse, TokenInit, UserInfoResponse,
 };
 use eris::compound_proxy::ExecuteMsg as CompoundProxyExecuteMsg;
+use eris::constants::DAY;
 
 use super::mock_querier::{mock_dependencies, WasmMockQuerier};
 

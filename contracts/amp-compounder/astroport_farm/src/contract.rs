@@ -6,7 +6,7 @@ use cosmwasm_std::{
 use crate::{
     bond::{bond, bond_assets, bond_to},
     compound::{compound, stake},
-    constants::{TOKEN_INSTANTIATE_REPLY, WEEK},
+    constants::TOKEN_INSTANTIATE_REPLY,
     error::ContractError,
     execute::register_amp_lp_token,
     ownership::{claim_ownership, drop_ownership_proposal, propose_new_owner},
@@ -17,6 +17,7 @@ use crate::{
 use cw20::Cw20ReceiveMsg;
 use eris::{
     adapters::{compounder::Compounder, generator::Generator},
+    constants::WEEK,
     helper::{addr_opt_validate, unwrap_reply},
 };
 
