@@ -107,9 +107,9 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> CustomResult<Binary> {
         } => to_binary(&query_unbond_requests(deps, env, address, start_after, limit)?)?,
 
         QueryMsg::ExchangeRates {
-            start_after,
+            start_after_d,
             limit,
-        } => to_binary(&query_exchange_rates(deps, env, start_after, limit)?)?,
+        } => to_binary(&query_exchange_rates(deps, env, start_after_d, limit)?)?,
     };
     Ok(res)
 }

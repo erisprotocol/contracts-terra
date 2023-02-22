@@ -232,8 +232,8 @@ pub enum QueryMsg {
 
     #[returns(ExchangeRatesResponse)]
     ExchangeRates {
-        // start after the provided timestamp in s
-        start_after: Option<u64>,
+        // start after the provided timestamp in days
+        start_after_d: Option<u64>,
         limit: Option<u32>,
     },
 }
@@ -368,9 +368,15 @@ pub struct ClaimBalance {
 
 #[cw_serde]
 pub struct ExchangeRatesResponse {
-    pub exchange_rates: Vec<(u64, Decimal)>,
+    pub exchange_rates: Vec<(u64, ExchangeHistory)>,
     // APR normalized per DAY
     pub apr: Option<Decimal>,
+}
+
+#[cw_serde]
+pub struct ExchangeHistory {
+    pub exchange_rate: Decimal,
+    pub time_s: u64,
 }
 
 /// This structure describes a migration message.

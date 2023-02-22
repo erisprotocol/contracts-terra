@@ -2,7 +2,7 @@ use crate::{domain::ownership::OwnershipProposal, error::ContractError};
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Decimal, StdResult, Storage, Uint128};
 use cw_storage_plus::{Item, Map};
-use eris::arb_vault::{ValidatedConfig, ValidatedFeeConfig};
+use eris::arb_vault::{ExchangeHistory, ValidatedConfig, ValidatedFeeConfig};
 
 #[cw_serde]
 pub struct BalanceCheckpoint {
@@ -43,7 +43,7 @@ pub(crate) struct State<'a> {
     pub fee_config: Item<'a, ValidatedFeeConfig>,
     pub owner: Item<'a, Addr>,
     pub ownership: Item<'a, OwnershipProposal>,
-    pub exchange_history: Map<'a, u64, Decimal>,
+    pub exchange_history: Map<'a, u64, ExchangeHistory>,
     pub unbond_history: Map<'a, (Addr, u64), UnbondHistory>,
     pub unbond_id: Item<'a, u64>,
     pub balance_checkpoint: Item<'a, BalanceCheckpoint>,

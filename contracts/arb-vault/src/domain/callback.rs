@@ -2,7 +2,7 @@ use std::ops::Div;
 
 use astroport::asset::{native_asset, AssetInfo, AssetInfoExt};
 use cosmwasm_std::{attr, Decimal, DepsMut, Env, MessageInfo, Response};
-use eris::arb_vault::CallbackMsg;
+use eris::arb_vault::{CallbackMsg, ExchangeHistory};
 use eris::constants::DAY;
 
 use crate::error::{ContractError, ContractResult};
@@ -121,7 +121,14 @@ pub fn execute_assert_result(
 
     // we store the exchange rate daily to not create too much data.
     let exchange_rate = Decimal::from_ratio(new_balances.vault_total, total_lp_supply);
-    state.exchange_history.save(deps.storage, env.block.time.seconds().div(DAY), &exchange_rate)?;
+    state.exchange_history.save(
+        deps.storage,
+        env.block.time.seconds().div(DAY),
+        &ExchangeHistory {
+            exchange_rate,
+            time_s: env.block.time.seconds(),
+        },
+    )?;
 
     return Ok(Response::new()
         .add_messages(lsd_adapter.unbond(&deps.as_ref(), unbond_xamount)?)

@@ -10,8 +10,8 @@ use cosmwasm_std::{Decimal, Deps, Env, Order, StdResult};
 
 use cw_storage_plus::Bound;
 use eris::arb_vault::{
-    ConfigResponse, ExchangeRatesResponse, StateDetails, StateResponse, TakeableResponse,
-    UnbondItem, UnbondRequestsResponse, UserInfoResponse,
+    ConfigResponse, ExchangeHistory, ExchangeRatesResponse, StateDetails, StateResponse,
+    TakeableResponse, UnbondItem, UnbondRequestsResponse, UserInfoResponse,
 };
 use eris::constants::DAY;
 use eris::voting_escrow::{DEFAULT_LIMIT, MAX_LIMIT};
@@ -146,27 +146,30 @@ pub fn query_user_info(deps: Deps, env: Env, address: String) -> CustomResult<Us
 pub fn query_exchange_rates(
     deps: Deps,
     _env: Env,
-    start_after: Option<u64>,
+    start_after_d: Option<u64>,
     limit: Option<u32>,
 ) -> StdResult<ExchangeRatesResponse> {
     let state = State::default();
 
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-    let end = start_after.map(Bound::exclusive);
+    let end = start_after_d.map(Bound::exclusive);
     let exchange_rates = state
         .exchange_history
         .range(deps.storage, None, end, Order::Descending)
         .take(limit)
-        .collect::<StdResult<Vec<(u64, Decimal)>>>()?;
+        .collect::<StdResult<Vec<(u64, ExchangeHistory)>>>()?;
 
     let apr: Option<Decimal> = if exchange_rates.len() > 1 {
-        let current = exchange_rates[0];
-        let last = exchange_rates[exchange_rates.len() - 1];
+        let (_, current) = exchange_rates.first().unwrap();
+        let (_, last) = exchange_rates.last().unwrap();
 
-        let delta_time_s = current.0 - last.0;
-        let delta_rate = current.1.checked_sub(last.1).unwrap_or_default();
+        let delta_time_s = current.time_s - last.time_s;
+        let delta_rate = current.exchange_rate.checked_sub(last.exchange_rate).unwrap_or_default();
 
-        Some(delta_rate.checked_mul(Decimal::from_ratio(DAY, delta_time_s).div(last.1))?)
+        Some(
+            delta_rate
+                .checked_mul(Decimal::from_ratio(DAY, delta_time_s).div(last.exchange_rate))?,
+        )
     } else {
         None
     };
