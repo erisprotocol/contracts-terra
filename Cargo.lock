@@ -746,7 +746,7 @@ dependencies = [
 
 [[package]]
 name = "eris"
-version = "1.5.0"
+version = "1.4.0"
 dependencies = [
  "astroport 2.0.0 (git+https://github.com/astroport-fi/astroport-core.git?rev=bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62)",
  "cosmwasm-schema",
@@ -859,7 +859,7 @@ dependencies = [
 
 [[package]]
 name = "eris-gov-amp-gauges"
-version = "1.5.0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "astroport 2.0.0 (git+https://github.com/astroport-fi/astroport-core.git?rev=bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62)",
@@ -885,7 +885,7 @@ dependencies = [
 
 [[package]]
 name = "eris-gov-emp-gauges"
-version = "1.5.0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "astroport 2.0.0 (git+https://github.com/astroport-fi/astroport-core.git?rev=bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62)",
@@ -911,7 +911,7 @@ dependencies = [
 
 [[package]]
 name = "eris-gov-prop-gauges"
-version = "1.5.0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "astroport 2.0.0 (git+https://github.com/astroport-fi/astroport-core.git?rev=bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62)",
@@ -937,7 +937,7 @@ dependencies = [
 
 [[package]]
 name = "eris-gov-voting-escrow"
-version = "1.5.0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "astroport 2.0.0 (git+https://github.com/astroport-fi/astroport-core.git?rev=bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62)",

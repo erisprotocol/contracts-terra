@@ -1,6 +1,6 @@
 [package]
 name = "eris-gov-emp-gauges"
-version = "1.5.0"
+version = "1.4.0"
 authors = ["devs <devs@erisprotocol.com>"]
 edition = "2021"
 repository = "https://github.com/erisprotocol/contracts-terra"
