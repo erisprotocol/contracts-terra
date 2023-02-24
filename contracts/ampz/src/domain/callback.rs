@@ -111,20 +111,14 @@ pub fn callback(
                     attrs.push(attr("type", "deposit_amplifier"));
                     let main_token = native_asset_info(CONTRACT_DENOM.to_string());
                     let amount = main_token.query_pool(&deps.querier, env.contract.address)?;
+                    let balances = vec![main_token.with_balance(amount)];
 
                     if amount.is_zero() {
                         return Err(ContractError::NothingToDeposit {});
                     }
 
-                    let balances = pay_fees(
-                        &state,
-                        &deps,
-                        &mut msgs,
-                        &mut attrs,
-                        vec![main_token.with_balance(amount)],
-                        executor,
-                        &user,
-                    )?;
+                    let balances =
+                        pay_fees(&state, &deps, &mut msgs, &mut attrs, balances, executor, &user)?;
 
                     // always 1 result if it inputs a non-zero token
                     let balance = balances.first().unwrap();
@@ -147,6 +141,27 @@ pub fn callback(
 
                     deposit_in_farm(&deps, farm, &env, &user, balances, &mut msgs)?;
                 },
+                eris::ampz::DestinationRuntime::SendSwapResultToUser {
+                    asset_info,
+                } => {
+                    // at this point the swap has already been executed and we just need to send the result back to the user + pay fees.
+                    attrs.push(attr("type", "swap_to"));
+
+                    let amount = asset_info.query_pool(&deps.querier, env.contract.address)?;
+                    let balances = vec![asset_info.with_balance(amount)];
+
+                    if amount.is_zero() {
+                        return Err(ContractError::NothingToDeposit {});
+                    }
+
+                    let balances =
+                        pay_fees(&state, &deps, &mut msgs, &mut attrs, balances, executor, &user)?;
+
+                    // always 1 result if it inputs a non-zero token
+                    let balance = balances.first().unwrap();
+
+                    msgs.push(balance.transfer_msg(&user)?)
+                },
             };
 
             state.is_executing.remove(deps.storage);
@@ -165,13 +180,13 @@ fn pay_fees(
     msgs: &mut Vec<CosmosMsg>,
     attrs: &mut Vec<Attribute>,
     balances: Vec<Asset>,
-    operator: Addr,
+    executor: Addr,
     user: &Addr,
 ) -> StdResult<Vec<Asset>> {
     let fee = state.fee.load(deps.storage)?;
 
     // when the user is doing manual executions, no operator fee needs to be paid.
-    let operator_bps = if *user == operator {
+    let operator_bps = if *user == executor {
         BasicPoints::zero()
     } else {
         fee.operator_bps
@@ -198,7 +213,7 @@ fn pay_fees(
 
             let deposit_asset = asset.info.with_balance(deposit_amount);
 
-            if operator == fee.receiver || operator == controller {
+            if executor == fee.receiver || executor == controller {
                 protocol_fee_amount += operator_fee_amount;
                 operator_fee_amount = Uint128::zero();
             }
@@ -214,7 +229,7 @@ fn pay_fees(
             if !operator_fee_amount.is_zero() {
                 // pay operator fee
                 let operator_fee = asset.info.with_balance(operator_fee_amount);
-                msgs.push(operator_fee.transfer_msg(&operator)?);
+                msgs.push(operator_fee.transfer_msg(&executor)?);
                 attrs.push(attr("operator_fee", operator_fee.to_string()));
             }
         }

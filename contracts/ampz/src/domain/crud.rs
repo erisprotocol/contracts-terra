@@ -1,11 +1,13 @@
 use std::vec;
 
+use astroport::asset::native_asset_info;
 use cosmwasm_std::{attr, Attribute, DepsMut, Env, MessageInfo, Response};
 
+use crate::constants::CONTRACT_DENOM;
 use crate::error::{ContractError, ContractResult};
 use crate::state::State;
 use eris::adapters::farm::Farm;
-use eris::ampz::{DestinationState, Execution};
+use eris::ampz::{DestinationState, Execution, Source};
 
 pub fn add_execution(
     deps: DepsMut,
@@ -29,6 +31,46 @@ pub fn add_execution(
             let farm = Farm(deps.api.addr_validate(farm)?);
             if !allowed_farms.contains(&farm) {
                 return Err(ContractError::FarmNotSupported(farm.0.to_string()));
+            }
+        },
+        DestinationState::SwapTo {
+            asset_info,
+        } => {
+            // this checks if there is a configured route from the source asset to the destination asset
+            let from_assets = match &execution.source {
+                Source::Claim => {
+                    if *asset_info == native_asset_info(CONTRACT_DENOM.to_string()) {
+                        // cant use claim (uluna) to swap to uluna (useless)
+                        Err(ContractError::CannotSwapToSameToken {})?
+                    }
+
+                    // for claiming staking rewards only check the default chain denom
+                    vec![native_asset_info(CONTRACT_DENOM.to_string())]
+                },
+                Source::AstroRewards {
+                    ..
+                } => {
+                    // for astroport check that all possible reward coins are supported
+                    state.astroport.load(deps.storage)?.coins
+                },
+                Source::Wallet {
+                    over,
+                    ..
+                } => {
+                    if over.info == *asset_info {
+                        // cant use same input token to swap to token (useless)
+                        Err(ContractError::CannotSwapToSameToken {})?
+                    }
+                    vec![over.info.clone()]
+                },
+            };
+
+            let zapper = state.zapper.load(deps.storage)?;
+
+            for from in from_assets {
+                if !zapper.query_support_swap(&deps.querier, from.clone(), asset_info.clone())? {
+                    return Err(ContractError::SwapNotSupported(from, asset_info.clone()));
+                }
             }
         },
     }

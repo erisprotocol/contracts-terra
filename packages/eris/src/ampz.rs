@@ -179,6 +179,9 @@ pub enum DestinationState {
     DepositFarm {
         farm: String,
     },
+    SwapTo {
+        asset_info: AssetInfo,
+    },
 }
 
 impl DestinationState {
@@ -191,6 +194,11 @@ impl DestinationState {
                 asset_infos,
                 farm,
             },
+            DestinationState::SwapTo {
+                asset_info,
+            } => DestinationRuntime::SendSwapResultToUser {
+                asset_info,
+            },
         }
     }
 }
@@ -201,6 +209,9 @@ pub enum DestinationRuntime {
     DepositFarm {
         asset_infos: Vec<AssetInfo>,
         farm: String,
+    },
+    SendSwapResultToUser {
+        asset_info: AssetInfo,
     },
 }
 

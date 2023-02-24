@@ -561,3 +561,129 @@ fn check_callback_deposit_farm() {
             .unwrap(),
     );
 }
+
+#[test]
+fn check_callback_swap_to() {
+    let mut deps = setup_test();
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info("user", &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::SendSwapResultToUser {
+                    asset_info: native_asset_info("ibc/xxx".to_string()),
+                },
+                executor: Addr::unchecked("executor"),
+            },
+        }),
+    )
+    .unwrap_err();
+
+    assert_eq!(res, ContractError::CallbackOnlyCalledByContract {});
+
+    // any executor
+    deps.querier.bank_querier.update_balance(MOCK_CONTRACT_ADDR, coins(100, "ibc/xxx"));
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info(MOCK_CONTRACT_ADDR, &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::SendSwapResultToUser {
+                    asset_info: native_asset_info("ibc/xxx".to_string()),
+                },
+                executor: Addr::unchecked("executor"),
+            },
+        }),
+    )
+    .unwrap();
+    assert_eq!(res.messages.len(), 3);
+    assert_eq!(
+        res.messages[0].msg,
+        native_asset("ibc/xxx".into(), Uint128::new(1))
+            .transfer_msg(&Addr::unchecked("fee_receiver"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[1].msg,
+        native_asset("ibc/xxx".into(), Uint128::new(2))
+            .transfer_msg(&Addr::unchecked("executor"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[2].msg,
+        native_asset("ibc/xxx".into(), Uint128::new(97))
+            .transfer_msg(&Addr::unchecked("user"))
+            .unwrap(),
+    );
+
+    // user as executor "manual execution"
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info(MOCK_CONTRACT_ADDR, &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::SendSwapResultToUser {
+                    asset_info: native_asset_info("ibc/xxx".to_string()),
+                },
+                executor: Addr::unchecked("user"),
+            },
+        }),
+    )
+    .unwrap();
+
+    assert_eq!(res.messages.len(), 2);
+    assert_eq!(
+        res.messages[0].msg,
+        native_asset("ibc/xxx".into(), Uint128::new(1))
+            .transfer_msg(&Addr::unchecked("fee_receiver"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[1].msg,
+        native_asset("ibc/xxx".into(), Uint128::new(99))
+            .transfer_msg(&Addr::unchecked("user"))
+            .unwrap(),
+    );
+
+    // protocol controller as executor
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info(MOCK_CONTRACT_ADDR, &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::SendSwapResultToUser {
+                    asset_info: native_asset_info("ibc/xxx".to_string()),
+                },
+                executor: Addr::unchecked("controller"),
+            },
+        }),
+    )
+    .unwrap();
+
+    assert_eq!(res.messages.len(), 2);
+    assert_eq!(
+        res.messages[0].msg,
+        native_asset("ibc/xxx".into(), Uint128::new(3))
+            .transfer_msg(&Addr::unchecked("fee_receiver"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[1].msg,
+        native_asset("ibc/xxx".into(), Uint128::new(97))
+            .transfer_msg(&Addr::unchecked("user"))
+            .unwrap(),
+    );
+}

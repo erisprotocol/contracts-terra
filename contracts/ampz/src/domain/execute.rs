@@ -56,9 +56,8 @@ pub fn execute_id(deps: DepsMut, env: Env, info: MessageInfo, id: u128) -> Contr
     // 4. Finish execution by depositing into the destination and sending the result to the user. This also pays operator + protocol fees.
     let mut msgs: Vec<CosmosMsg> = vec![];
     let mut deposit_max_amount: Option<Vec<Asset>> = None;
-    let mut requires_swap = false;
 
-    match execution.source {
+    match &execution.source {
         eris::ampz::Source::Claim => {
             let delegations = query_all_delegations(&deps.querier, &user)?;
 
@@ -91,13 +90,9 @@ pub fn execute_id(deps: DepsMut, env: Env, info: MessageInfo, id: u128) -> Contr
             // This could be optimized by storing possible reward tokens for each LP and only query these
             user_balance_start = asset_infos.query_balances(&deps.querier, &user)?;
 
-            let msg = astroport.generator.claim_rewards_msg(lps)?.to_authz_msg(&user, &env)?;
+            let msg =
+                astroport.generator.claim_rewards_msg(lps.clone())?.to_authz_msg(&user, &env)?;
             msgs.push(msg);
-
-            if let DestinationState::DepositAmplifier {} = execution.destination {
-                // depositing in amplifier only possible from native chain token (e.g. uluna).
-                requires_swap = true;
-            }
         },
         eris::ampz::Source::Wallet {
             over,
@@ -108,21 +103,43 @@ pub fn execute_id(deps: DepsMut, env: Env, info: MessageInfo, id: u128) -> Contr
                 return Err(ContractError::BalanceLessThanThreshold {});
             }
 
-            if let DestinationState::DepositAmplifier {} = execution.destination {
-                if over.info != native_asset_info(CONTRACT_DENOM.to_string()) {
-                    // if we deposit into amplifier and the deposit asset is not the native chain token, convert it.
-                    requires_swap = true;
-                }
-            }
-
             asset_infos = vec![over.info.clone()];
             deposit_max_amount =
                 max_amount.map(|max_amount| vec![over.info.with_balance(max_amount)]);
 
             // instead of querying the user balance, we take the over / min threshold
-            user_balance_start = vec![over];
+            user_balance_start = vec![over.clone()];
         },
     }
+
+    let requires_swap_to = match &execution.destination {
+        // if we deposit into the amplifier we need to swap to luna
+        DestinationState::DepositAmplifier {} => {
+            match execution.source {
+                eris::ampz::Source::Claim => None,
+                eris::ampz::Source::AstroRewards {
+                    ..
+                } => Some(native_asset_info(CONTRACT_DENOM.to_string())),
+                eris::ampz::Source::Wallet {
+                    over,
+                    ..
+                } => {
+                    if over.info != native_asset_info(CONTRACT_DENOM.to_string()) {
+                        // if we deposit into amplifier and the deposit asset is not the native chain token, convert it.
+                        Some(native_asset_info(CONTRACT_DENOM.to_string()))
+                    } else {
+                        None
+                    }
+                },
+            }
+        },
+        DestinationState::DepositFarm {
+            ..
+        } => None,
+        DestinationState::SwapTo {
+            asset_info,
+        } => Some(asset_info.clone()),
+    };
 
     state.last_execution.save(deps.storage, id, &env.block.time.seconds())?;
     state.is_executing.save(deps.storage, &true)?;
@@ -135,17 +152,15 @@ pub fn execute_id(deps: DepsMut, env: Env, info: MessageInfo, id: u128) -> Contr
         .into_cosmos_msg(&env.contract.address, id, &user)?,
     );
 
-    if requires_swap {
-        let native_asset = native_asset_info(CONTRACT_DENOM.to_string());
-
+    if let Some(swap_to) = requires_swap_to {
         let swap_msg = CallbackMsg::Swap {
             asset_infos: asset_infos.clone(),
-            into: native_asset.clone(),
+            into: swap_to.clone(),
         }
         .into_cosmos_msg(&env.contract.address, id, &user)?;
 
         // if we swap the results will always be in the native asset (e.g. uluna)
-        asset_infos = vec![native_asset];
+        asset_infos = vec![swap_to];
         msgs.push(swap_msg);
     }
 

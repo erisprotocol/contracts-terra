@@ -2,7 +2,9 @@ use std::collections::HashSet;
 
 use crate::error::ContractError;
 use crate::execute::{compound, handle_callback, multi_swap, update_config};
-use crate::queries::{get_lp, get_lp_state, get_lps, get_routes, query_config};
+use crate::queries::{
+    get_lp, get_lp_state, get_lps, get_routes, query_config, query_supports_swap,
+};
 use crate::simulation::query_compound_simulation;
 use crate::state::{Config, State};
 
@@ -167,6 +169,10 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             rewards,
             lp_token,
         } => to_binary(&query_compound_simulation(deps, rewards, lp_token)?),
+        QueryMsg::SupportsSwap {
+            from,
+            to,
+        } => to_binary(&query_supports_swap(deps, from, to)?),
     }
 }
 

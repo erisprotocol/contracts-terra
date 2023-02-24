@@ -1,3 +1,4 @@
+use astroport::asset::AssetInfo;
 use cosmwasm_std::{OverflowError, Response, StdError};
 use cw20_base::ContractError as cw20baseError;
 use thiserror::Error;
@@ -42,6 +43,12 @@ pub enum ContractError {
 
     #[error("The farm {0} is not supported")]
     FarmNotSupported(String),
+
+    #[error("The swap from {0} to {1} is not supported")]
+    SwapNotSupported(AssetInfo, AssetInfo),
+
+    #[error("Cannot swap to the same token")]
+    CannotSwapToSameToken {},
 
     #[error("Contract is already executing")]
     IsExecuting {},
