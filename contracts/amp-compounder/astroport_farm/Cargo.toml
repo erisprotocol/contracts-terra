@@ -1,6 +1,6 @@
 [package]
 name = "eris-astroport-farm"
-version = "1.2.0"
+version = "1.4.0"
 authors = ["Spectrum", "Eris"]
 edition = "2021"
 description = "Contract to stake LP token and auto collect rewards"
