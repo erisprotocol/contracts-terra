@@ -7,8 +7,8 @@ use astroport::generator::{PendingTokenResponse, UserInfoV2};
 use astroport::querier::query_token_balance;
 use astroport::restricted_vector::RestrictedVector;
 use cosmwasm_std::{
-    Addr, CosmosMsg, Decimal, Deps, DepsMut, Env, MessageInfo, QuerierWrapper, Response, StdError,
-    StdResult, Uint128,
+    attr, Addr, Attribute, CosmosMsg, Decimal, Deps, DepsMut, Env, MessageInfo, QuerierWrapper,
+    Response, StdError, StdResult, Uint128,
 };
 use eris::adapters::asset::AssetEx;
 use std::cmp;
@@ -23,6 +23,7 @@ pub fn execute_deposit(
 ) -> Result<Response, ContractError> {
     // reward cannot be claimed if there is no record
     let mut messages: Vec<CosmosMsg> = vec![];
+    let mut attributes: Vec<Attribute> = vec![];
     let config = CONFIG.load(deps.storage)?;
     let astro_user_info =
         config.generator.query_user_info(&deps.querier, &info.sender, &env.contract.address)?;
@@ -31,6 +32,10 @@ pub fn execute_deposit(
             reconcile_claimed_by_others(deps, &env, &config, &info.sender, &astro_user_info)?;
         if claim {
             let lp_token = info.sender.to_string();
+            attributes = prev_balances
+                .iter()
+                .map(|bal| attr("prev_balance", format!("{0}{1}", bal.1, bal.0)))
+                .collect::<Vec<Attribute>>();
             messages.push(config.generator.claim_rewards_msg(vec![lp_token])?);
             messages.push(
                 CallbackMsg::AfterBondClaimed {
@@ -52,7 +57,8 @@ pub fn execute_deposit(
             }
             .to_cosmos_msg(&env.contract.address)?,
         )
-        .add_attribute("action", "ampg/deposit"))
+        .add_attribute("action", "ampg/deposit")
+        .add_attributes(attributes))
 }
 
 pub fn execute_withdraw(
@@ -299,12 +305,19 @@ pub fn callback_after_bond_claimed(
         }
     }
 
+    let mut attributes = vec![];
+
     // reconcile other tokens
-    for (token, _) in astro_user_info.reward_debt_proxy.inner_ref() {
-        let mut token_reward = REWARD_INFO.may_load(deps.storage, token)?.unwrap_or_default();
+    for (token, debited) in astro_user_info.reward_debt_proxy.inner_ref() {
+        attributes.push(attr("token", token));
+        attributes.push(attr("debited", debited));
         if let Some(prev_token_amount) = prev_balance_map.get(token) {
+            let mut token_reward = REWARD_INFO.may_load(deps.storage, token)?.unwrap_or_default();
             let token_amount = query_token_balance(&deps.querier, token, &env.contract.address)?;
             let net_token_amount = token_amount.checked_sub(*prev_token_amount)?;
+            attributes.push(attr("prev_balance", prev_token_amount.to_string()));
+            attributes.push(attr("token_amount", token_amount));
+            attributes.push(attr("net_token_amount", net_token_amount));
             if !net_token_amount.is_zero() {
                 reconcile_token_reward(token, &mut pool_info, &mut token_reward, net_token_amount)?;
                 REWARD_INFO.save(deps.storage, token, &token_reward)?;
@@ -318,7 +331,9 @@ pub fn callback_after_bond_claimed(
     pool_info.last_reconcile = env.block.height;
     POOL_INFO.save(deps.storage, &lp_token, &pool_info)?;
 
-    Ok(Response::new())
+    Ok(Response::new()
+        .add_attribute("action", "ampg/after_bond_claimed")
+        .add_attributes(attributes))
 }
 
 pub fn callback_after_bond_changed(
