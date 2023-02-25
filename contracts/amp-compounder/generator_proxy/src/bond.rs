@@ -310,7 +310,7 @@ pub fn callback_after_bond_claimed(
     // reconcile other tokens
     for (token, debited) in astro_user_info.reward_debt_proxy.inner_ref() {
         attributes.push(attr("token", token));
-        attributes.push(attr("debited", debited));
+        attributes.push(attr("debited", debited.to_string()));
         if let Some(prev_token_amount) = prev_balance_map.get(token) {
             let mut token_reward = REWARD_INFO.may_load(deps.storage, token)?.unwrap_or_default();
             let token_amount = query_token_balance(&deps.querier, token, &env.contract.address)?;
