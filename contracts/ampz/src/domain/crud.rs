@@ -37,33 +37,7 @@ pub fn add_execution(
             asset_info,
         } => {
             // this checks if there is a configured route from the source asset to the destination asset
-            let from_assets = match &execution.source {
-                Source::Claim => {
-                    if *asset_info == native_asset_info(CONTRACT_DENOM.to_string()) {
-                        // cant use claim (uluna) to swap to uluna (useless)
-                        Err(ContractError::CannotSwapToSameToken {})?
-                    }
-
-                    // for claiming staking rewards only check the default chain denom
-                    vec![native_asset_info(CONTRACT_DENOM.to_string())]
-                },
-                Source::AstroRewards {
-                    ..
-                } => {
-                    // for astroport check that all possible reward coins are supported
-                    state.astroport.load(deps.storage)?.coins
-                },
-                Source::Wallet {
-                    over,
-                    ..
-                } => {
-                    if over.info == *asset_info {
-                        // cant use same input token to swap to token (useless)
-                        Err(ContractError::CannotSwapToSameToken {})?
-                    }
-                    vec![over.info.clone()]
-                },
-            };
+            let from_assets = get_source_assets(&execution, asset_info, &state, &deps)?;
 
             let zapper = state.zapper.load(deps.storage)?;
 
@@ -123,6 +97,42 @@ pub fn add_execution(
     Ok(Response::new()
         .add_attribute("action", "ampz/add_execution")
         .add_attribute("id", new_id.to_string()))
+}
+
+fn get_source_assets(
+    execution: &Execution,
+    asset_info: &astroport::asset::AssetInfo,
+    state: &State,
+    deps: &DepsMut,
+) -> Result<Vec<astroport::asset::AssetInfo>, ContractError> {
+    let from_assets = match &execution.source {
+        Source::Claim => {
+            if *asset_info == native_asset_info(CONTRACT_DENOM.to_string()) {
+                // cant use claim (uluna) to swap to uluna (useless)
+                Err(ContractError::CannotSwapToSameToken {})?
+            }
+
+            // for claiming staking rewards only check the default chain denom
+            vec![native_asset_info(CONTRACT_DENOM.to_string())]
+        },
+        Source::AstroRewards {
+            ..
+        } => {
+            // for astroport check that all possible reward coins are supported
+            state.astroport.load(deps.storage)?.coins
+        },
+        Source::Wallet {
+            over,
+            ..
+        } => {
+            if over.info == *asset_info {
+                // cant use same input token to swap to token (useless)
+                Err(ContractError::CannotSwapToSameToken {})?
+            }
+            vec![over.info.clone()]
+        },
+    };
+    Ok(from_assets)
 }
 
 pub fn remove_executions(
