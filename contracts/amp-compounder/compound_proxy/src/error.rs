@@ -17,8 +17,8 @@ pub enum ContractError {
     #[error("The wanted token {0} is not an asset of the pair")]
     WantedTokenNotInPair(String),
 
-    #[error("The slippage tolarance must be less than or equal 50%")]
-    SlippageTolaranaceTooHigh,
+    #[error("The slippage tolerance must be less than or equal 50%")]
+    SlippageToleranaceTooHigh,
 }
 
 impl From<OverflowError> for ContractError {

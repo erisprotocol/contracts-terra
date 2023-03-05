@@ -1,6 +1,6 @@
 [package]
 name = "eris-generator-proxy"
-version = "1.3.0"
+version = "1.4.0"
 authors = ["Spectrum", "Eris"]
 edition = "2021"
 description = "Proxy contract to Astroport generator"

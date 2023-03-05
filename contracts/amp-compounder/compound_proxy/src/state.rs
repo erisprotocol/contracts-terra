@@ -326,7 +326,7 @@ impl<'a> State<'a> {
 
 pub fn validate_slippage(slippage_tolerance: Decimal) -> Result<Decimal, ContractError> {
     if slippage_tolerance > Decimal::percent(50) {
-        Err(ContractError::SlippageTolaranaceTooHigh)
+        Err(ContractError::SlippageToleranaceTooHigh)
     } else {
         Ok(slippage_tolerance)
     }
