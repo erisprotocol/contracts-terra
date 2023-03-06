@@ -48,6 +48,7 @@ pub(crate) struct State<'a> {
     pub unbond_id: Item<'a, u64>,
     pub balance_checkpoint: Item<'a, BalanceCheckpoint>,
     pub balance_locked: Item<'a, BalanceLocked>,
+    pub whitelisted_addrs: Item<'a, Vec<Addr>>,
 }
 
 impl Default for State<'static> {
@@ -62,6 +63,7 @@ impl Default for State<'static> {
             unbond_id: Item::new("unbond_id"),
             balance_checkpoint: Item::new("balance_checkpoint"),
             balance_locked: Item::new("balance_locked"),
+            whitelisted_addrs: Item::new("whitelisted_addrs"),
         }
     }
 }
@@ -85,6 +87,24 @@ impl<'a> State<'a> {
 
         if let Some(..) = check {
             Err(ContractError::AlreadyExecuting {})
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn assert_whitelisted(
+        &self,
+        storage: &dyn Storage,
+        sender: &Addr,
+    ) -> Result<(), ContractError> {
+        let whitelisted = self.whitelisted_addrs.may_load(storage)?;
+
+        if let Some(whitelisted) = whitelisted {
+            if !(whitelisted.contains(sender)) {
+                Err(ContractError::UnauthorizedNotWhitelisted {})
+            } else {
+                Ok(())
+            }
         } else {
             Ok(())
         }

@@ -100,6 +100,29 @@ pub enum LsdType<T> {
     },
 }
 
+impl LsdType<String> {
+    pub fn to_uniq_key(&self) -> String {
+        match self {
+            LsdType::Eris {
+                addr,
+                ..
+            } => format!("eris_{0}", addr),
+            LsdType::Backbone {
+                addr,
+                ..
+            } => format!("backbone_{0}", addr),
+            LsdType::Stader {
+                addr,
+                ..
+            } => format!("stader_{0}", addr),
+            LsdType::Prism {
+                addr,
+                ..
+            } => format!("prism_{0}", addr),
+        }
+    }
+}
+
 #[cw_serde]
 pub enum UtilizationMethod {
     Steps(Vec<(Decimal, Decimal)>),

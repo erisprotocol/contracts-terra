@@ -14,6 +14,9 @@ pub enum ContractError {
     #[error("Unauthorized")]
     Unauthorized {},
 
+    #[error("Unauthorized: Sender not on whitelist")]
+    UnauthorizedNotWhitelisted {},
+
     #[error("Event of zero transfer")]
     InvalidZeroAmount {},
 
@@ -25,6 +28,9 @@ pub enum ContractError {
 
     #[error("Nothing to withdraw")]
     NothingToWithdraw {},
+
+    #[error("Withdrawable funds available. Execute withdraw before arbitrage.")]
+    WithdrawBeforeExecute {},
 
     #[error("Bot Address is not whitelisted")]
     NotWhitelisted {},

@@ -1,42 +1,34 @@
-// use std::str::FromStr;
+use std::str::FromStr;
 
-// use crate::lsds::stader::StaderExecute;
+use crate::{
+    constants::INSTANTIATE_TOKEN_REPLY_ID,
+    contract::{execute, instantiate, reply},
+    error::ContractError,
+    testing::helpers::mock_dependencies,
+};
 
-// use crate::lsds::steak::{self, ReceiveMsg as SteakReceiveMsg};
-// use crate::{
-//     contract::{execute, instantiate, reply},
-//     error::ContractError,
-// };
+use crate::query::{query_config, query_user_info};
 
-// use crate::query::{
-//     query_balance_details, query_balances, query_config, query_takeable, query_unbond_requests,
-//     query_user_info, query_withdrawable_unbonded,
-// };
+use astroport::asset::{native_asset, token_asset_info};
+use cosmwasm_schema::cw_serde;
+use cosmwasm_std::{
+    attr, coin, to_binary, Addr, BlockInfo, ContractInfo, Decimal, DepsMut, Env, Event, OwnedDeps,
+    Reply, ReplyOn, Response, SubMsg, Timestamp, Uint128, WasmMsg,
+};
+use cosmwasm_std::{
+    testing::{mock_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR},
+    SubMsgResponse,
+};
+use cw20_base::msg::InstantiateMsg as Cw20InstantiateMsg;
+use eris::arb_vault::{
+    Config, ConfigResponse, ExecuteMsg, ExecuteSubMsg, FeeConfig, InstantiateMsg, LsdConfig,
+    UserInfoResponse, UtilizationMethod,
+};
 
-// use crate::mock_querier::{mock_dependencies, WasmMockQuerier};
-// use crate::response::MsgInstantiateContractResponse;
+use cw20::MinterResponse;
+use itertools::Itertools;
 
-// use eris::asset::{Asset, AssetInfo};
-// use eris::pool::{
-//     BalancesResponse, CalcMethod, ClaimBalance, Config, ConfigResponse, Cw20HookMsg, ExecuteMsg,
-//     ExecuteSubMsg, InstantiateMsg, LunaPoolParams, PartialPoolParams, PoolParams, TakeableResponse,
-//     UnbondItem, UnbondResponse, WithdrawableResponse,
-// };
-// use eris::token::InstantiateMsg as TokenInstantiateMsg;
-// use eris::DecimalCheckedOps;
-
-// use cosmwasm_std::testing::{mock_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
-// use cosmwasm_std::{
-//     attr, from_binary, to_binary, Addr, BankMsg, Binary, BlockInfo, Coin, ContractInfo,
-//     ContractResult, CosmosMsg, Decimal, Deps, DepsMut, Env, MessageInfo, OwnedDeps, Reply, ReplyOn,
-//     Response, StdError, SubMsg, SubMsgExecutionResponse, Timestamp, Uint128, WasmMsg,
-// };
-
-// use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg, MinterResponse};
-
-// use protobuf::Message;
-// use schemars::JsonSchema;
-// use serde::{Deserialize, Serialize};
+use super::custom_querier::CustomQuerier;
 
 // macro_rules! assert_delta {
 //     ($x:expr, $y:expr, $d:expr) => {
@@ -46,67 +38,76 @@
 //     };
 // }
 
-// #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-// #[serde(rename_all = "snake_case")]
-// struct Empty {}
+#[cw_serde]
+struct Empty {}
 
-// fn store_liquidity_token(deps: DepsMut, msg_id: u64, contract_addr: String) {
-//     let data = MsgInstantiateContractResponse {
-//         contract_address: contract_addr,
-//         data: vec![],
-//         unknown_fields: Default::default(),
-//         cached_size: Default::default(),
-//     }
-//     .write_to_bytes()
-//     .unwrap();
+fn store_liquidity_token(deps: DepsMut, _msg_id: u64, contract_addr: String) {
+    let event = Event::new("instantiate")
+        .add_attribute("creator", MOCK_CONTRACT_ADDR)
+        .add_attribute("admin", "admin")
+        .add_attribute("code_id", "69420")
+        .add_attribute("_contract_address", contract_addr);
 
-//     let reply_msg = Reply {
-//         id: msg_id,
-//         result: ContractResult::Ok(SubMsgExecutionResponse {
-//             events: vec![],
-//             data: Some(data.into()),
-//         }),
-//     };
+    let _res = reply(
+        deps,
+        mock_env(),
+        Reply {
+            id: INSTANTIATE_TOKEN_REPLY_ID,
+            result: cosmwasm_std::SubMsgResult::Ok(SubMsgResponse {
+                events: vec![event],
+                data: None,
+            }),
+        },
+    )
+    .unwrap();
+}
 
-//     let _res = reply(deps, mock_env(), reply_msg).unwrap();
-// }
+fn create_default_lsd_configs() -> Vec<LsdConfig<String>> {
+    vec![
+        LsdConfig {
+            disabled: false,
+            lsd_type: eris::arb_vault::LsdType::Eris {
+                addr: "eris".into(),
+                cw20: "eriscw".into(),
+            },
+        },
+        LsdConfig {
+            disabled: false,
+            lsd_type: eris::arb_vault::LsdType::Backbone {
+                addr: "backbone".into(),
+                cw20: "backbonecw".into(),
+            },
+        },
+        LsdConfig {
+            disabled: false,
+            lsd_type: eris::arb_vault::LsdType::Stader {
+                addr: "stader".into(),
+                cw20: "stadercw".into(),
+            },
+        },
+        LsdConfig {
+            disabled: false,
+            lsd_type: eris::arb_vault::LsdType::Prism {
+                addr: "prism".into(),
+                cw20: "prismcw".into(),
+            },
+        },
+    ]
+}
 
-// fn create_default_pool_params() -> LunaPoolParams {
-//     LunaPoolParams {
-//         cluna_active: true,
-//         cluna_addr: "prism".to_string(),
-//         cluna_cw20: Addr::unchecked("cluna"),
-//         bluna_active: true,
-//         bluna_addr: "anchor".to_string(),
-//         bluna_cw20: Addr::unchecked("bluna"),
-//         stluna_active: true,
-//         stluna_cw20: Addr::unchecked("stluna"),
-//         nluna_active: true,
-//         nluna_addr: "nexus".to_string(),
-//         nluna_cw20: Addr::unchecked("nluna"),
-
-//         lunax_active: true,
-//         lunax_addr: "stader".to_string(),
-//         lunax_cw20: Addr::unchecked("lunax"),
-
-//         steak_active: true,
-//         steak_addr: "steak".to_string(),
-//         steak_cw20: Addr::unchecked("steak_cw"),
-//     }
-// }
-
-// fn mock_env() -> Env {
-//     Env {
-//         block: BlockInfo {
-//             height: 12_345,
-//             time: Timestamp::from_seconds(1),
-//             chain_id: "cosmos-testnet-14002".to_string(),
-//         },
-//         contract: ContractInfo {
-//             address: Addr::unchecked(MOCK_CONTRACT_ADDR),
-//         },
-//     }
-// }
+fn mock_env() -> Env {
+    Env {
+        block: BlockInfo {
+            height: 12_345,
+            time: Timestamp::from_seconds(1),
+            chain_id: "cosmos-testnet-14002".to_string(),
+        },
+        contract: ContractInfo {
+            address: Addr::unchecked(MOCK_CONTRACT_ADDR),
+        },
+        transaction: None,
+    }
+}
 
 // fn mock_env_51() -> Env {
 //     Env {
@@ -118,6 +119,7 @@
 //         contract: ContractInfo {
 //             address: Addr::unchecked(MOCK_CONTRACT_ADDR),
 //         },
+//         transaction: None,
 //     }
 // }
 // fn mock_env_200() -> Env {
@@ -130,6 +132,7 @@
 //         contract: ContractInfo {
 //             address: Addr::unchecked(MOCK_CONTRACT_ADDR),
 //         },
+//         transaction: None,
 //     }
 // }
 // fn mock_env_130() -> Env {
@@ -142,593 +145,489 @@
 //         contract: ContractInfo {
 //             address: Addr::unchecked(MOCK_CONTRACT_ADDR),
 //         },
+//         transaction: None,
 //     }
 // }
 
 // fn create_init_params() -> Option<Binary> {
-//     Some(to_binary(&create_default_pool_params()).unwrap())
+//     Some(to_binary(&create_default_lsd_configs()).unwrap())
 // }
 
-// fn create_default_init() -> InstantiateMsg {
-//     InstantiateMsg {
-//         factory_addr: String::from("factory"),
-//         pool_params: PoolParams {
-//             utilization_method: eris::pool::CalcMethod::Steps(vec![
-//                 (
-//                     // 1% = 50% of pool
-//                     Decimal::from_ratio(10u128, 1000u128),
-//                     Decimal::from_ratio(50u128, 100u128),
-//                 ),
-//                 (
-//                     // 1% = 50% of pool
-//                     Decimal::from_ratio(15u128, 1000u128),
-//                     Decimal::from_ratio(70u128, 100u128),
-//                 ),
-//                 (
-//                     // 1% = 50% of pool
-//                     Decimal::from_ratio(20u128, 1000u128),
-//                     Decimal::from_ratio(90u128, 100u128),
-//                 ),
-//                 (
-//                     // 1% = 50% of pool
-//                     Decimal::from_ratio(25u128, 1000u128),
-//                     Decimal::from_ratio(100u128, 100u128),
-//                 ),
-//             ]),
-//             unbond_time_s: 100,
-//         },
-//         token_code_id: 10u64,
-//         init_params: create_init_params(),
-//     }
-// }
-
-// fn setup() -> (OwnedDeps<MockStorage, MockApi, WasmMockQuerier>, Env, MessageInfo) {
-//     let mut deps = mock_dependencies(&[]);
-//     let msg = create_default_init();
-//     let owner = "owner";
-//     let env = mock_env();
-//     let owner_info = mock_info(owner, &[]);
-//     let _res = instantiate(deps.as_mut(), env.clone(), owner_info.clone(), msg).unwrap();
-//     store_liquidity_token(deps.as_mut(), 1, "lptoken".to_string());
-
-//     (deps, env, owner_info)
-// }
-
-// #[test]
-// fn proper_initialization() {
-//     let mut deps = mock_dependencies(&[]);
-//     let msg = create_default_init();
-
-//     let owner = "owner";
-//     // We can just call .unwrap() to assert this was a success
-//     let env = mock_env();
-//     let owner_info = mock_info(owner, &[]);
-//     let res = instantiate(deps.as_mut(), env, owner_info, msg).unwrap();
-
-//     assert_eq!(
-//         res.messages,
-//         vec![SubMsg {
-//             msg: WasmMsg::Instantiate {
-//                 code_id: 10u64,
-//                 msg: to_binary(&TokenInstantiateMsg {
-//                     name: "erisLUNA-LP".to_string(),
-//                     symbol: "erisLUNA".to_string(),
-//                     decimals: 6,
-//                     initial_balances: vec![],
-//                     mint: Some(MinterResponse {
-//                         minter: String::from(MOCK_CONTRACT_ADDR),
-//                         cap: None,
-//                     }),
-//                 })
-//                 .unwrap(),
-//                 funds: vec![],
-//                 admin: None,
-//                 label: String::from("Eris LP token"),
-//             }
-//             .into(),
-//             id: 1,
-//             gas_limit: None,
-//             reply_on: ReplyOn::Success
-//         },]
-//     );
-
-//     // Store liquidity token
-//     store_liquidity_token(deps.as_mut(), 1, "lptoken".to_string());
-
-//     // It worked, let's query the state
-//     let config: ConfigResponse = query_config(deps.as_ref()).unwrap();
-
-//     assert_eq!(
-//         config,
-//         ConfigResponse {
-//             config: Config {
-//                 pool_params: PoolParams {
-//                     utilization_method: CalcMethod::Steps(vec![
-//                         (
-//                             // 1% = 50% of pool
-//                             Decimal::from_ratio(10u128, 1000u128),
-//                             Decimal::from_ratio(50u128, 100u128),
-//                         ),
-//                         (
-//                             // 1% = 50% of pool
-//                             Decimal::from_ratio(15u128, 1000u128),
-//                             Decimal::from_ratio(70u128, 100u128),
-//                         ),
-//                         (
-//                             // 1% = 50% of pool
-//                             Decimal::from_ratio(20u128, 1000u128),
-//                             Decimal::from_ratio(90u128, 100u128),
-//                         ),
-//                         (
-//                             // 1% = 50% of pool
-//                             Decimal::from_ratio(25u128, 1000u128),
-//                             Decimal::from_ratio(100u128, 100u128),
-//                         ),
-//                     ]),
-//                     unbond_time_s: 100
-//                 },
-//                 liquidity_token: Addr::unchecked("lptoken"),
-//                 pool_type: "LUNA".to_string(),
-//                 params: create_default_pool_params(),
-//                 factory_addr: Addr::unchecked("factory")
-//             }
-//         }
-//     );
-// }
-
-// #[test]
-// fn update_config() {
-//     let (mut deps, env, owner_info) = setup();
-
-//     let user_info = mock_info(
-//         "user001",
-//         &[Coin {
-//             denom: "notsupported".to_string(),
-//             amount: Uint128::from(100_000000u128),
-//         }],
-//     );
-//     let upd_msg = ExecuteMsg::UpdateConfig {
-//         pool_params: Some(PartialPoolParams {
-//             unbond_time_s: Some(10u64),
-//             utilization_method: None,
-//         }),
-//         luna_params: None,
-//     };
-
-//     let res =
-//         execute(deps.as_mut(), env.clone(), user_info, upd_msg.clone()).expect_err("expects error");
-//     assert_eq!(res, ContractError::Unauthorized {});
-
-//     let _res =
-//         execute(deps.as_mut(), env.clone(), owner_info.clone(), upd_msg).expect("expects response");
-
-//     let config = query_config(deps.as_ref()).expect("expects response");
-
-//     assert_eq!(
-//         config,
-//         ConfigResponse {
-//             config: Config {
-//                 pool_params: PoolParams {
-//                     utilization_method: CalcMethod::Steps(vec![
-//                         (
-//                             // 1% = 50% of pool
-//                             Decimal::from_ratio(10u128, 1000u128),
-//                             Decimal::from_ratio(50u128, 100u128),
-//                         ),
-//                         (
-//                             // 1% = 50% of pool
-//                             Decimal::from_ratio(15u128, 1000u128),
-//                             Decimal::from_ratio(70u128, 100u128),
-//                         ),
-//                         (
-//                             // 1% = 50% of pool
-//                             Decimal::from_ratio(20u128, 1000u128),
-//                             Decimal::from_ratio(90u128, 100u128),
-//                         ),
-//                         (
-//                             // 1% = 50% of pool
-//                             Decimal::from_ratio(25u128, 1000u128),
-//                             Decimal::from_ratio(100u128, 100u128),
-//                         ),
-//                     ]),
-//                     unbond_time_s: 10
-//                 },
-//                 liquidity_token: Addr::unchecked("lptoken"),
-//                 pool_type: "LUNA".to_string(),
-//                 params: create_default_pool_params(),
-//                 factory_addr: Addr::unchecked("factory")
-//             }
-//         }
-//     );
-
-//     let upd_msg = ExecuteMsg::UpdateConfig {
-//         pool_params: Some(PartialPoolParams {
-//             unbond_time_s: None,
-//             utilization_method: Some(CalcMethod::Steps(vec![])),
-//         }),
-//         luna_params: None,
-//     };
-
-//     let _res = execute(deps.as_mut(), env, owner_info, upd_msg).expect("expects response");
-
-//     let config = query_config(deps.as_ref()).expect("expects response");
-
-//     assert_eq!(
-//         config,
-//         ConfigResponse {
-//             config: Config {
-//                 pool_params: PoolParams {
-//                     utilization_method: CalcMethod::Steps(vec![]),
-//                     unbond_time_s: 10
-//                 },
-//                 liquidity_token: Addr::unchecked("lptoken"),
-//                 pool_type: "LUNA".to_string(),
-//                 params: create_default_pool_params(),
-//                 factory_addr: Addr::unchecked("factory")
-//             }
-//         }
-//     );
-// }
-
-// #[test]
-// fn provide_liquidity_wrong_token() {
-//     let (mut deps, env, _owner_info) = setup();
-
-//     let user_info = mock_info(
-//         "user001",
-//         &[Coin {
-//             denom: "notsupported".to_string(),
-//             amount: Uint128::from(100_000000u128),
-//         }],
-//     );
-
-//     let provide_msg = ExecuteMsg::ProvideLiquidity {
-//         asset: Asset {
-//             info: AssetInfo::NativeToken {
-//                 denom: "notsupported".to_string(),
-//             },
-//             amount: Uint128::from(100_000000u128),
-//         },
-//         receiver: None,
-//     };
-
-//     let res = execute(deps.as_mut(), env, user_info, provide_msg);
-
-//     assert_eq!(res, Err(ContractError::AssetMismatch {}))
-// }
-
-// #[test]
-// fn provide_liquidity_wrong_amount() {
-//     let (mut deps, env, _owner_info) = setup();
-
-//     let user_info = mock_info(
-//         "user001",
-//         &[Coin {
-//             denom: "uluna".to_string(),
-//             amount: Uint128::from(123_000000u128),
-//         }],
-//     );
-
-//     let provide_msg = ExecuteMsg::ProvideLiquidity {
-//         asset: Asset {
-//             info: AssetInfo::NativeToken {
-//                 denom: "uluna".to_string(),
-//             },
-//             amount: Uint128::from(100_000000u128),
-//         },
-//         receiver: None,
-//     };
-
-//     let res = execute(deps.as_mut(), env, user_info, provide_msg);
-
-//     res.expect_err("Expects error");
-// }
-
-// #[test]
-// fn provide_liquidity_zero_throws() {
-//     let (mut deps, env, _owner_info) = setup();
-
-//     let user_info = mock_info(
-//         "user001",
-//         &[Coin {
-//             denom: "uluna".to_string(),
-//             amount: Uint128::from(0u128),
-//         }],
-//     );
-
-//     let provide_msg = ExecuteMsg::ProvideLiquidity {
-//         asset: Asset {
-//             info: AssetInfo::NativeToken {
-//                 denom: "uluna".to_string(),
-//             },
-//             amount: Uint128::from(0u128),
-//         },
-//         receiver: None,
-//     };
-
-//     let res = execute(deps.as_mut(), env, user_info, provide_msg);
-
-//     res.expect_err("Expects error");
-// }
-
-// fn _provide_liquidity(
-// ) -> (OwnedDeps<MockStorage, MockApi, WasmMockQuerier>, Env, MessageInfo, Response) {
-//     let (mut deps, env, owner_info) = setup();
-
-//     deps.querier.with_balance(&[(
-//         &String::from(MOCK_CONTRACT_ADDR),
-//         &[Coin {
-//             denom: "uluna".to_string(),
-//             amount: Uint128::new(100_000000u128 /* user deposit must be pre-applied */),
-//         }],
-//     )]);
-
-//     deps.querier.with_token_balances(&[(
-//         &String::from("lptoken"),
-//         &[(&String::from(MOCK_CONTRACT_ADDR), &Uint128::new(0))],
-//     )]);
-
-//     let user_info = mock_info(
-//         "user001",
-//         &[Coin {
-//             denom: "uluna".to_string(),
-//             amount: Uint128::from(100_000000u128),
-//         }],
-//     );
-
-//     let provide_msg = ExecuteMsg::ProvideLiquidity {
-//         asset: Asset {
-//             info: AssetInfo::NativeToken {
-//                 denom: "uluna".to_string(),
-//             },
-//             amount: Uint128::from(100_000000u128),
-//         },
-//         receiver: None,
-//     };
-
-//     let res =
-//         execute(deps.as_mut(), env.clone(), user_info, provide_msg).expect("should have response");
-
-//     deps.querier.with_token_balances(&[(
-//         &String::from("lptoken"),
-//         &[(&String::from(MOCK_CONTRACT_ADDR), &Uint128::new(100_000000u128))],
-//     )]);
-
-//     (deps, env, owner_info, res)
-// }
-
-// #[test]
-// fn provide_liquidity_success() {
-//     let (_deps, _env, _owner_info, res) = _provide_liquidity();
-
-//     let total_asset = res.attributes.get(3).expect("should have value");
-//     let share = res.attributes.get(4).expect("should have value");
-
-//     assert_eq!(total_asset, attr("total_asset", Uint128::from(100_000000u128).to_string()));
-//     assert_eq!(share, attr("share", Uint128::from(100_000000u128).to_string()));
-// }
-
-// fn _provide_liquidity_again(
-// ) -> (OwnedDeps<MockStorage, MockApi, WasmMockQuerier>, Env, MessageInfo, Response) {
-//     let (mut deps, env, owner_info, _res) = _provide_liquidity();
-
-//     deps.querier.with_balance(&[(
-//         &String::from(MOCK_CONTRACT_ADDR),
-//         &[Coin {
-//             denom: "uluna".to_string(),
-//             amount: Uint128::new(
-//                 100_000000u128 + 120_000000u128, /* user deposit must be pre-applied */
-//             ),
-//         }],
-//     )]);
-
-//     let user_info = mock_info(
-//         "user001",
-//         &[Coin {
-//             denom: "uluna".to_string(),
-//             amount: Uint128::from(120_000000u128),
-//         }],
-//     );
-
-//     let provide_msg = ExecuteMsg::ProvideLiquidity {
-//         asset: Asset {
-//             info: AssetInfo::NativeToken {
-//                 denom: "uluna".to_string(),
-//             },
-//             amount: Uint128::from(120_000000u128),
-//         },
-//         receiver: None,
-//     };
-
-//     let res =
-//         execute(deps.as_mut(), env.clone(), user_info, provide_msg).expect("should have response");
-
-//     deps.querier.with_token_balances(&[(
-//         &String::from("lptoken"),
-//         &[(&String::from(MOCK_CONTRACT_ADDR), &Uint128::new(220_000000u128))],
-//     )]);
-
-//     (deps, env, owner_info, res)
-// }
-
-// #[test]
-// fn provide_liquidity_again_success() {
-//     let (_deps, _env, _owner_info, res) = _provide_liquidity_again();
-
-//     let total_asset = res.attributes.get(3).expect("should have value");
-//     let share = res.attributes.get(4).expect("should have value");
-
-//     assert_eq!(total_asset, attr("total_asset", Uint128::from(220_000000u128).to_string()));
-//     assert_eq!(share, attr("share", Uint128::from(120_000000u128).to_string()));
-// }
-
-// #[test]
-// fn query_share_check() {
-//     let (mut deps, env, _owner_info, _res) = _provide_liquidity_again();
-
-//     let response =
-//         query_user_info(deps.as_ref(), env.clone(), Uint128::from(100_000000u128)).unwrap();
-//     assert_eq!(response.received_asset, Uint128::from(100_000000u128));
-
-//     // arbs executed and created 2 luna
-//     deps.querier.with_balance(&[(
-//         &String::from(MOCK_CONTRACT_ADDR),
-//         &[Coin {
-//             denom: "uluna".to_string(),
-//             amount: Uint128::new(
-//                 /* through arbs, 2 more luna were generated */
-//                 100_000000u128 + 120_000000u128 + 2_000000u128,
-//             ),
-//         }],
-//     )]);
-
-//     let response =
-//         query_user_info(deps.as_ref(), env.clone(), Uint128::from(100_000000u128)).unwrap();
-//     assert_eq!(
-//         response.received_asset,
-//         Uint128::from(100_000000u128).multiply_ratio(
-//             // pool has 2 more asset
-//             100_000000u128 + 120_000000u128 + 2_000000u128,
-//             // lp token still at 220
-//             100_000000u128 + 120_000000u128
-//         )
-//     );
-
-//     /* through arbs, 3 more luna are currently unbonding were generated */
-//     deps.querier.with_unbonding(Uint128::from(3_000000u128));
-
-//     let response =
-//         query_user_info(deps.as_ref(), env.clone(), Uint128::from(100_000000u128)).unwrap();
-
-//     let stader_unbonding = Decimal::from_ratio(102u128, 100u128) * Uint128::from(3_000000u128);
-//     let anchor_unbonding =
-//         Decimal::from_ratio(101u128, 100u128) * Uint128::from(3_000000u128) * Uint128::from(2u128);
-
-//     let lido_unbonding = Decimal::from_ratio(103u128, 100u128) * Uint128::from(3_000000u128);
-
-//     let steak_unbonding = Uint128::from(3_000000u128);
-
-//     assert_eq!(
-//         response.received_asset,
-//         Uint128::from(100_000000u128).multiply_ratio(
-//             // pool has 2 more asset and 3 unbonding
-//             100_000000u128
-//                 + 120_000000u128
-//                 + 2_000000u128
-//                 + 3_000000u128
-//                 + stader_unbonding.u128()
-//                 + anchor_unbonding.u128()
-//                 + lido_unbonding.u128()
-//                 + steak_unbonding.u128(),
-//             // lp token still at 220
-//             100_000000u128 + 120_000000u128
-//         )
-//     );
-
-//     /* through arbs, 4 more luna can currently be claimed */
-//     deps.querier.with_withdrawable(Uint128::from(4_000000u128));
-
-//     let stader_withdrawing = Decimal::from_ratio(102u128, 100u128) * Uint128::from(4_000000u128);
-//     let steak_withdrawing = Uint128::from(4_000000u128);
-
-//     let response = query_user_info(deps.as_ref(), env, Uint128::from(100_000000u128)).unwrap();
-//     assert_eq!(
-//         response.received_asset,
-//         Uint128::from(100_000000u128).multiply_ratio(
-//             // pool has 2 more asset and 3 unbonding and 4 claimable from liquid staking provider
-//             100_000000u128
-//                 + 120_000000u128
-//                 + 2_000000u128
-//                 + 3_000000u128
-//                 + stader_unbonding.u128()
-//                 + anchor_unbonding.u128()
-//                 + lido_unbonding.u128()
-//                 +steak_unbonding.u128()
-//                 + stader_withdrawing.u128()
-//                 + 4_000000u128 // cluna
-//                 + 12_000000u128 // bluna + stluna + nluna
-//                 + steak_withdrawing.u128(),
-//             // lp token still at 220
-//             100_000000u128 + 120_000000u128
-//         )
-//     );
-// }
-
-// #[test]
-// fn throws_if_provided_profit_not_found() {
-//     let (mut deps, env, _owner_info) = setup();
-
-//     let whitelist_info = mock_info("whitelisted_exec", &[]);
-
-//     let exec_msg = ExecuteMsg::Execute {
-//         msg: ExecuteSubMsg {
-//             contract_addr: None,
-//             msg: to_binary(&Empty {}).unwrap(),
-//             funds_amount: Uint128::from(100_000000u128),
-//         },
-//         result_token: "BLUNA".to_string(),
-//         wanted_profit: Decimal::from_ratio(10u128, 100u128),
-//     };
-
-//     let result = execute(deps.as_mut(), env, whitelist_info, exec_msg).expect_err("expect error");
-
-//     assert_eq!(
-//         result,
-//         ContractError::from(StdError::NotFound {
-//             kind: "profit".to_string()
-//         })
-//     );
-// }
+fn create_default_init() -> InstantiateMsg {
+    InstantiateMsg {
+        cw20_code_id: 10u64,
+        name: "arbname".into(),
+        symbol: "arbsymbol".into(),
+        decimals: 6,
+        owner: "owner".into(),
+        utoken: "utoken".into(),
+        utilization_method: eris::arb_vault::UtilizationMethod::Steps(vec![
+            (
+                // 1% = 50% of pool
+                Decimal::from_ratio(10u128, 1000u128),
+                Decimal::from_ratio(50u128, 100u128),
+            ),
+            (
+                // 1% = 50% of pool
+                Decimal::from_ratio(15u128, 1000u128),
+                Decimal::from_ratio(70u128, 100u128),
+            ),
+            (
+                // 1% = 50% of pool
+                Decimal::from_ratio(20u128, 1000u128),
+                Decimal::from_ratio(90u128, 100u128),
+            ),
+            (
+                // 1% = 50% of pool
+                Decimal::from_ratio(25u128, 1000u128),
+                Decimal::from_ratio(100u128, 100u128),
+            ),
+        ]),
+        unbond_time_s: 100,
+        lsds: create_default_lsd_configs(),
+        fee_config: eris::arb_vault::FeeConfig {
+            protocol_fee_contract: "fee".into(),
+            protocol_performance_fee: Decimal::from_str("0.01").unwrap(),
+            protocol_withdraw_fee: Decimal::from_str("0.02").unwrap(),
+            immediate_withdraw_fee: Decimal::from_str("0.05").unwrap(),
+        },
+    }
+}
+
+fn setup_test() -> OwnedDeps<MockStorage, MockApi, CustomQuerier> {
+    let mut deps = mock_dependencies();
+    let msg = create_default_init();
+    let owner = "owner";
+    let owner_info = mock_info(owner, &[]);
+    let res = instantiate(deps.as_mut(), mock_env(), owner_info, msg).unwrap();
+
+    assert_eq!(
+        res.messages,
+        vec![SubMsg {
+            msg: WasmMsg::Instantiate {
+                code_id: 10u64,
+                msg: to_binary(&Cw20InstantiateMsg {
+                    name: "arbname".to_string(),
+                    symbol: "arbsymbol".to_string(),
+                    decimals: 6,
+                    initial_balances: vec![],
+                    mint: Some(MinterResponse {
+                        minter: String::from(MOCK_CONTRACT_ADDR),
+                        cap: None,
+                    }),
+                    marketing: None
+                })
+                .unwrap(),
+                funds: vec![],
+                admin: Some("owner".into()),
+                label: String::from("Eris Arb Vault LP Token"),
+            }
+            .into(),
+            id: 1,
+            gas_limit: None,
+            reply_on: ReplyOn::Success
+        },]
+    );
+
+    store_liquidity_token(deps.as_mut(), 1, "lptoken".to_string());
+
+    deps
+}
+
+#[test]
+fn proper_initialization() {
+    let deps = setup_test();
+
+    let config: ConfigResponse = query_config(deps.as_ref()).unwrap();
+
+    assert_eq!(
+        config,
+        ConfigResponse {
+            config: Config {
+                utoken: "utoken".into(),
+                utilization_method: eris::arb_vault::UtilizationMethod::Steps(vec![
+                    (Decimal::from_ratio(10u128, 1000u128), Decimal::from_ratio(50u128, 100u128),),
+                    (Decimal::from_ratio(15u128, 1000u128), Decimal::from_ratio(70u128, 100u128),),
+                    (Decimal::from_ratio(20u128, 1000u128), Decimal::from_ratio(90u128, 100u128),),
+                    (Decimal::from_ratio(25u128, 1000u128), Decimal::from_ratio(100u128, 100u128),),
+                ]),
+                unbond_time_s: 100,
+                lp_addr: Addr::unchecked("lptoken"),
+                lsds: create_default_lsd_configs()
+                    .into_iter()
+                    .map(|a| a.validate(deps.as_ref().api).unwrap())
+                    .collect_vec()
+            },
+            fee_config: eris::arb_vault::FeeConfig {
+                protocol_fee_contract: Addr::unchecked("fee"),
+                protocol_performance_fee: Decimal::from_str("0.01").unwrap(),
+                protocol_withdraw_fee: Decimal::from_str("0.02").unwrap(),
+                immediate_withdraw_fee: Decimal::from_str("0.05").unwrap(),
+            },
+            owner: Addr::unchecked("owner"),
+        }
+    );
+}
+
+#[test]
+fn update_config() {
+    let mut deps = setup_test();
+
+    let upd_msg = ExecuteMsg::UpdateConfig {
+        utilization_method: None,
+        unbond_time_s: Some(10u64),
+        lsds: None,
+        fee_config: None,
+    };
+
+    let res =
+        execute(deps.as_mut(), mock_env(), mock_info("user", &[]), upd_msg.clone()).unwrap_err();
+    assert_eq!(res, ContractError::Unauthorized {});
+
+    let _res = execute(deps.as_mut(), mock_env(), mock_info("owner", &[]), upd_msg).unwrap();
+
+    let config = query_config(deps.as_ref()).unwrap();
+
+    assert_eq!(
+        config,
+        ConfigResponse {
+            config: Config {
+                utoken: "utoken".into(),
+                utilization_method: UtilizationMethod::Steps(vec![
+                    (Decimal::from_ratio(10u128, 1000u128), Decimal::from_ratio(50u128, 100u128),),
+                    (Decimal::from_ratio(15u128, 1000u128), Decimal::from_ratio(70u128, 100u128),),
+                    (Decimal::from_ratio(20u128, 1000u128), Decimal::from_ratio(90u128, 100u128),),
+                    (Decimal::from_ratio(25u128, 1000u128), Decimal::from_ratio(100u128, 100u128),),
+                ]),
+                unbond_time_s: 10,
+                lp_addr: Addr::unchecked("lptoken"),
+                lsds: create_default_lsd_configs()
+                    .into_iter()
+                    .map(|a| a.validate(deps.as_ref().api).unwrap())
+                    .collect_vec()
+            },
+            fee_config: FeeConfig {
+                protocol_fee_contract: Addr::unchecked("fee"),
+                protocol_performance_fee: Decimal::from_str("0.01").unwrap(),
+                protocol_withdraw_fee: Decimal::from_str("0.02").unwrap(),
+                immediate_withdraw_fee: Decimal::from_str("0.05").unwrap(),
+            },
+            owner: Addr::unchecked("owner"),
+        }
+    );
+
+    let upd_msg = ExecuteMsg::UpdateConfig {
+        utilization_method: Some(UtilizationMethod::Steps(vec![])),
+        unbond_time_s: None,
+        lsds: None,
+        fee_config: None,
+    };
+
+    let _res = execute(deps.as_mut(), mock_env(), mock_info("owner", &[]), upd_msg).unwrap();
+
+    let config = query_config(deps.as_ref()).unwrap();
+
+    assert_eq!(
+        config,
+        ConfigResponse {
+            config: Config {
+                utoken: "utoken".into(),
+                utilization_method: UtilizationMethod::Steps(vec![]),
+                unbond_time_s: 10,
+                lp_addr: Addr::unchecked("lptoken"),
+                lsds: create_default_lsd_configs()
+                    .into_iter()
+                    .map(|a| a.validate(deps.as_ref().api).unwrap())
+                    .collect_vec()
+            },
+            fee_config: FeeConfig {
+                protocol_fee_contract: Addr::unchecked("fee"),
+                protocol_performance_fee: Decimal::from_str("0.01").unwrap(),
+                protocol_withdraw_fee: Decimal::from_str("0.02").unwrap(),
+                immediate_withdraw_fee: Decimal::from_str("0.05").unwrap(),
+            },
+            owner: Addr::unchecked("owner"),
+        }
+    );
+}
+
+#[test]
+fn provide_liquidity_wrong_token() {
+    let mut deps = setup_test();
+
+    let provide_msg = ExecuteMsg::ProvideLiquidity {
+        asset: native_asset("notsupported".into(), Uint128::new(100_000000)),
+        receiver: None,
+    };
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("user", &[coin(100_000000, "notsupported")]),
+        provide_msg,
+    );
+
+    assert_eq!(res, Err(ContractError::AssetMismatch {}))
+}
+
+#[test]
+fn provide_liquidity_wrong_amount() {
+    let mut deps = setup_test();
+
+    let provide_msg = ExecuteMsg::ProvideLiquidity {
+        asset: native_asset("utoken".into(), Uint128::new(123_000000)),
+        receiver: None,
+    };
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("user", &[coin(100_000000, "utoken")]),
+        provide_msg,
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        res.to_string(),
+        "Generic error: Native token balance mismatch between the argument and the transferred"
+            .to_string()
+    )
+}
+
+#[test]
+fn provide_liquidity_zero_throws() {
+    let mut deps = setup_test();
+
+    let provide_msg = ExecuteMsg::ProvideLiquidity {
+        asset: native_asset("utoken".into(), Uint128::new(0)),
+        receiver: None,
+    };
+
+    let res =
+        execute(deps.as_mut(), mock_env(), mock_info("user", &[coin(0, "utoken")]), provide_msg)
+            .unwrap_err();
+
+    assert_eq!(res, ContractError::InvalidZeroAmount {})
+}
+
+fn _provide_liquidity() -> (OwnedDeps<MockStorage, MockApi, CustomQuerier>, Response) {
+    let mut deps = setup_test();
+
+    // pre apply utoken amount
+    deps.querier.set_bank_balances(&[coin(100_000000, "utoken")]);
+    deps.querier.set_cw20_total_supply("lptoken", 0);
+
+    let provide_msg = ExecuteMsg::ProvideLiquidity {
+        asset: native_asset("utoken".to_string(), Uint128::new(100_000000)),
+        receiver: None,
+    };
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("user", &[coin(100_000000, "utoken")]),
+        provide_msg,
+    )
+    .unwrap();
+
+    deps.querier.set_cw20_total_supply("lptoken", 100_000000);
+    deps.querier.set_cw20_balance("lptoken", "user", 100_000000);
+
+    (deps, res)
+}
+
+#[test]
+fn provide_liquidity_success() {
+    let (_deps, res) = _provide_liquidity();
+
+    assert_eq!(
+        res.attributes,
+        vec![
+            attr("action", "arb/provide_liquidity"),
+            attr("sender", "user"),
+            attr("recipient", "user"),
+            attr("vault_utoken_before", "0"),
+            attr("vault_utoken_after", "100000000"),
+            attr("share", "100000000")
+        ]
+    );
+}
+
+fn _provide_liquidity_again() -> (OwnedDeps<MockStorage, MockApi, CustomQuerier>, Response) {
+    let (mut deps, _res) = _provide_liquidity();
+
+    deps.querier
+        .bank_querier
+        .update_balance(MOCK_CONTRACT_ADDR, vec![coin(100_000000 + 120_000000, "utoken")]);
+
+    let provide_msg = ExecuteMsg::ProvideLiquidity {
+        asset: native_asset("utoken".to_string(), Uint128::new(120_000000)),
+        receiver: None,
+    };
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("user", &[coin(120_000000, "utoken")]),
+        provide_msg,
+    )
+    .unwrap();
+
+    deps.querier.set_cw20_total_supply("lptoken", 220_000000);
+    deps.querier.set_cw20_balance("lptoken", "user", 220_000000);
+
+    (deps, res)
+}
+
+#[test]
+fn provide_liquidity_again_success() {
+    let (_deps, res) = _provide_liquidity_again();
+
+    assert_eq!(
+        res.attributes,
+        vec![
+            attr("action", "arb/provide_liquidity"),
+            attr("sender", "user"),
+            attr("recipient", "user"),
+            attr("vault_utoken_before", "100000000"),
+            attr("vault_utoken_after", "220000000"),
+            attr("share", "120000000")
+        ]
+    );
+}
+
+#[test]
+fn query_user_info_check() {
+    let (mut deps, _res) = _provide_liquidity_again();
+
+    let response = query_user_info(deps.as_ref(), mock_env(), "user".to_string()).unwrap();
+    assert_eq!(
+        response,
+        UserInfoResponse {
+            utoken_amount: Uint128::new(220_000000),
+            lp_amount: Uint128::new(220_000000),
+        }
+    );
+
+    // arbs executed and created 2 luna
+    deps.querier.set_bank_balances(&[coin(222_000000, "utoken")]);
+
+    let response = query_user_info(deps.as_ref(), mock_env(), "user".to_string()).unwrap();
+    assert_eq!(
+        response,
+        UserInfoResponse {
+            utoken_amount: Uint128::new(222_000000),
+            lp_amount: Uint128::new(220_000000),
+        }
+    );
+
+    /* through arbs, 3 more luna are currently unbonding were generated */
+    deps.querier.with_unbonding(Uint128::from(3_000000u128));
+
+    let response = query_user_info(deps.as_ref(), mock_env(), "user".to_string()).unwrap();
+
+    let stader_unbonding = Decimal::from_ratio(102u128, 100u128) * Uint128::from(3_000000u128);
+    let steak_unbonding = Uint128::from(3_000000u128);
+    let eris_unbonding = Uint128::from(3_000000u128);
+    let prism_unbonding = Uint128::from(3_000000u128);
+
+    assert_eq!(
+        response,
+        UserInfoResponse {
+            utoken_amount: Uint128::new(222_000000)
+                + stader_unbonding
+                + steak_unbonding
+                + eris_unbonding
+                + prism_unbonding,
+            lp_amount: Uint128::new(220_000000),
+        }
+    );
+
+    /* through arbs, 4 more luna can currently be claimed */
+    deps.querier.with_withdrawable(Uint128::from(4_000000u128));
+
+    let stader_withdrawing = Decimal::from_ratio(102u128, 100u128) * Uint128::from(4_000000u128);
+    let steak_withdrawing = Uint128::from(4_000000u128);
+    let eris_withdrawing = Uint128::from(4_000000u128);
+    let prism_withdrawing = Uint128::from(4_000000u128);
+
+    let response = query_user_info(deps.as_ref(), mock_env(), "user".to_string()).unwrap();
+    assert_eq!(
+        response,
+        UserInfoResponse {
+            utoken_amount: Uint128::new(222_000000)
+                + stader_unbonding
+                + steak_unbonding
+                + eris_unbonding
+                + prism_unbonding
+                + stader_withdrawing
+                + steak_withdrawing
+                + eris_withdrawing
+                + prism_withdrawing,
+            lp_amount: Uint128::new(220_000000),
+        }
+    );
+}
+
+#[test]
+fn throws_if_provided_profit_not_found() {
+    let mut deps = setup_test();
+
+    let whitelist_info = mock_info("whitelisted_exec", &[]);
+
+    let exec_msg = ExecuteMsg::ExecuteArbitrage {
+        msg: ExecuteSubMsg {
+            contract_addr: None,
+            msg: to_binary(&Empty {}).unwrap(),
+            funds_amount: Uint128::from(100_000000u128),
+        },
+        result_token: token_asset_info(Addr::unchecked("eriscw")),
+        wanted_profit: Decimal::from_ratio(10u128, 100u128),
+    };
+
+    let result = execute(deps.as_mut(), mock_env(), whitelist_info, exec_msg).unwrap_err();
+
+    assert_eq!(result, ContractError::NotSupportedProfitStep(Decimal::from_str("0.1").unwrap()));
+}
 
 // #[test]
 // fn throws_if_not_whitelisted_executor() {
-//     let (mut deps, env, _owner_info) = setup();
+//     let mut deps = setup_test();
 
-//     let user_info = mock_info("user001", &[]);
+//     let user_info = mock_info("user", &[]);
 //     let whitelist_info = mock_info("whitelisted_exec", &[]);
 
-//     let execute_msg = ExecuteMsg::Execute {
+//     let execute_msg = ExecuteMsg::ExecuteArbitrage {
 //         msg: ExecuteSubMsg {
 //             contract_addr: None,
 //             msg: to_binary(&Empty {}).unwrap(),
 //             funds_amount: Uint128::from(100_000000u128),
 //         },
-//         result_token: "BLUNA".to_string(),
+//         result_token: token_asset_info(Addr::unchecked("eriscw")),
 //         wanted_profit: Decimal::from_ratio(1u128, 100u128),
 //     };
 
-//     let unbond_msg = ExecuteMsg::UnbondLiquidity {};
 //     let withdraw_msg = ExecuteMsg::WithdrawLiquidity {};
 
 //     //
 //     // NOT WHITELISTED
 //     //
-//     let result = execute(deps.as_mut(), env.clone(), user_info.clone(), execute_msg.clone())
-//         .expect_err("expect error");
+//     let result =
+//         execute(deps.as_mut(), mock_env(), user_info.clone(), execute_msg.clone()).unwrap_err();
 //     assert_eq!(result, ContractError::NotWhitelisted {});
 
-//     let result = execute(deps.as_mut(), env.clone(), user_info.clone(), unbond_msg.clone())
-//         .expect_err("expect error");
-//     assert_eq!(result, ContractError::NotWhitelisted {});
-
-//     let result = execute(deps.as_mut(), env.clone(), user_info, withdraw_msg.clone())
-//         .expect_err("expect error");
+//     let result = execute(deps.as_mut(), mock_env(), user_info, withdraw_msg.clone()).unwrap_err();
 //     assert_eq!(result, ContractError::NotWhitelisted {});
 
 //     //
 //     // WHITELISTED
 //     //
-//     let result = execute(deps.as_mut(), env.clone(), whitelist_info.clone(), execute_msg)
-//         .expect_err("expect error");
+//     let result =
+//         execute(deps.as_mut(), mock_env(), whitelist_info.clone(), execute_msg).unwrap_err();
 
 //     assert_eq!(result, ContractError::NotEnoughFundsTakeable {});
 
-//     let result = execute(deps.as_mut(), env.clone(), whitelist_info.clone(), unbond_msg)
-//         .expect_err("expect error");
-//     assert_eq!(result, ContractError::NothingToUnbond {});
-
-//     let result =
-//         execute(deps.as_mut(), env, whitelist_info, withdraw_msg).expect_err("expect error");
+//     let result = execute(deps.as_mut(), mock_env(), whitelist_info, withdraw_msg).unwrap_err();
 //     assert_eq!(result, ContractError::NothingToWithdraw {});
 // }
 
@@ -1090,7 +989,7 @@
 //     });
 
 //     let res =
-//         execute(deps.as_mut(), _env.clone(), lptoken_cw20, withdraw).expect("expected a response");
+//         execute(deps.as_mut(), _mock_env(), lptoken_cw20, withdraw).expect("expected a response");
 
 //     deps.querier.with_token_balances(&[(
 //         &String::from("lptoken"),
@@ -1189,7 +1088,7 @@
 //     });
 
 //     let res =
-//         execute(deps.as_mut(), _env.clone(), lptoken_cw20, withdraw).expect("expected a response");
+//         execute(deps.as_mut(), _mock_env(), lptoken_cw20, withdraw).expect("expected a response");
 
 //     deps.querier.with_token_balances(&[(
 //         &String::from("lptoken"),
@@ -1354,7 +1253,7 @@
 //         .unwrap(),
 //     });
 
-//     let result = execute(deps.as_mut(), _env.clone(), user, withdraw.clone())
+//     let result = execute(deps.as_mut(), _mock_env(), user, withdraw.clone())
 //         .expect_err("expected an error");
 //     assert_eq!(result, ContractError::Unauthorized {});
 
@@ -1510,7 +1409,7 @@
 //         },
 //     );
 
-//     let share = query_share(deps.as_ref(), _env.clone());
+//     let share = query_share(deps.as_ref(), _mock_env());
 //     //
 //     // WITHDRAW IMMEDIATE
 //     //
@@ -1612,7 +1511,7 @@
 //     )]);
 
 //     // share value is increased by the half protocol fee (share is 50 / 100)
-//     let share2 = query_share(deps.as_ref(), _env.clone());
+//     let share2 = query_share(deps.as_ref(), _mock_env());
 //     assert_eq!(share + pool_fee * Decimal::from_str("0.5").unwrap(), share2);
 
 //     //
@@ -1808,7 +1707,7 @@
 //         }
 //     );
 
-//     let share = query_share(deps.as_ref(), _env.clone());
+//     let share = query_share(deps.as_ref(), _mock_env());
 
 //     //
 //     // WITHDRAW UNBONDED FAILED
@@ -1816,7 +1715,7 @@
 //     let withdraw_unbonded = ExecuteMsg::WithdrawUnbonded {};
 
 //     let res = execute(deps.as_mut(), mid_time, user.clone(), withdraw_unbonded.clone())
-//         .expect_err("expect error");
+//         .unwrap_err();
 
 //     assert_eq!(res, ContractError::NoWithdrawableAsset {});
 
@@ -1928,7 +1827,7 @@
 //     //
 //     let withdraw_unbonded = ExecuteMsg::WithdrawUnbonded {};
 
-//     let res = execute(deps.as_mut(), end_time, user, withdraw_unbonded).expect_err("expect error");
+//     let res = execute(deps.as_mut(), end_time, user, withdraw_unbonded).unwrap_err();
 
 //     assert_eq!(res, ContractError::NoWithdrawableAsset {});
 // }
@@ -1999,7 +1898,7 @@
 //         }
 //     );
 
-//     let share = query_share(deps.as_ref(), _env.clone());
+//     let share = query_share(deps.as_ref(), _mock_env());
 
 //     //
 //     // WITHDRAW UNBONDED
@@ -2118,7 +2017,7 @@
 //     let withdraw_unbonded = ExecuteMsg::WithdrawUnbonded {};
 
 //     let res =
-//         execute(deps.as_mut(), before_end_time, user, withdraw_unbonded).expect_err("expect error");
+//         execute(deps.as_mut(), before_end_time, user, withdraw_unbonded).unwrap_err();
 
 //     assert_eq!(res, ContractError::NoWithdrawableAsset {});
 // }
@@ -2138,7 +2037,7 @@
 
 //     let total_value = pool_available + unbonding + withdrawable - locked;
 
-//     let balance = query_balances(deps.as_ref(), env.clone(), None).unwrap();
+//     let balance = query_balances(deps.as_ref(), mock_env(), None).unwrap();
 //     assert_eq!(
 //         balance,
 //         BalancesResponse {
@@ -2243,7 +2142,7 @@
 
 //     let total_value = pool_available + unbonding + withdrawable - locked;
 
-//     let available = query_takeable(deps.as_ref(), env.clone(), None).expect("expects result");
+//     let available = query_takeable(deps.as_ref(), mock_env(), None).expect("expects result");
 
 //     // println!(
 //     //     "takeable 0.5: {}",
@@ -2283,7 +2182,7 @@
 //     );
 
 //     let available =
-//         query_takeable(deps.as_ref(), env.clone(), Some(Decimal::from_str("0.01").unwrap()))
+//         query_takeable(deps.as_ref(), mock_env(), Some(Decimal::from_str("0.01").unwrap()))
 //             .expect("expects result");
 
 //     assert_eq!(
@@ -2340,7 +2239,7 @@
 
 //     let total_value = pool_available + unbonding + withdrawable - locked;
 
-//     let start_share = query_share(deps.as_ref(), env.clone());
+//     let start_share = query_share(deps.as_ref(), mock_env());
 //     assert_eq!(start_share, Uint128::from(152_940000u128));
 
 //     let whitelist_info = mock_info("whitelisted_exec", &[]);
@@ -2356,7 +2255,7 @@
 //         result_token: "BLUNA".to_string(),
 //         wanted_profit: Decimal::from_str("0.025").unwrap(),
 //     };
-//     let res = execute(deps.as_mut(), env.clone(), whitelist_info.clone(), exec_msg)
+//     let res = execute(deps.as_mut(), mock_env(), whitelist_info.clone(), exec_msg)
 //         .expect_err("expects error");
 //     assert_eq!(res, ContractError::NotEnoughFundsTakeable {});
 
@@ -2369,7 +2268,7 @@
 //         result_token: "XXX".to_string(),
 //         wanted_profit: Decimal::from_str("0.025").unwrap(),
 //     };
-//     let res = execute(deps.as_mut(), env.clone(), whitelist_info.clone(), exec_msg)
+//     let res = execute(deps.as_mut(), mock_env(), whitelist_info.clone(), exec_msg)
 //         .expect_err("expects error");
 //     assert_eq!(res, ContractError::AssetUnknown {});
 
@@ -2382,25 +2281,25 @@
 //         result_token: "BLUNA".to_string(),
 //         wanted_profit: Decimal::from_str("0.025").unwrap(),
 //     };
-//     let res = execute(deps.as_mut(), env.clone(), whitelist_info.clone(), exec_msg)
+//     let res = execute(deps.as_mut(), mock_env(), whitelist_info.clone(), exec_msg)
 //         .expect_err("expects error");
 //     assert_eq!(res, ContractError::InvalidZeroAmount {});
 
 //     let res = execute(
 //         deps.as_mut(),
-//         env.clone(),
+//         mock_env(),
 //         contract_info.clone(),
 //         ExecuteMsg::AssertResult {
 //             result_token: "BLUNA".to_string(),
 //             wanted_profit: Decimal::from_str("0.01").unwrap(),
 //         },
 //     )
-//     .expect_err("expect error");
+//     .unwrap_err();
 
 //     assert_eq!(res, ContractError::NotExecuting {});
 
 //     let wanted_profit = Decimal::from_str("0.015").unwrap();
-//     let takeable = query_takeable(deps.as_ref(), env.clone(), Some(wanted_profit))
+//     let takeable = query_takeable(deps.as_ref(), mock_env(), Some(wanted_profit))
 //         .expect("expects result")
 //         .takeable
 //         .expect("expects takeable");
@@ -2416,8 +2315,8 @@
 //         result_token: "BLUNA".to_string(),
 //         wanted_profit,
 //     };
-//     let res = execute(deps.as_mut(), env.clone(), whitelist_info.clone(), exec_msg)
-//         .expect("expects response");
+//     let res = execute(deps.as_mut(), mock_env(), whitelist_info.clone(), exec_msg)
+//         .unwrap();
 
 //     assert_eq!(res.attributes, vec![attr("action", "execute")]);
 //     assert_eq!(res.messages.len(), 2);
@@ -2470,7 +2369,7 @@
 
 //     let res = execute(
 //         deps.as_mut(),
-//         env.clone(),
+//         mock_env(),
 //         user_info,
 //         ExecuteMsg::ProvideLiquidity {
 //             asset: Asset {
@@ -2482,13 +2381,13 @@
 //             receiver: None,
 //         },
 //     )
-//     .expect_err("expect error");
+//     .unwrap_err();
 
 //     assert_eq!(res, ContractError::AlreadyExecuting {});
 
 //     let res = execute(
 //         deps.as_mut(),
-//         env.clone(),
+//         mock_env(),
 //         whitelist_info,
 //         ExecuteMsg::Execute {
 //             msg: ExecuteSubMsg {
@@ -2500,7 +2399,7 @@
 //             wanted_profit,
 //         },
 //     )
-//     .expect_err("expect error");
+//     .unwrap_err();
 
 //     assert_eq!(res, ContractError::AlreadyExecuting {});
 
@@ -2538,7 +2437,7 @@
 //     //
 
 //     let res =
-//         execute(deps.as_mut(), env.clone(), contract_info, sub_msg).expect("expects response");
+//         execute(deps.as_mut(), mock_env(), contract_info, sub_msg).unwrap();
 
 //     assert_eq!(
 //         res.attributes,
@@ -2589,7 +2488,7 @@
 //             } = sub_msg
 //             {
 //                 assert_eq!(recipient, "fee");
-//                 let fee_value = query_user_info(deps.as_ref(), env.clone(), amount).unwrap();
+//                 let fee_value = query_user_info(deps.as_ref(), mock_env(), amount).unwrap();
 
 //                 // check that the result is very close
 //                 assert_delta!(fee_value.received_asset, fee_value_expected, Uint128::from(10u128));
@@ -2603,7 +2502,7 @@
 //     //
 //     // EXPECT NEW SHARE TO BE BIGGER
 //     //
-//     let new_share = query_share(deps.as_ref(), env.clone());
+//     let new_share = query_share(deps.as_ref(), mock_env());
 
 //     assert!(new_share.gt(&start_share), "new share must be bigger than start");
 //     assert_eq!(new_share, Uint128::from(152_986224u128));

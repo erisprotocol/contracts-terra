@@ -39,6 +39,7 @@ pub fn instantiate(deps: DepsMut, env: Env, msg: InstantiateMsg) -> ContractResu
     state.owner.save(deps.storage, &deps.api.addr_validate(&msg.owner)?)?;
     state.config.save(deps.storage, &config)?;
     state.unbond_id.save(deps.storage, &0)?;
+    state.fee_config.save(deps.storage, &msg.fee_config.validate(deps.api)?)?;
 
     state.balance_locked.save(
         deps.storage,

@@ -30,3 +30,19 @@ pub fn assert_min_profit(wanted_profit: &Decimal) -> Result<(), ContractError> {
 
     Ok(())
 }
+
+pub fn assert_no_withdrawl(balances: &Balances) -> Result<(), ContractError> {
+    if !balances.lsd_withdrawable.is_zero() {
+        return Err(ContractError::WithdrawBeforeExecute {});
+    }
+
+    Ok(())
+}
+
+pub fn assert_has_funds(funds_amount: &Uint128) -> Result<(), ContractError> {
+    if funds_amount.is_zero() {
+        return Err(ContractError::InvalidZeroAmount {});
+    }
+
+    Ok(())
+}

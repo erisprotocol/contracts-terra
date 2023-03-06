@@ -1,4 +1,4 @@
-use crate::asserts::{assert_max_amount, assert_min_profit};
+use crate::asserts::{assert_has_funds, assert_max_amount, assert_min_profit, assert_no_withdrawl};
 use crate::error::{ContractError, ContractResult};
 use crate::extensions::ConfigEx;
 use crate::helpers::{calc_fees, get_share_from_deposit};
@@ -45,19 +45,18 @@ pub fn execute_arbitrage(
     result_token: AssetInfo,
     wanted_profit: Decimal,
 ) -> ContractResult {
-    if message.funds_amount.is_zero() {
-        return Err(ContractError::InvalidZeroAmount {});
-    }
-
     let state = State::default();
     let config = state.config.load(deps.storage)?;
     let mut lsds = config.lsd_group(&env);
     let balances = lsds.get_total_assets_err(deps.as_ref(), &env, &state, &config)?;
 
     lsds.get(result_token.clone())?;
+    state.assert_whitelisted(deps.storage, &info.sender)?;
     state.assert_not_nested(deps.storage)?;
+    assert_has_funds(&message.funds_amount)?;
     assert_min_profit(&wanted_profit)?;
     assert_max_amount(&config, &balances, &wanted_profit, &message.funds_amount)?;
+    assert_no_withdrawl(&balances)?;
 
     // create balance checkpoint with total value, as it needs to be higher after full execution.
     state.balance_checkpoint.save(
@@ -96,12 +95,13 @@ pub fn execute_arbitrage(
         .add_attribute("action", "arb/execute_arbitrage"))
 }
 
-pub fn execute_withdraw_liquidity(deps: DepsMut, env: Env, _info: MessageInfo) -> ContractResult {
+pub fn execute_withdraw_liquidity(deps: DepsMut, env: Env, info: MessageInfo) -> ContractResult {
     let state = State::default();
     let config = state.config.load(deps.storage)?;
     let mut lsds = config.lsd_group(&env);
 
     state.assert_not_nested(deps.storage)?;
+    state.assert_whitelisted(deps.storage, &info.sender)?;
 
     let (messages, attributes) = lsds.get_withdraw_msgs(&deps)?;
 
@@ -161,7 +161,8 @@ pub fn execute_provide_liquidity(
         attr("action", "arb/provide_liquidity"),
         attr("sender", info.sender.to_string()),
         attr("recipient", recipient.to_string()),
-        attr("vault_utoken", vault_utoken),
+        attr("vault_utoken_before", vault_utoken),
+        attr("vault_utoken_after", assets.vault_total),
         attr("share", share.to_string()),
     ]))
 }
