@@ -3,6 +3,7 @@ use cw2::set_contract_version;
 use eris::{
     adapters::{compounder::Compounder, farm::Farm, hub::Hub},
     ampz::InstantiateMsg,
+    helper::dedupe,
 };
 
 use crate::{
@@ -22,8 +23,9 @@ pub fn exec_instantiate(deps: DepsMut, _env: Env, msg: InstantiateMsg) -> StdRes
     state.owner.save(deps.storage, &deps.api.addr_validate(&msg.owner)?)?;
     state.hub.save(deps.storage, &Hub(deps.api.addr_validate(msg.hub.as_str())?))?;
 
-    let farms: Vec<Farm> = msg
-        .farms
+    let mut farms = msg.farms;
+    dedupe(&mut farms);
+    let farms: Vec<Farm> = farms
         .into_iter()
         .map(|a| Ok(Farm(deps.api.addr_validate(a.as_str())?)))
         .collect::<StdResult<_>>()?;
@@ -33,5 +35,5 @@ pub fn exec_instantiate(deps: DepsMut, _env: Env, msg: InstantiateMsg) -> StdRes
     state.id.save(deps.storage, &1u128)?;
     state.fee.save(deps.storage, &msg.fee.validate(deps.api)?)?;
 
-    Ok(Response::new())
+    Ok(Response::new().add_attribute("action", "ampz/exec_instantiate"))
 }

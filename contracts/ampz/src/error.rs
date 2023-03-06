@@ -23,6 +23,12 @@ pub enum ContractError {
     #[error("Unauthorized: sender is not new owner")]
     UnauthorizedSenderNotNewOwner {},
 
+    #[error("New owner must be different to the current owner")]
+    NewOwnerMustBeDifferent {},
+
+    #[error("Interval must be longer or equal to 6 hours")]
+    IntervalTooShort {},
+
     #[error("Execution can only be added/removed by the same user")]
     MustBeSameUser {},
 
@@ -70,4 +76,7 @@ pub enum ContractError {
 
     #[error("Contract can't be migrated!")]
     MigrationError {},
+
+    #[error("Cannot add and remove farms in the same transaction!")]
+    CannotAddAndRemoveFarms {},
 }

@@ -7,6 +7,7 @@ use cosmwasm_std::{attr, coins, Addr, Uint128};
 use eris::ampz::{
     ExecuteMsg, Execution, ExecutionDetail, ExecutionResponse, QueryMsg, Schedule, StateResponse,
 };
+use eris::constants::{DAY, HOUR};
 
 use crate::constants::CONTRACT_DENOM;
 use crate::contract::execute;
@@ -37,7 +38,7 @@ fn setup_execution() {
     let execution = Execution {
         destination: eris::ampz::DestinationState::DepositAmplifier {},
         schedule: Schedule {
-            interval_s: 100,
+            interval_s: 6 * HOUR,
             start: None,
         },
         user: "user".into(),
@@ -60,7 +61,7 @@ fn setup_execution() {
     // add with valid user
     let res = execute(
         deps.as_mut(),
-        mock_env_at_timestamp(1000),
+        mock_env_at_timestamp(DAY),
         mock_info("user", &[]),
         ExecuteMsg::AddExecution {
             overwrite: false,
@@ -83,7 +84,7 @@ fn setup_execution() {
         ExecutionDetail {
             id: 1,
             execution: execution.clone(),
-            last_execution: 1000 - 100,
+            last_execution: DAY - 6 * HOUR,
             can_execute: true
         }
     );
@@ -91,7 +92,7 @@ fn setup_execution() {
     // add same again with override -> no error
     let res = execute(
         deps.as_mut(),
-        mock_env_at_timestamp(2000),
+        mock_env_at_timestamp(DAY * 2),
         mock_info("user", &[]),
         ExecuteMsg::AddExecution {
             overwrite: true,
@@ -124,7 +125,7 @@ fn setup_execution() {
         ExecutionDetail {
             id: 2,
             execution,
-            last_execution: 2000 - 100,
+            last_execution: DAY * 2 - 6 * HOUR,
             can_execute: true
         }
     );
@@ -139,6 +140,32 @@ fn setup_execution_farm() {
         },
         schedule: Schedule {
             interval_s: 100,
+            start: None,
+        },
+        user: "user".into(),
+        source: eris::ampz::Source::Claim,
+    };
+
+    // add with invalid interval
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info("user", &[]),
+        ExecuteMsg::AddExecution {
+            overwrite: false,
+            execution: execution.clone(),
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(res, ContractError::IntervalTooShort {});
+
+    execution = Execution {
+        destination: eris::ampz::DestinationState::DepositFarm {
+            farm: "unknown".into(),
+        },
+        schedule: Schedule {
+            interval_s: HOUR * 6,
             start: None,
         },
         user: "user".into(),
@@ -165,7 +192,7 @@ fn setup_execution_farm() {
     };
     let res = execute(
         deps.as_mut(),
-        mock_env_at_timestamp(1000),
+        mock_env_at_timestamp(DAY),
         mock_info("user", &[]),
         ExecuteMsg::AddExecution {
             overwrite: false,
@@ -187,7 +214,7 @@ fn setup_execution_farm() {
         ExecutionDetail {
             id: 1,
             execution,
-            last_execution: 1000 - 100,
+            last_execution: DAY - 6 * HOUR,
             can_execute: true
         }
     );

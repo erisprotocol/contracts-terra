@@ -1,5 +1,6 @@
 use cosmwasm_std::testing::mock_info;
 use eris::adapters::generator::Generator;
+use eris::constants::{DAY, HOUR};
 
 use crate::protos::msgex::CosmosMsgEx;
 use crate::testing::helpers::finish_amplifier;
@@ -27,7 +28,7 @@ fn astro() -> Addr {
 fn check_execution_source_claim_deposit_amplifier() {
     let mut deps = setup_test();
 
-    let interval_s = 100;
+    let interval_s = 6 * HOUR;
     let execution = Execution {
         destination: eris::ampz::DestinationState::DepositAmplifier {},
         schedule: Schedule {
@@ -45,7 +46,7 @@ fn check_execution_source_claim_deposit_amplifier() {
 
     execute(
         deps.as_mut(),
-        mock_env_at_timestamp(1000),
+        mock_env_at_timestamp(DAY),
         mock_info("user", &[]),
         ExecuteMsg::AddExecution {
             overwrite: false,
@@ -56,7 +57,7 @@ fn check_execution_source_claim_deposit_amplifier() {
 
     let res = execute(
         deps.as_mut(),
-        mock_env_at_timestamp(1000),
+        mock_env_at_timestamp(DAY),
         mock_info("controller", &[]),
         ExecuteMsg::Execute {
             id: 1,
@@ -105,7 +106,7 @@ fn check_execution_source_wallet_native_deposit_amplifier() {
     let mut deps = setup_test();
     deps.querier.bank_querier.update_balance("user", coins(50, CONTRACT_DENOM));
 
-    let interval_s = 100;
+    let interval_s = 6 * HOUR;
     let execution = Execution {
         destination: eris::ampz::DestinationState::DepositAmplifier {},
         schedule: Schedule {
@@ -126,7 +127,7 @@ fn check_execution_source_wallet_native_deposit_amplifier() {
 
     execute(
         deps.as_mut(),
-        mock_env_at_timestamp(1000),
+        mock_env_at_timestamp(DAY),
         mock_info("user", &[]),
         ExecuteMsg::AddExecution {
             overwrite: false,
@@ -137,7 +138,7 @@ fn check_execution_source_wallet_native_deposit_amplifier() {
 
     let res = execute(
         deps.as_mut(),
-        mock_env_at_timestamp(1000),
+        mock_env_at_timestamp(DAY),
         mock_info("controller", &[]),
         ExecuteMsg::Execute {
             id: 1,
@@ -151,7 +152,7 @@ fn check_execution_source_wallet_native_deposit_amplifier() {
 
     let res = execute(
         deps.as_mut(),
-        mock_env_at_timestamp(1000),
+        mock_env_at_timestamp(DAY),
         mock_info("controller", &[]),
         ExecuteMsg::Execute {
             id: 1,
@@ -187,7 +188,7 @@ fn check_execution_source_wallet_cw20_deposit_amplifier() {
     let mut deps = setup_test();
     deps.querier.set_cw20_balance("user", "astro", 50);
 
-    let interval_s = 100;
+    let interval_s = 6 * HOUR;
     let execution = Execution {
         destination: eris::ampz::DestinationState::DepositAmplifier {},
         schedule: Schedule {
@@ -203,7 +204,7 @@ fn check_execution_source_wallet_cw20_deposit_amplifier() {
 
     execute(
         deps.as_mut(),
-        mock_env_at_timestamp(1000),
+        mock_env_at_timestamp(DAY),
         mock_info("user", &[]),
         ExecuteMsg::AddExecution {
             overwrite: false,
@@ -214,7 +215,7 @@ fn check_execution_source_wallet_cw20_deposit_amplifier() {
 
     let res = execute(
         deps.as_mut(),
-        mock_env_at_timestamp(1000),
+        mock_env_at_timestamp(DAY),
         mock_info("controller", &[]),
         ExecuteMsg::Execute {
             id: 1,
@@ -228,7 +229,7 @@ fn check_execution_source_wallet_cw20_deposit_amplifier() {
 
     let res = execute(
         deps.as_mut(),
-        mock_env_at_timestamp(1000),
+        mock_env_at_timestamp(DAY),
         mock_info("controller", &[]),
         ExecuteMsg::Execute {
             id: 1,
@@ -282,7 +283,7 @@ fn check_execution_source_astro_deposit_amplifier() {
     deps.querier.bank_querier.update_balance("user", coins(100, CONTRACT_DENOM));
     deps.querier.set_cw20_balance("user", "astro", 1000);
 
-    let interval_s = 100;
+    let interval_s = 6 * HOUR;
     let execution = Execution {
         destination: eris::ampz::DestinationState::DepositAmplifier {},
         schedule: Schedule {
@@ -297,7 +298,7 @@ fn check_execution_source_astro_deposit_amplifier() {
 
     execute(
         deps.as_mut(),
-        mock_env_at_timestamp(1000),
+        mock_env_at_timestamp(DAY),
         mock_info("user", &[]),
         ExecuteMsg::AddExecution {
             overwrite: false,
@@ -306,10 +307,10 @@ fn check_execution_source_astro_deposit_amplifier() {
     )
     .unwrap();
 
-    let env = mock_env_at_timestamp(1000);
+    let env = mock_env_at_timestamp(DAY);
     let res = execute(
         deps.as_mut(),
-        mock_env_at_timestamp(1000),
+        mock_env_at_timestamp(DAY),
         mock_info("controller", &[]),
         ExecuteMsg::Execute {
             id: 1,
