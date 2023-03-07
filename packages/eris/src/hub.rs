@@ -159,6 +159,16 @@ pub enum ExecuteMsg {
         /// The staking module's unbonding time, in seconds
         unbond_period: Option<u64>,
     },
+
+    Claim {
+        claims: Vec<ClaimType>,
+    },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ClaimType {
+    Default(String),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
@@ -234,6 +244,13 @@ pub enum QueryMsg {
     /// Enumreate all outstanding unbonding requests from given a user. Response: `Vec<UnbondRequestsByUserResponseItemDetails>`
     UnbondRequestsByUserDetails {
         user: String,
+        start_after: Option<u64>,
+        limit: Option<u32>,
+    },
+
+    // Query exchange rates
+    ExchangeRates {
+        // start after the provided timestamp in s
         start_after: Option<u64>,
         limit: Option<u32>,
     },
@@ -413,6 +430,13 @@ pub struct UnbondRequestsByUserResponseItemDetails {
 
     // Is set if the unbonding request is still pending
     pub pending: Option<PendingBatch>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+pub struct ExchangeRatesResponse {
+    pub exchange_rates: Vec<(u64, Decimal)>,
+    // APR normalized per DAY
+    pub apr: Option<Decimal>,
 }
 
 pub type MigrateMsg = Empty;
