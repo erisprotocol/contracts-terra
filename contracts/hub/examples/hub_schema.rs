@@ -5,9 +5,10 @@ use cosmwasm_schema::{export_schema_with_title, remove_schemas, schema_for};
 
 use cosmwasm_std::DelegationResponse;
 use eris::hub::{
-    Batch, ConfigResponse, ExecuteMsg, FeeConfig, InstantiateMsg, PendingBatch, QueryMsg,
-    ReceiveMsg, StateResponse, UnbondRequestsByBatchResponseItem, UnbondRequestsByUserResponseItem,
-    UnbondRequestsByUserResponseItemDetails, WantedDelegationsResponse,
+    Batch, ConfigResponse, ExchangeRatesResponse, ExecuteMsg, FeeConfig, InstantiateMsg,
+    PendingBatch, QueryMsg, ReceiveMsg, StateResponse, UnbondRequestsByBatchResponseItem,
+    UnbondRequestsByUserResponseItem, UnbondRequestsByUserResponseItemDetails,
+    WantedDelegationsResponse,
 };
 
 fn main() {
@@ -25,6 +26,11 @@ fn main() {
     export_schema_with_title(&schema_for!(PendingBatch), &out_dir, "PendingBatch");
     export_schema_with_title(&schema_for!(Batch), &out_dir, "Batch");
     export_schema_with_title(&schema_for!(DelegationResponse), &out_dir, "DelegationResponse");
+    export_schema_with_title(
+        &schema_for!(ExchangeRatesResponse),
+        &out_dir,
+        "ExchangeRatesResponse",
+    );
     export_schema_with_title(
         &schema_for!(WantedDelegationsResponse),
         &out_dir,
