@@ -4,6 +4,7 @@ pub mod amp_gauges;
 pub mod ampz;
 pub mod astroport_farm;
 pub mod compound_proxy;
+pub mod constants;
 pub mod emp_gauges;
 pub mod fees_collector;
 pub mod governance_helper;
