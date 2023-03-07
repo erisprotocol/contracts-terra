@@ -8,6 +8,7 @@ use cw20::Cw20ReceiveMsg;
 use eris::helper::unwrap_reply;
 use eris::hub::{CallbackMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, ReceiveMsg};
 
+use crate::claim::exec_claim;
 use crate::constants::{CONTRACT_DENOM, CONTRACT_NAME, CONTRACT_VERSION};
 use crate::error::{ContractError, ContractResult};
 use crate::helpers::parse_received_fund;
@@ -95,6 +96,9 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> C
             allow_donations,
             vote_operator,
         ),
+        ExecuteMsg::Claim {
+            claims,
+        } => exec_claim(deps, env, info, claims),
     }
 }
 
@@ -184,6 +188,10 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::SimulateWantedDelegations {
             period,
         } => to_binary(&queries::simulate_wanted_delegations(deps, env, period)?),
+        QueryMsg::ExchangeRates {
+            start_after,
+            limit,
+        } => to_binary(&queries::query_exchange_rates(deps, env, start_after, limit)?),
     }
 }
 

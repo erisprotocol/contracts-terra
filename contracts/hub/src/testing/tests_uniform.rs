@@ -1,26 +1,24 @@
 use std::str::FromStr;
 use std::vec;
 
-use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
+use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     coin, to_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, DistributionMsg, Event, Fraction,
-    GovMsg, Order, OwnedDeps, Reply, StdError, StdResult, SubMsg, SubMsgResponse, Uint128,
-    VoteOption, WasmMsg,
+    GovMsg, Order, StdError, StdResult, SubMsg, Uint128, VoteOption, WasmMsg,
 };
-use cw20::{Cw20ExecuteMsg, MinterResponse};
-use cw20_base::msg::InstantiateMsg as Cw20InstantiateMsg;
+use cw20::Cw20ExecuteMsg;
 use eris::DecimalCheckedOps;
 
 use eris::hub::{
-    Batch, CallbackMsg, ConfigResponse, ExecuteMsg, FeeConfig, InstantiateMsg, PendingBatch,
-    QueryMsg, ReceiveMsg, StateResponse, UnbondRequest, UnbondRequestsByBatchResponseItem,
+    Batch, CallbackMsg, ConfigResponse, ExecuteMsg, FeeConfig, PendingBatch, QueryMsg, ReceiveMsg,
+    StateResponse, UnbondRequest, UnbondRequestsByBatchResponseItem,
     UnbondRequestsByUserResponseItem, UnbondRequestsByUserResponseItemDetails,
 };
 use itertools::Itertools;
 use protobuf::SpecialFields;
 
 use crate::constants::CONTRACT_DENOM;
-use crate::contract::{execute, instantiate, reply};
+use crate::contract::execute;
 use crate::error::ContractError;
 use crate::helpers::{dedupe, parse_received_fund};
 use crate::math::{
@@ -28,92 +26,10 @@ use crate::math::{
 };
 use crate::protos::proto::{self, MsgVoteWeighted, WeightedVoteOption};
 use crate::state::State;
-use crate::testing::helpers::query_helper_env;
+use crate::testing::helpers::{query_helper_env, setup_test, STAKE_DENOM};
 use crate::types::{Coins, Delegation, Redelegation, SendFee, Undelegation};
 
-use super::custom_querier::CustomQuerier;
 use super::helpers::{mock_dependencies, mock_env_at_timestamp, query_helper};
-
-pub const STAKE_DENOM: &str = "stake_token";
-
-//--------------------------------------------------------------------------------------------------
-// Test setup
-//--------------------------------------------------------------------------------------------------
-
-fn setup_test() -> OwnedDeps<MockStorage, MockApi, CustomQuerier> {
-    let mut deps = mock_dependencies();
-
-    let res = instantiate(
-        deps.as_mut(),
-        mock_env_at_timestamp(10000),
-        mock_info("deployer", &[]),
-        InstantiateMsg {
-            cw20_code_id: 69420,
-            owner: "owner".to_string(),
-            name: "Stake Token".to_string(),
-            symbol: "STAKE".to_string(),
-            decimals: 6,
-            epoch_period: 259200,   // 3 * 24 * 60 * 60 = 3 days
-            unbond_period: 1814400, // 21 * 24 * 60 * 60 = 21 days
-            validators: vec!["alice".to_string(), "bob".to_string(), "charlie".to_string()],
-            protocol_fee_contract: "fee".to_string(),
-            protocol_reward_fee: Decimal::from_ratio(1u128, 100u128),
-            delegation_strategy: None,
-            vote_operator: None,
-        },
-    )
-    .unwrap();
-
-    assert_eq!(res.messages.len(), 1);
-    assert_eq!(
-        res.messages[0],
-        SubMsg::reply_on_success(
-            CosmosMsg::Wasm(WasmMsg::Instantiate {
-                admin: Some("owner".to_string()),
-                code_id: 69420,
-                msg: to_binary(&Cw20InstantiateMsg {
-                    name: "Stake Token".to_string(),
-                    symbol: "STAKE".to_string(),
-                    decimals: 6,
-                    initial_balances: vec![],
-                    mint: Some(MinterResponse {
-                        minter: MOCK_CONTRACT_ADDR.to_string(),
-                        cap: None
-                    }),
-                    marketing: None,
-                })
-                .unwrap(),
-                funds: vec![],
-                label: "Eris Liquid Staking Token".to_string(),
-            }),
-            1
-        )
-    );
-
-    let event = Event::new("instantiate")
-        .add_attribute("creator", MOCK_CONTRACT_ADDR)
-        .add_attribute("admin", "admin")
-        .add_attribute("code_id", "69420")
-        .add_attribute("_contract_address", STAKE_DENOM);
-
-    let res = reply(
-        deps.as_mut(),
-        mock_env_at_timestamp(10000),
-        Reply {
-            id: 1,
-            result: cosmwasm_std::SubMsgResult::Ok(SubMsgResponse {
-                events: vec![event],
-                data: None,
-            }),
-        },
-    )
-    .unwrap();
-
-    assert_eq!(res.messages.len(), 0);
-
-    deps.querier.set_cw20_total_supply(STAKE_DENOM, 0);
-    deps
-}
 
 //--------------------------------------------------------------------------------------------------
 // Execution

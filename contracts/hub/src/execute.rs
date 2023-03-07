@@ -243,8 +243,9 @@ fn check_received_coin_msg(
 /// validator that has the smallest delegation amount.
 pub fn reinvest(deps: DepsMut, env: Env) -> ContractResult {
     let state = State::default();
-    let mut unlocked_coins = state.unlocked_coins.load(deps.storage)?;
     let fee_config = state.fee_config.load(deps.storage)?;
+    let mut unlocked_coins = state.unlocked_coins.load(deps.storage)?;
+    let stake_token = state.stake_token.load(deps.storage)?;
 
     let uluna_available = unlocked_coins
         .iter()
@@ -253,15 +254,15 @@ pub fn reinvest(deps: DepsMut, env: Env) -> ContractResult {
         .amount;
 
     let protocol_fee_amount = fee_config.protocol_reward_fee.checked_mul_uint(uluna_available)?;
-    let uluna_to_bond = uluna_available.saturating_sub(protocol_fee_amount);
+    let to_bond = uluna_available.saturating_sub(protocol_fee_amount);
 
-    let (new_delegation, _) = find_new_delegation(&state, &deps, &env, uluna_to_bond)?;
+    let (new_delegation, delegations) = find_new_delegation(&state, &deps, &env, to_bond)?;
 
     unlocked_coins.retain(|coin| coin.denom != CONTRACT_DENOM);
     state.unlocked_coins.save(deps.storage, &unlocked_coins)?;
 
     let event = Event::new("erishub/harvested")
-        .add_attribute("uluna_bonded", uluna_to_bond)
+        .add_attribute("uluna_bonded", to_bond)
         .add_attribute("uluna_protocol_fee", protocol_fee_amount);
 
     let mut msgs = vec![new_delegation.to_cosmos_msg()];
@@ -271,10 +272,32 @@ pub fn reinvest(deps: DepsMut, env: Env) -> ContractResult {
         msgs.push(send_fee.to_cosmos_msg());
     }
 
+    // update exchange_rate history
+    let utoken_staked: u128 = delegations.iter().map(|d| d.amount).sum();
+    let total_utoken = utoken_staked + to_bond.u128();
+    let exchange_rate = calc_current_exchange_rate(total_utoken, &deps, stake_token)?;
+    state.exchange_history.save(deps.storage, env.block.time.seconds(), &exchange_rate)?;
+
     Ok(Response::new()
         .add_messages(msgs)
         .add_event(event)
-        .add_attribute("action", "erishub/reinvest"))
+        .add_attribute("action", "erishub/reinvest")
+        .add_attribute("exchange_rate", exchange_rate.to_string()))
+}
+
+fn calc_current_exchange_rate(
+    total_utoken: u128,
+    deps: &DepsMut,
+    stake_token: Addr,
+) -> Result<Decimal, ContractError> {
+    let ustake_supply = query_cw20_total_supply(&deps.querier, &stake_token)?;
+
+    let exchange_rate = if ustake_supply.is_zero() {
+        Decimal::one()
+    } else {
+        Decimal::from_ratio(total_utoken, ustake_supply)
+    };
+    Ok(exchange_rate)
 }
 
 pub fn callback_received_coin(deps: DepsMut, env: Env, snapshot: Coin) -> ContractResult {

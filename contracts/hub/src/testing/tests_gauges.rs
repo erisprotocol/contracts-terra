@@ -25,13 +25,11 @@ use crate::math::{
     compute_redelegations_for_rebalancing, compute_redelegations_for_removal, compute_undelegations,
 };
 use crate::state::State;
-use crate::testing::helpers::query_helper_env;
+use crate::testing::helpers::{query_helper_env, STAKE_DENOM};
 use crate::types::{Coins, Delegation, Redelegation, SendFee, Undelegation};
 
 use super::custom_querier::CustomQuerier;
 use super::helpers::{mock_dependencies, mock_env_at_timestamp, query_helper};
-
-pub const STAKE_DENOM: &str = "stake_token";
 
 //--------------------------------------------------------------------------------------------------
 // Test setup
