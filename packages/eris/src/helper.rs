@@ -38,6 +38,12 @@ pub fn assert_uniq_assets(assets: &[Asset]) -> StdResult<()> {
     Ok(())
 }
 
+/// Dedupes a Vector of strings using a hashset.
+pub fn dedupe(elements: &mut Vec<String>) {
+    let mut set = HashSet::new();
+    elements.retain(|x| set.insert(x.clone()));
+}
+
 pub fn funds_or_allowance(
     env: &Env,
     spender: &Addr,

@@ -5,6 +5,7 @@ use cosmwasm_std::testing::{mock_info, MockApi, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{coins, Addr, OwnedDeps, Uint128};
 
 use eris::ampz::{CallbackMsg, ExecuteMsg, Execution, Schedule};
+use eris::constants::{DAY, HOUR};
 use protobuf::SpecialFields;
 
 use crate::constants::CONTRACT_DENOM;
@@ -22,7 +23,7 @@ fn check_execution_interval() {
 
     deps.querier.bank_querier.update_balance("user", coins(50, CONTRACT_DENOM));
 
-    let interval_s = 100;
+    let interval_s = 6 * HOUR;
     let execution = Execution {
         destination: eris::ampz::DestinationState::DepositAmplifier {},
         schedule: Schedule {
@@ -57,7 +58,7 @@ fn controller_executes(
 ) {
     execute(
         deps.as_mut(),
-        mock_env_at_timestamp(1000),
+        mock_env_at_timestamp(DAY),
         mock_info("user", &[]),
         ExecuteMsg::AddExecution {
             overwrite: false,
@@ -68,7 +69,7 @@ fn controller_executes(
 
     let res = execute(
         deps.as_mut(),
-        mock_env_at_timestamp(1000),
+        mock_env_at_timestamp(DAY),
         mock_info("controller", &[]),
         ExecuteMsg::Execute {
             id: 1,
@@ -141,11 +142,11 @@ fn nobody_can_execute_before_interval(
     )
     .unwrap_err();
 
-    assert_eq!(res, ContractError::ExecutionInFuture(1100));
+    assert_eq!(res, ContractError::ExecutionInFuture(1000 + HOUR * 6));
 
     let res = execute(
         deps.as_mut(),
-        mock_env_at_timestamp(1099),
+        mock_env_at_timestamp(1000 + HOUR * 6 - 1),
         mock_info("controller", &[]),
         ExecuteMsg::Execute {
             id: 1,
@@ -153,7 +154,7 @@ fn nobody_can_execute_before_interval(
     )
     .unwrap_err();
 
-    assert_eq!(res, ContractError::ExecutionInFuture(1100));
+    assert_eq!(res, ContractError::ExecutionInFuture(1000 + HOUR * 6));
 }
 
 fn user_can_manually_execute_any_time(
@@ -179,7 +180,7 @@ fn finish(
     deps.querier.bank_querier.update_balance(MOCK_CONTRACT_ADDR, coins(100, CONTRACT_DENOM));
     execute(
         deps.as_mut(),
-        mock_env_at_timestamp(1000),
+        mock_env_at_timestamp(DAY),
         mock_info(MOCK_CONTRACT_ADDR, &[]),
         ExecuteMsg::Callback(finish_execution.into_callback_wrapper(1, &Addr::unchecked("user"))),
     )

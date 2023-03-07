@@ -1,6 +1,9 @@
 use cosmwasm_std::testing::mock_info;
-use eris::ampz::{
-    ExecuteMsg, Execution, ExecutionDetail, ExecutionsResponse, Schedule, UserInfoResponse,
+use eris::{
+    ampz::{
+        ExecuteMsg, Execution, ExecutionDetail, ExecutionsResponse, Schedule, UserInfoResponse,
+    },
+    constants::{DAY, HOUR},
 };
 
 use crate::contract::execute;
@@ -16,7 +19,7 @@ fn check_query_user_info() {
     let execution1 = Execution {
         destination: eris::ampz::DestinationState::DepositAmplifier {},
         schedule: Schedule {
-            interval_s: 10,
+            interval_s: 8 * HOUR,
             start: None,
         },
         user: "user".into(),
@@ -25,7 +28,7 @@ fn check_query_user_info() {
 
     execute(
         deps.as_mut(),
-        mock_env_at_timestamp(1000),
+        mock_env_at_timestamp(DAY),
         mock_info("user", &[]),
         ExecuteMsg::AddExecution {
             overwrite: false,
@@ -37,8 +40,8 @@ fn check_query_user_info() {
     let execution2 = Execution {
         destination: eris::ampz::DestinationState::DepositAmplifier {},
         schedule: Schedule {
-            interval_s: 10,
-            start: Some(1500),
+            interval_s: 10 * HOUR,
+            start: Some(2 * DAY),
         },
         user: "user".into(),
         source: eris::ampz::Source::AstroRewards {
@@ -65,7 +68,7 @@ fn check_query_user_info() {
         eris::ampz::QueryMsg::UserInfo {
             user: "user".into(),
         },
-        1005,
+        DAY + 1,
     );
     assert_eq!(
         res,
@@ -74,25 +77,25 @@ fn check_query_user_info() {
                 ExecutionDetail {
                     id: 1,
                     execution: execution1.clone(),
-                    last_execution: 1000 - 10,
+                    last_execution: DAY - 8 * HOUR,
                     can_execute: true
                 },
                 ExecutionDetail {
                     id: 2,
                     execution: execution2.clone(),
-                    last_execution: 1500 - 10,
+                    last_execution: 2 * DAY - 10 * HOUR,
                     can_execute: false
                 },
                 ExecutionDetail {
                     id: 3,
                     execution: execution3.clone(),
-                    last_execution: 1000 - 100,
+                    last_execution: DAY - 6 * HOUR,
                     can_execute: true
                 },
                 ExecutionDetail {
                     id: 4,
                     execution: execution4.clone(),
-                    last_execution: 1000 - 100,
+                    last_execution: DAY - 6 * HOUR,
                     can_execute: true
                 },
             ]
@@ -104,7 +107,7 @@ fn check_query_user_info() {
         eris::ampz::QueryMsg::UserInfo {
             user: "user".into(),
         },
-        1501,
+        2 * DAY + 1,
     );
     assert_eq!(
         res,
@@ -113,25 +116,25 @@ fn check_query_user_info() {
                 ExecutionDetail {
                     id: 1,
                     execution: execution1,
-                    last_execution: 1000 - 10,
+                    last_execution: DAY - 8 * HOUR,
                     can_execute: true
                 },
                 ExecutionDetail {
                     id: 2,
                     execution: execution2,
-                    last_execution: 1500 - 10,
+                    last_execution: 2 * DAY - 10 * HOUR,
                     can_execute: true
                 },
                 ExecutionDetail {
                     id: 3,
                     execution: execution3,
-                    last_execution: 1000 - 100,
+                    last_execution: DAY - 6 * HOUR,
                     can_execute: true
                 },
                 ExecutionDetail {
                     id: 4,
                     execution: execution4,
-                    last_execution: 1000 - 100,
+                    last_execution: DAY - 6 * HOUR,
                     can_execute: true
                 },
             ]
@@ -149,7 +152,7 @@ fn check_query_executions() {
     let execution1 = Execution {
         destination: eris::ampz::DestinationState::DepositAmplifier {},
         schedule: Schedule {
-            interval_s: 10,
+            interval_s: 6 * HOUR,
             start: None,
         },
         user: "user".into(),
@@ -157,7 +160,7 @@ fn check_query_executions() {
     };
     execute(
         deps.as_mut(),
-        mock_env_at_timestamp(1000),
+        mock_env_at_timestamp(DAY),
         mock_info("user", &[]),
         ExecuteMsg::AddExecution {
             overwrite: false,
@@ -172,8 +175,8 @@ fn check_query_executions() {
     let execution2 = Execution {
         destination: eris::ampz::DestinationState::DepositAmplifier {},
         schedule: Schedule {
-            interval_s: 10,
-            start: Some(1500),
+            interval_s: 6 * HOUR,
+            start: Some(2 * DAY),
         },
         user: "other_user".into(),
         source: eris::ampz::Source::AstroRewards {
@@ -182,7 +185,7 @@ fn check_query_executions() {
     };
     execute(
         deps.as_mut(),
-        mock_env_at_timestamp(1005),
+        mock_env_at_timestamp(DAY),
         mock_info("other_user", &[]),
         ExecuteMsg::AddExecution {
             overwrite: false,

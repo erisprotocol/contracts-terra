@@ -1,7 +1,8 @@
-use std::vec;
+use std::{cmp, vec};
 
 use astroport::asset::native_asset_info;
 use cosmwasm_std::{attr, Attribute, DepsMut, Env, MessageInfo, Response};
+use eris::constants::HOUR;
 
 use crate::constants::CONTRACT_DENOM;
 use crate::error::{ContractError, ContractResult};
@@ -18,6 +19,10 @@ pub fn add_execution(
 ) -> ContractResult {
     if execution.user != info.sender {
         return Err(ContractError::MustBeSameUser {});
+    }
+
+    if execution.schedule.interval_s < 6 * HOUR {
+        return Err(ContractError::IntervalTooShort {});
     }
 
     let state = State::default();
@@ -83,12 +88,12 @@ pub fn add_execution(
     state.executions.save(deps.storage, new_id, &execution)?;
 
     // subbing the interval from the start allows the first execution to be on the start time.
-    let initial_execution = execution
-        .schedule
-        .start
-        .unwrap_or_else(|| env.block.time.seconds())
-        // can't go below epoch start
-        .saturating_sub(execution.schedule.interval_s);
+    let initial_execution = cmp::max(
+        execution.schedule.start.unwrap_or_else(|| env.block.time.seconds()),
+        env.block.time.seconds(),
+    )
+    // can't go below epoch start
+    .saturating_sub(execution.schedule.interval_s);
 
     state.last_execution.save(deps.storage, new_id, &initial_execution)?;
 

@@ -9,6 +9,7 @@ use cosmwasm_std::{
     OwnedDeps, QuerierResult, Response, StdError, SystemError, SystemResult, Timestamp, Uint128,
     Validator,
 };
+use eris::constants::{DAY, HOUR};
 use serde::de::DeserializeOwned;
 
 use eris::ampz::{
@@ -138,7 +139,7 @@ pub(super) fn setup_test() -> OwnedDeps<MockStorage, MockApi, CustomQuerier> {
 pub(super) fn add_default_execution(
     deps: &mut OwnedDeps<cosmwasm_std::MemoryStorage, MockApi, CustomQuerier>,
 ) -> (u128, Execution) {
-    let interval_s = 100;
+    let interval_s = 6 * HOUR;
     let execution = Execution {
         destination: eris::ampz::DestinationState::DepositAmplifier {},
         schedule: Schedule {
@@ -155,7 +156,7 @@ pub(super) fn add_default_execution(
 
     let res = execute(
         deps.as_mut(),
-        mock_env_at_timestamp(1000),
+        mock_env_at_timestamp(DAY),
         mock_info("user", &[]),
         ExecuteMsg::AddExecution {
             overwrite: false,

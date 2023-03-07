@@ -31,6 +31,10 @@ pub fn update_config(
             state.assert_owner(deps.storage, &info.sender)?;
 
             if let Some(add_farms) = add_farms {
+                if remove_farms.is_some() {
+                    return Err(ContractError::CannotAddAndRemoveFarms {});
+                }
+
                 let add_farms: Vec<Farm> = add_farms
                     .into_iter()
                     .map(|a| Ok(Farm(deps.api.addr_validate(a.as_str())?)))

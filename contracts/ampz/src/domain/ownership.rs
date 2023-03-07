@@ -7,6 +7,12 @@ pub fn transfer_ownership(deps: DepsMut, sender: Addr, new_owner: String) -> Con
     let state = State::default();
 
     state.assert_owner(deps.storage, &sender)?;
+
+    if new_owner == sender {
+        // sender is the current owner due to assert_owner
+        return Err(ContractError::NewOwnerMustBeDifferent {});
+    }
+
     state.new_owner.save(deps.storage, &deps.api.addr_validate(&new_owner)?)?;
 
     Ok(Response::new().add_attribute("action", "ampz/transfer_ownership"))
@@ -38,5 +44,5 @@ pub fn accept_ownership(deps: DepsMut, sender: Addr) -> ContractResult {
         .add_attribute("new_owner", new_owner)
         .add_attribute("previous_owner", previous_owner);
 
-    Ok(Response::new().add_event(event).add_attribute("action", "ampz/transfer_ownership"))
+    Ok(Response::new().add_event(event).add_attribute("action", "ampz/accept_ownership"))
 }

@@ -48,12 +48,84 @@ fn check_default_config() {
 fn check_update_config() {
     let mut deps = setup_test();
     // update all elements
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info("owner", &[]),
+        ExecuteMsg::UpdateConfig {
+            add_farms: Some(vec!["added".into()]),
+            remove_farms: Some(vec!["farm1".into()]),
+            controller: Some("new_controller".into()),
+            zapper: Some("new_zapper".into()),
+
+            astroport: Some(AstroportConfig {
+                generator: "new_generator".into(),
+                coins: vec![],
+            }),
+            fee: Some(FeeConfig {
+                fee_bps: 10u16.try_into().unwrap(),
+                operator_bps: 20u16.try_into().unwrap(),
+                receiver: "new_fee_receiver".into(),
+            }),
+            hub: Some("new_hub".into()),
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(res, ContractError::CannotAddAndRemoveFarms {});
+
     execute(
         deps.as_mut(),
         mock_env_at_timestamp(1000),
         mock_info("owner", &[]),
         ExecuteMsg::UpdateConfig {
             add_farms: Some(vec!["added".into()]),
+            remove_farms: None,
+            controller: Some("new_controller".into()),
+            zapper: Some("new_zapper".into()),
+
+            astroport: Some(AstroportConfig {
+                generator: "new_generator".into(),
+                coins: vec![],
+            }),
+            fee: Some(FeeConfig {
+                fee_bps: 10u16.try_into().unwrap(),
+                operator_bps: 20u16.try_into().unwrap(),
+                receiver: "new_fee_receiver".into(),
+            }),
+            hub: Some("new_hub".into()),
+        },
+    )
+    .unwrap();
+
+    let res: ConfigResponse = query_helper(deps.as_ref(), QueryMsg::Config {});
+    assert_eq!(
+        res,
+        ConfigResponse {
+            owner: "owner".to_string(),
+            new_owner: None,
+            hub: "new_hub".to_string(),
+            farms: vec!["farm1".into(), "farm2".into(), "added".into()],
+            controller: "new_controller".into(),
+            zapper: "new_zapper".into(),
+            astroport: AstroportConfig {
+                generator: "new_generator".into(),
+                coins: vec![]
+            },
+            fee: FeeConfig {
+                fee_bps: 10u16.try_into().unwrap(),
+                operator_bps: 20u16.try_into().unwrap(),
+                receiver: "new_fee_receiver".into()
+            }
+        }
+    );
+
+    execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info("owner", &[]),
+        ExecuteMsg::UpdateConfig {
+            add_farms: None,
             remove_farms: Some(vec!["farm1".into()]),
             controller: Some("new_controller".into()),
             zapper: Some("new_zapper".into()),
