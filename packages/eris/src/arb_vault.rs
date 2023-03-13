@@ -159,6 +159,9 @@ pub enum ExecuteMsg {
         unbond_time_s: Option<u64>,
         lsds: Option<Vec<LsdConfig<String>>>,
         fee_config: Option<FeeConfig<String>>,
+        set_whitelist: Option<Vec<String>>,
+        // opens up executions so anyone can execute.
+        remove_whitelist: Option<bool>,
     },
 
     // Bot: Execute arbitrage

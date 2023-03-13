@@ -278,6 +278,8 @@ fn update_config() {
         unbond_time_s: Some(10u64),
         lsds: None,
         fee_config: None,
+        set_whitelist: None,
+        remove_whitelist: None,
     };
 
     let res =
@@ -321,6 +323,8 @@ fn update_config() {
         unbond_time_s: None,
         lsds: None,
         fee_config: None,
+        remove_whitelist: None,
+        set_whitelist: None
     };
 
     let _res = execute(deps.as_mut(), mock_env(), mock_info("owner", &[]), upd_msg).unwrap();

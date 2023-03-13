@@ -120,6 +120,9 @@ pub enum ContractError {
 
     #[error("Ownership proposal expired")]
     OwnershipProposalExpired {},
+
+    #[error("Either set or remove the whitelist")]
+    CannotRemoveWhitelistWhileSettingIt {},
 }
 
 pub fn adapter_error(adapter: &str, msg: &str, orig: StdError) -> ContractError {

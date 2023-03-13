@@ -18,6 +18,8 @@ pub fn execute_update_config(
             unbond_time_s,
             lsds: update_lsds,
             fee_config,
+            remove_whitelist,
+            set_whitelist,
         } => {
             let state = State::default();
             state.assert_owner(deps.storage, &info.sender)?;
@@ -50,6 +52,25 @@ pub fn execute_update_config(
 
             if let Some(fee_config) = fee_config {
                 state.fee_config.save(deps.storage, &fee_config.validate(deps.api)?)?;
+            }
+
+            if let Some(set_whitelist) = set_whitelist {
+                let validated_whitelist = set_whitelist
+                    .into_iter()
+                    .map(|a| deps.api.addr_validate(&a))
+                    .collect::<StdResult<Vec<Addr>>>()?;
+
+                state.whitelisted_addrs.save(deps.storage, &validated_whitelist)?;
+
+                if remove_whitelist.is_some() {
+                    Err(ContractError::CannotRemoveWhitelistWhileSettingIt {})?;
+                }
+            }
+
+            if let Some(remove_whitelist) = remove_whitelist {
+                if remove_whitelist {
+                    state.whitelisted_addrs.remove(deps.storage);
+                }
             }
 
             Ok(Response::new().add_attribute("action", "update_config"))
