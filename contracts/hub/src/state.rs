@@ -1,5 +1,5 @@
-use cosmwasm_std::{Addr, Coin, Storage};
-use cw_storage_plus::{Index, IndexList, IndexedMap, Item, MultiIndex};
+use cosmwasm_std::{Addr, Coin, Decimal, Storage};
+use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 
 use eris::hub::{
     Batch, DelegationStrategy, FeeConfig, PendingBatch, UnbondRequest, WantedDelegationsShare,
@@ -39,6 +39,8 @@ pub(crate) struct State<'a> {
     pub vote_operator: Item<'a, Addr>,
     /// Specifies wether the contract allows donations
     pub allow_donations: Item<'a, bool>,
+    // history of the exchange_rate
+    pub exchange_history: Map<'a, u64, Decimal>,
 }
 
 impl Default for State<'static> {
@@ -73,6 +75,7 @@ impl Default for State<'static> {
             delegation_goal: Item::new("delegation_goal"),
             vote_operator: Item::new("vote_operator"),
             allow_donations: Item::new("allow_donations"),
+            exchange_history: Map::new("exchange_history"),
         }
     }
 }

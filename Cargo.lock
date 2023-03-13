@@ -945,7 +945,7 @@ dependencies = [
 
 [[package]]
 name = "eris-gov-amp-gauges"
-version = "1.3.0"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "astroport 2.0.0 (git+https://github.com/astroport-fi/astroport-core.git?rev=bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62)",
@@ -971,7 +971,33 @@ dependencies = [
 
 [[package]]
 name = "eris-gov-emp-gauges"
-version = "1.3.0"
+version = "1.4.0"
+dependencies = [
+ "anyhow",
+ "astroport 2.0.0 (git+https://github.com/astroport-fi/astroport-core.git?rev=bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62)",
+ "astroport-factory",
+ "astroport-generator",
+ "astroport-pair",
+ "astroport-staking",
+ "astroport-token",
+ "astroport-whitelist",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-multi-test 0.13.2",
+ "cw-storage-plus 0.13.2",
+ "cw2 0.13.2",
+ "cw20 0.13.2",
+ "eris",
+ "eris-gov-voting-escrow",
+ "eris-tests",
+ "itertools",
+ "proptest 1.0.0",
+ "thiserror",
+]
+
+[[package]]
+name = "eris-gov-prop-gauges"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "astroport 2.0.0 (git+https://github.com/astroport-fi/astroport-core.git?rev=bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62)",
@@ -1061,7 +1087,7 @@ dependencies = [
 
 [[package]]
 name = "eris-staking-hub"
-version = "1.4.1"
+version = "1.5.0"
 dependencies = [
  "anyhow",
  "cosmwasm-schema",
