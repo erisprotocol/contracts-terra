@@ -276,13 +276,19 @@ pub enum QueryMsg {
 
     #[returns(ExecutionsResponse)]
     Executions {
-        start_after: Option<u128>,
+        start_after: Option<Uint128>,
+        limit: Option<u32>,
+    },
+
+    #[returns(ExecutionsScheduleResponse)]
+    ExecutionsSchedule {
+        start_after: Option<Uint128>,
         limit: Option<u32>,
     },
 
     #[returns(ExecutionResponse)]
     Execution {
-        id: u128,
+        id: Uint128,
     },
 }
 
@@ -309,7 +315,7 @@ pub struct ConfigResponse {
 
 #[cw_serde]
 pub struct StateResponse {
-    pub next_id: u128,
+    pub next_id: Uint128,
 }
 
 #[cw_serde]
@@ -319,7 +325,13 @@ pub struct UserInfoResponse {
 
 #[cw_serde]
 pub struct ExecutionsResponse {
-    pub executions: Vec<(u128, Execution)>,
+    pub executions: Vec<(Uint128, Execution)>,
+}
+
+#[cw_serde]
+pub struct ExecutionsScheduleResponse {
+    // (id, last_execution, interval_s)
+    pub executions: Vec<ExecutionSchedule>,
 }
 
 #[cw_serde]
@@ -329,10 +341,17 @@ pub struct ExecutionResponse {
 
 #[cw_serde]
 pub struct ExecutionDetail {
-    pub id: u128,
+    pub id: Uint128,
     pub execution: Execution,
     pub last_execution: u64,
     pub can_execute: bool,
+}
+
+#[cw_serde]
+pub struct ExecutionSchedule {
+    pub id: Uint128,
+    pub last_execution: u64,
+    pub interval_s: u64,
 }
 
 #[cw_serde]

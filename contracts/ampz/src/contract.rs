@@ -92,6 +92,10 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             limit,
             start_after,
         } => to_binary(&queries::executions(deps, start_after, limit)?),
+        QueryMsg::ExecutionsSchedule {
+            limit,
+            start_after,
+        } => to_binary(&queries::executions_schedule(deps, start_after, limit)?),
         QueryMsg::Execution {
             id,
         } => to_binary(&queries::execution(deps, env, id)?),

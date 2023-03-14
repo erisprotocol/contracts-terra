@@ -1,4 +1,4 @@
-use cosmwasm_std::testing::mock_info;
+use cosmwasm_std::{testing::mock_info, Uint128};
 use eris::{
     ampz::{
         ExecuteMsg, Execution, ExecutionDetail, ExecutionsResponse, Schedule, UserInfoResponse,
@@ -252,7 +252,7 @@ fn get_executions(
     let executions: ExecutionsResponse = query_helper(
         deps.as_ref(),
         eris::ampz::QueryMsg::Executions {
-            start_after,
+            start_after: start_after.map(Uint128::new),
             limit,
         },
     );
