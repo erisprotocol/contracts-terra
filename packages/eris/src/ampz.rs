@@ -96,7 +96,7 @@ impl AstroportConfig<String> {
 #[cw_serde]
 pub enum ExecuteMsg {
     Execute {
-        id: u128,
+        id: Uint128,
     },
 
     // being executed via authz
@@ -109,7 +109,7 @@ pub enum ExecuteMsg {
         execution: Execution,
     },
     RemoveExecutions {
-        ids: Option<Vec<u128>>,
+        ids: Option<Vec<Uint128>>,
     },
 
     /// The callback of type [`CallbackMsg`]

@@ -1,4 +1,4 @@
-use cosmwasm_std::{attr, testing::mock_info};
+use cosmwasm_std::{attr, testing::mock_info, Uint128};
 
 use crate::{contract::execute, error::ContractError};
 
@@ -27,7 +27,7 @@ fn check_execution_remove() {
         mock_env_at_timestamp(1000),
         mock_info("attacker", &[]),
         eris::ampz::ExecuteMsg::RemoveExecutions {
-            ids: Some(vec![id]),
+            ids: Some(vec![Uint128::new(id)]),
         },
     )
     .unwrap_err();
@@ -39,7 +39,7 @@ fn check_execution_remove() {
         mock_env_at_timestamp(1000),
         mock_info("user", &[]),
         eris::ampz::ExecuteMsg::RemoveExecutions {
-            ids: Some(vec![id]),
+            ids: Some(vec![Uint128::new(id)]),
         },
     )
     .unwrap();

@@ -31,7 +31,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> C
     match msg {
         ExecuteMsg::Execute {
             id,
-        } => crate::domain::execute::execute_id(deps, env, info, id),
+        } => crate::domain::execute::execute_id(deps, env, info, id.u128()),
         ExecuteMsg::AddExecution {
             execution,
             overwrite,

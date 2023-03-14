@@ -37,7 +37,7 @@ pub fn state(deps: Deps) -> StdResult<StateResponse> {
     let state = State::default();
 
     Ok(StateResponse {
-        next_id: state.id.load(deps.storage)?,
+        next_id: state.id.load(deps.storage).map(Uint128::new)?,
     })
 }
 
@@ -78,7 +78,7 @@ pub fn execution(deps: Deps, env: Env, id: Uint128) -> StdResult<ExecutionRespon
 
     Ok(ExecutionResponse {
         detail: ExecutionDetail {
-            id: id.into(),
+            id,
             execution,
             last_execution,
             can_execute,
