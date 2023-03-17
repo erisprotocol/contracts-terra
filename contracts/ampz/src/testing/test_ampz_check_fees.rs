@@ -26,7 +26,7 @@ fn controller_executes_receives_no_fee() {
         mock_env_at_timestamp(DAY),
         mock_info("controller", &[]),
         ExecuteMsg::Execute {
-            id: 1,
+            id: Uint128::new(1),
         },
     )
     .unwrap();
@@ -67,7 +67,7 @@ fn user_executes_no_controller_fee() {
         mock_env_at_timestamp(1000),
         mock_info("user", &[]),
         ExecuteMsg::Execute {
-            id: 1,
+            id: Uint128::new(1),
         },
     )
     .unwrap();
@@ -105,7 +105,7 @@ fn anyone_executes_multiple_fee() {
         mock_env_at_timestamp(DAY),
         mock_info("anyone", &[]),
         ExecuteMsg::Execute {
-            id: 1,
+            id: Uint128::new(1),
         },
     )
     .unwrap();

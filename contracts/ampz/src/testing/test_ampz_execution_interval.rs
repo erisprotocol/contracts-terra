@@ -72,7 +72,7 @@ fn controller_executes(
         mock_env_at_timestamp(DAY),
         mock_info("controller", &[]),
         ExecuteMsg::Execute {
-            id: 1,
+            id: Uint128::new(1),
         },
     )
     .unwrap();
@@ -123,7 +123,7 @@ fn anyone_can_execute_after_interval(
         mock_env_at_timestamp(1000 + interval_s),
         mock_info("anyone", &[]),
         ExecuteMsg::Execute {
-            id: 1,
+            id: Uint128::new(1),
         },
     )
     .unwrap();
@@ -137,7 +137,7 @@ fn nobody_can_execute_before_interval(
         mock_env_at_timestamp(1000),
         mock_info("nobody", &[]),
         ExecuteMsg::Execute {
-            id: 1,
+            id: Uint128::new(1),
         },
     )
     .unwrap_err();
@@ -149,7 +149,7 @@ fn nobody_can_execute_before_interval(
         mock_env_at_timestamp(1000 + HOUR * 6 - 1),
         mock_info("controller", &[]),
         ExecuteMsg::Execute {
-            id: 1,
+            id: Uint128::new(1),
         },
     )
     .unwrap_err();
@@ -166,7 +166,7 @@ fn user_can_manually_execute_any_time(
         mock_env_at_timestamp(1000),
         mock_info("user", &[]),
         ExecuteMsg::Execute {
-            id: 1,
+            id: Uint128::new(1),
         },
     )
     .unwrap();

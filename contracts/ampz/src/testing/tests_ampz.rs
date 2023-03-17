@@ -27,7 +27,7 @@ fn proper_instantiation() {
     assert_eq!(
         res,
         StateResponse {
-            next_id: 1
+            next_id: Uint128::new(1)
         },
     );
 }
@@ -76,13 +76,13 @@ fn setup_execution() {
     let res = query_helper::<ExecutionResponse>(
         deps.as_ref(),
         QueryMsg::Execution {
-            id: 1,
+            id: Uint128::new(1),
         },
     );
     assert_eq!(
         res.detail,
         ExecutionDetail {
-            id: 1,
+            id: Uint128::new(1),
             execution: execution.clone(),
             last_execution: DAY - 6 * HOUR,
             can_execute: true
@@ -108,7 +108,7 @@ fn setup_execution() {
     let err = query_helper_fail(
         deps.as_ref(),
         QueryMsg::Execution {
-            id: 1,
+            id: Uint128::new(1),
         },
     );
     assert_eq!(err.to_string(), "eris::ampz::Execution not found".to_string());
@@ -116,14 +116,14 @@ fn setup_execution() {
     let res = query_helper::<ExecutionResponse>(
         deps.as_ref(),
         QueryMsg::Execution {
-            id: 2,
+            id: Uint128::new(2),
         },
     );
 
     assert_eq!(
         res.detail,
         ExecutionDetail {
-            id: 2,
+            id: Uint128::new(2),
             execution,
             last_execution: DAY * 2 - 6 * HOUR,
             can_execute: true
@@ -206,13 +206,13 @@ fn setup_execution_farm() {
     let res = query_helper::<ExecutionResponse>(
         deps.as_ref(),
         QueryMsg::Execution {
-            id: 1,
+            id: Uint128::new(1),
         },
     );
     assert_eq!(
         res.detail,
         ExecutionDetail {
-            id: 1,
+            id: Uint128::new(1),
             execution,
             last_execution: DAY - 6 * HOUR,
             can_execute: true

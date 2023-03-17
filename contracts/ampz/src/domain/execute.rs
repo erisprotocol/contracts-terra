@@ -172,8 +172,10 @@ pub fn execute_id(deps: DepsMut, env: Env, info: MessageInfo, id: u128) -> Contr
         .into_cosmos_msg(&env.contract.address, id, &user)?,
     );
 
+    let next_execution = env.block.time.seconds() + execution.schedule.interval_s;
     Ok(Response::new()
         .add_attribute("action", "ampz/execute_id")
         .add_attribute("id", id.to_string())
+        .add_attribute("next_execution", next_execution.to_string())
         .add_messages(msgs))
 }

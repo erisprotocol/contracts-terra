@@ -31,7 +31,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> C
     match msg {
         ExecuteMsg::Execute {
             id,
-        } => crate::domain::execute::execute_id(deps, env, info, id),
+        } => crate::domain::execute::execute_id(deps, env, info, id.u128()),
         ExecuteMsg::AddExecution {
             execution,
             overwrite,
@@ -92,6 +92,10 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             limit,
             start_after,
         } => to_binary(&queries::executions(deps, start_after, limit)?),
+        QueryMsg::ExecutionsSchedule {
+            limit,
+            start_after,
+        } => to_binary(&queries::executions_schedule(deps, start_after, limit)?),
         QueryMsg::Execution {
             id,
         } => to_binary(&queries::execution(deps, env, id)?),

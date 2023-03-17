@@ -1,6 +1,6 @@
 [package]
 name = "eris-compound-proxy"
-version = "1.4.0"
+version = "1.6.0"
 authors = ["Spectrum", "Eris"]
 edition = "2021"
 description = "Proxy contract to perform auto-compound"
@@ -25,7 +25,8 @@ backtraces = ["cosmwasm-std/backtraces"]
 integer-sqrt = "0.1.5"
 eris = { path = "../../../packages/eris" }
 astroport = { git = "https://github.com/astroport-fi/astroport-core.git", default-features = false, rev = "bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62" }
-cw20 = { version = "0.13.2" }
+cw2 = "0.13.2"
+cw20 = "0.13.2"
 cosmwasm-std = "1.1"
 cosmwasm-schema = "1.1"
 cw-storage-plus = { version = "0.13.2" }

@@ -1,4 +1,4 @@
-use cosmwasm_std::testing::mock_info;
+use cosmwasm_std::{testing::mock_info, Uint128};
 use eris::{
     ampz::{
         ExecuteMsg, Execution, ExecutionDetail, ExecutionsResponse, Schedule, UserInfoResponse,
@@ -75,25 +75,25 @@ fn check_query_user_info() {
         UserInfoResponse {
             executions: vec![
                 ExecutionDetail {
-                    id: 1,
+                    id: Uint128::new(1),
                     execution: execution1.clone(),
                     last_execution: DAY - 8 * HOUR,
                     can_execute: true
                 },
                 ExecutionDetail {
-                    id: 2,
+                    id: Uint128::new(2),
                     execution: execution2.clone(),
                     last_execution: 2 * DAY - 10 * HOUR,
                     can_execute: false
                 },
                 ExecutionDetail {
-                    id: 3,
+                    id: Uint128::new(3),
                     execution: execution3.clone(),
                     last_execution: DAY - 6 * HOUR,
                     can_execute: true
                 },
                 ExecutionDetail {
-                    id: 4,
+                    id: Uint128::new(4),
                     execution: execution4.clone(),
                     last_execution: DAY - 6 * HOUR,
                     can_execute: true
@@ -114,25 +114,25 @@ fn check_query_user_info() {
         UserInfoResponse {
             executions: vec![
                 ExecutionDetail {
-                    id: 1,
+                    id: Uint128::new(1),
                     execution: execution1,
                     last_execution: DAY - 8 * HOUR,
                     can_execute: true
                 },
                 ExecutionDetail {
-                    id: 2,
+                    id: Uint128::new(2),
                     execution: execution2,
                     last_execution: 2 * DAY - 10 * HOUR,
                     can_execute: true
                 },
                 ExecutionDetail {
-                    id: 3,
+                    id: Uint128::new(3),
                     execution: execution3,
                     last_execution: DAY - 6 * HOUR,
                     can_execute: true
                 },
                 ExecutionDetail {
-                    id: 4,
+                    id: Uint128::new(4),
                     execution: execution4,
                     last_execution: DAY - 6 * HOUR,
                     can_execute: true
@@ -170,7 +170,7 @@ fn check_query_executions() {
     .unwrap();
 
     let executions = get_executions(&deps, None, None);
-    assert_eq!(executions.executions, vec![(1, execution1.clone())]);
+    assert_eq!(executions.executions, vec![(Uint128::new(1), execution1.clone())]);
 
     let execution2 = Execution {
         destination: eris::ampz::DestinationState::DepositAmplifier {},
@@ -195,7 +195,10 @@ fn check_query_executions() {
     .unwrap();
 
     let executions = get_executions(&deps, None, None);
-    assert_eq!(executions.executions, vec![(1, execution1), (2, execution2.clone())]);
+    assert_eq!(
+        executions.executions,
+        vec![(Uint128::new(1), execution1), (Uint128::new(2), execution2.clone())]
+    );
 
     let (_, execution3) = add_default_execution(&mut deps);
     let (_, execution4) = add_default_execution(&mut deps);
@@ -203,7 +206,11 @@ fn check_query_executions() {
     let executions = get_executions(&deps, Some(1), None);
     assert_eq!(
         executions.executions,
-        vec![(2, execution2.clone()), (3, execution3), (4, execution4.clone())]
+        vec![
+            (Uint128::new(2), execution2.clone()),
+            (Uint128::new(3), execution3),
+            (Uint128::new(4), execution4.clone())
+        ]
     );
 
     // remove 1,3 replace 2 with 5
@@ -212,7 +219,7 @@ fn check_query_executions() {
         mock_env_at_timestamp(1005),
         mock_info("user", &[]),
         ExecuteMsg::RemoveExecutions {
-            ids: Some(vec![1, 3]),
+            ids: Some(vec![Uint128::new(1), Uint128::new(3)]),
         },
     )
     .unwrap();
@@ -237,7 +244,10 @@ fn check_query_executions() {
     .unwrap();
 
     let executions = get_executions(&deps, Some(1), None);
-    assert_eq!(executions.executions, vec![(4, execution4), (5, execution2)]);
+    assert_eq!(
+        executions.executions,
+        vec![(Uint128::new(4), execution4), (Uint128::new(5), execution2)]
+    );
 }
 
 fn get_executions(
@@ -252,7 +262,7 @@ fn get_executions(
     let executions: ExecutionsResponse = query_helper(
         deps.as_ref(),
         eris::ampz::QueryMsg::Executions {
-            start_after,
+            start_after: start_after.map(Uint128::new),
             limit,
         },
     );

@@ -60,7 +60,7 @@ fn check_execution_source_claim_deposit_amplifier() {
         mock_env_at_timestamp(DAY),
         mock_info("controller", &[]),
         ExecuteMsg::Execute {
-            id: 1,
+            id: Uint128::new(1),
         },
     )
     .unwrap();
@@ -141,7 +141,7 @@ fn check_execution_source_wallet_native_deposit_amplifier() {
         mock_env_at_timestamp(DAY),
         mock_info("controller", &[]),
         ExecuteMsg::Execute {
-            id: 1,
+            id: Uint128::new(1),
         },
     )
     .unwrap_err();
@@ -155,7 +155,7 @@ fn check_execution_source_wallet_native_deposit_amplifier() {
         mock_env_at_timestamp(DAY),
         mock_info("controller", &[]),
         ExecuteMsg::Execute {
-            id: 1,
+            id: Uint128::new(1),
         },
     )
     .unwrap();
@@ -218,7 +218,7 @@ fn check_execution_source_wallet_cw20_deposit_amplifier() {
         mock_env_at_timestamp(DAY),
         mock_info("controller", &[]),
         ExecuteMsg::Execute {
-            id: 1,
+            id: Uint128::new(1),
         },
     )
     .unwrap_err();
@@ -232,7 +232,7 @@ fn check_execution_source_wallet_cw20_deposit_amplifier() {
         mock_env_at_timestamp(DAY),
         mock_info("controller", &[]),
         ExecuteMsg::Execute {
-            id: 1,
+            id: Uint128::new(1),
         },
     )
     .unwrap();
@@ -313,7 +313,7 @@ fn check_execution_source_astro_deposit_amplifier() {
         mock_env_at_timestamp(DAY),
         mock_info("controller", &[]),
         ExecuteMsg::Execute {
-            id: 1,
+            id: Uint128::new(1),
         },
     )
     .unwrap();

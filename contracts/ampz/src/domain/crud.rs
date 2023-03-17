@@ -1,7 +1,7 @@
 use std::{cmp, vec};
 
 use astroport::asset::native_asset_info;
-use cosmwasm_std::{attr, Attribute, DepsMut, Env, MessageInfo, Response};
+use cosmwasm_std::{attr, Attribute, DepsMut, Env, MessageInfo, Response, Uint128};
 use eris::constants::HOUR;
 
 use crate::constants::CONTRACT_DENOM;
@@ -144,7 +144,7 @@ pub fn remove_executions(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
-    ids: Option<Vec<u128>>,
+    ids: Option<Vec<Uint128>>,
 ) -> ContractResult {
     let state = State::default();
 
@@ -153,14 +153,14 @@ pub fn remove_executions(
     if let Some(ids) = ids {
         // if ids specified remove all ids
         for id in ids {
-            let execution = state.get_by_id(deps.storage, id)?;
+            let execution = state.get_by_id(deps.storage, id.u128())?;
 
             if execution.user != info.sender {
                 return Err(ContractError::MustBeSameUser {});
             }
 
-            state.executions.remove(deps.storage, id)?;
-            state.last_execution.remove(deps.storage, id);
+            state.executions.remove(deps.storage, id.u128())?;
+            state.last_execution.remove(deps.storage, id.u128());
 
             let source = execution.source.try_get_uniq_key();
             if let Some(source) = source {
