@@ -33,6 +33,7 @@ impl LsdGroup {
             .iter_mut()
             .map(|c| {
                 Ok(ClaimBalance {
+                    name: c.get_name().to_string(),
                     withdrawable: c.query_withdrawable(deps)?,
                     unbonding: c.query_unbonding(deps)?,
                 })

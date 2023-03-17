@@ -1,6 +1,6 @@
 use crate::{domain::ownership::OwnershipProposal, error::ContractError};
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Decimal, StdResult, Storage, Uint128};
+use cosmwasm_std::{Addr, Api, Decimal, StdResult, Storage, Uint128};
 use cw_storage_plus::{Item, Map};
 use eris::arb_vault::{ExchangeHistory, ValidatedConfig, ValidatedFeeConfig};
 
@@ -103,9 +103,11 @@ impl<'a> State<'a> {
             if !(whitelisted.contains(sender)) {
                 Err(ContractError::UnauthorizedNotWhitelisted {})
             } else {
+                // is on whitelist
                 Ok(())
             }
         } else {
+            // no whitelist -> anyone is allowed to execute
             Ok(())
         }
     }
@@ -138,6 +140,21 @@ impl<'a> State<'a> {
         self.unbond_history.save(store, (sender_addr, id), &element)?;
         self.unbond_id.save(store, &(id + 1))?;
 
+        Ok(())
+    }
+
+    pub(crate) fn update_whitelist(
+        &self,
+        store: &mut dyn Storage,
+        api: &dyn Api,
+        set_whitelist: Vec<String>,
+    ) -> Result<(), ContractError> {
+        let validated_whitelist = set_whitelist
+            .into_iter()
+            .map(|a| api.addr_validate(&a))
+            .collect::<StdResult<Vec<Addr>>>()?;
+
+        self.whitelisted_addrs.save(store, &validated_whitelist)?;
         Ok(())
     }
 }

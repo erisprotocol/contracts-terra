@@ -32,12 +32,6 @@ pub enum ContractError {
     #[error("Withdrawable funds available. Execute withdraw before arbitrage.")]
     WithdrawBeforeExecute {},
 
-    #[error("Bot Address is not whitelisted")]
-    NotWhitelisted {},
-
-    #[error("Contract Address is not whitelisted")]
-    NotWhitelistedContract {},
-
     #[error("Not enough profit")]
     NotEnoughProfit {},
 
@@ -58,9 +52,6 @@ pub enum ContractError {
 
     #[error("Not enough assets available in the pool.")]
     NotEnoughAssetsInThePool {},
-
-    #[error("Some options provided are not known.")]
-    UnknownOptions {},
 
     // used
     #[error("Contract can't be migrated!")]

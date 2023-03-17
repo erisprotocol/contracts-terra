@@ -33,7 +33,11 @@ pub struct InstantiateMsg {
     // config for lsds
     pub lsds: Vec<LsdConfig<String>>,
 
+    // config for the fees
     pub fee_config: FeeConfig<String>,
+
+    // executors that are allowed to execute arbitrage
+    pub whitelist: Vec<String>,
 }
 
 #[cw_serde]
@@ -388,6 +392,7 @@ pub struct UserInfoResponse {
 
 #[cw_serde]
 pub struct ClaimBalance {
+    pub name: String,
     pub withdrawable: Uint128,
     pub unbonding: Uint128,
 }

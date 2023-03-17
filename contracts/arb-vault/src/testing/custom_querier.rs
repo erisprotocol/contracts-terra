@@ -1,9 +1,10 @@
 use std::collections::HashMap;
+use std::str::FromStr;
 
 use cosmwasm_std::testing::{BankQuerier, StakingQuerier, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Coin, Decimal, Empty, Querier, QuerierResult, QueryRequest,
-    SystemError, SystemResult, Timestamp, Uint128, WasmQuery,
+    coin, from_binary, from_slice, to_binary, Coin, Decimal, Empty, Querier, QuerierResult,
+    QueryRequest, SystemError, SystemResult, Timestamp, Uint128, WasmQuery,
 };
 use cw20::Cw20QueryMsg;
 use stader::state::UndelegationInfo;
@@ -19,6 +20,7 @@ pub(super) struct CustomQuerier {
     pub bank_querier: BankQuerier,
     pub staking_querier: StakingQuerier,
     pub unbonding_amount: Uint128,
+    pub unbonding_amount_eris: Option<Uint128>,
     pub withdrawable_amount: Uint128,
 }
 
@@ -63,6 +65,10 @@ impl CustomQuerier {
 
     pub fn with_unbonding(&mut self, amount: Uint128) {
         self.unbonding_amount = amount;
+    }
+
+    pub fn with_unbonding_eris(&mut self, amount: Uint128) {
+        self.unbonding_amount_eris = Some(amount);
     }
 
     pub fn with_withdrawable(&mut self, amount: Uint128) {
@@ -162,15 +168,15 @@ impl CustomQuerier {
                                 id,
                                 reconciled: id < 2,
                                 total_shares: Uint128::from(1000u128),
-                                uluna_unclaimed: Uint128::from(1000u128),
+                                uluna_unclaimed: Uint128::from(1100u128),
                                 est_unbond_end_time: 100,
                             })
                             .into(),
                         ),
                         eris::hub::QueryMsg::UnbondRequestsByUser {
                             ..
-                        } => SystemResult::Ok(
-                            to_binary(&vec![
+                        } => {
+                            let mut res = vec![
                                 eris::hub::UnbondRequestsByUserResponseItem {
                                     id: 1,
                                     shares: self.withdrawable_amount,
@@ -179,18 +185,26 @@ impl CustomQuerier {
                                     id: 2,
                                     shares: self.unbonding_amount,
                                 },
-                            ])
-                            .into(),
-                        ),
+                            ];
+
+                            if let Some(unbonding_amount_eris) = self.unbonding_amount_eris {
+                                res.push(eris::hub::UnbondRequestsByUserResponseItem {
+                                    id: 3,
+                                    shares: unbonding_amount_eris,
+                                })
+                            }
+
+                            SystemResult::Ok(to_binary(&res).into())
+                        },
                         eris::hub::QueryMsg::State {} => SystemResult::Ok(
                             to_binary(&eris::hub::StateResponse {
                                 total_ustake: Uint128::from(1000u128),
-                                total_uluna: Uint128::from(1000u128),
-                                exchange_rate: Decimal::one(),
+                                total_uluna: Uint128::from(1100u128),
+                                exchange_rate: Decimal::from_str("1.1").unwrap(),
                                 unlocked_coins: vec![],
-                                unbonding: self.unbonding_amount,
+                                unbonding: Uint128::new(0),
                                 available: Uint128::new(0),
-                                tvl_uluna: Uint128::new(1000),
+                                tvl_uluna: Uint128::new(1100),
                             })
                             .into(),
                         ),
@@ -303,5 +317,9 @@ impl CustomQuerier {
 
             _ => err_unsupported_query(request),
         }
+    }
+
+    pub(crate) fn set_bank_balance(&mut self, amount: u128) {
+        self.set_bank_balances(&[coin(amount, "utoken")]);
     }
 }

@@ -55,12 +55,7 @@ pub fn execute_update_config(
             }
 
             if let Some(set_whitelist) = set_whitelist {
-                let validated_whitelist = set_whitelist
-                    .into_iter()
-                    .map(|a| deps.api.addr_validate(&a))
-                    .collect::<StdResult<Vec<Addr>>>()?;
-
-                state.whitelisted_addrs.save(deps.storage, &validated_whitelist)?;
+                state.update_whitelist(deps.storage, deps.api, set_whitelist)?;
 
                 if remove_whitelist.is_some() {
                     Err(ContractError::CannotRemoveWhitelistWhileSettingIt {})?;

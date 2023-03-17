@@ -14,6 +14,7 @@ use cosmwasm_std::{
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 use eris::arb_vault::{CallbackMsg, Cw20HookMsg, ExecuteSubMsg, ValidatedConfig};
 use eris::CustomResponse;
+use itertools::Itertools;
 use std::vec;
 
 //----------------------------------------------------------------------------------------
@@ -218,15 +219,14 @@ pub fn execute_unbond_user(
         let withdraw_protocol_fee = withdraw_amount * fee_config.protocol_withdraw_fee;
         let receive_amount = withdraw_amount.checked_sub(withdraw_protocol_fee)?;
 
-        let total_lp_supply_after = total_lp_supply.checked_sub(lp_amount)?;
         Response::new().add_attributes(vec![
             attr("action", "arb/execute_unbond"),
             attr("from", sender),
-            attr("tvl_utoken", assets.tvl_utoken),
             attr("withdraw_amount", withdraw_amount),
             attr("receive_amount", receive_amount),
             attr("protocol_fee", withdraw_protocol_fee),
-            attr("new_total_supply", total_lp_supply_after),
+            attr("vault_total", assets.vault_total),
+            attr("total_supply", total_lp_supply),
             attr("unbond_time_s", config.unbond_time_s.to_string()),
         ])
     };
@@ -283,15 +283,13 @@ pub fn execute_withdraw_unbonded(deps: DepsMut, env: Env, info: MessageInfo) -> 
         .unbond_history
         .prefix(info.sender.clone())
         .range(deps.storage, None, None, Order::Ascending)
+        .filter_ok(|element| element.1.release_time <= current_time)
         .take(30)
         .collect::<StdResult<Vec<(u64, UnbondHistory)>>>()?;
 
     // check that something can be withdrawn
-    let withdraw_amount: Uint128 = unbond_history
-        .iter()
-        .filter(|element| element.1.release_time <= current_time)
-        .map(|element| element.1.amount_asset)
-        .sum();
+    let withdraw_amount: Uint128 =
+        unbond_history.iter().map(|element| element.1.amount_asset).sum();
 
     let response = create_withdraw_msgs(
         &deps.querier,

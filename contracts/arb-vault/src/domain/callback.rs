@@ -120,7 +120,9 @@ pub fn execute_assert_result(
     state.balance_checkpoint.remove(deps.storage);
 
     // we store the exchange rate daily to not create too much data.
-    let exchange_rate = Decimal::from_ratio(new_balances.vault_total, total_lp_supply);
+    let new_vault_total = new_balances.vault_total + xvalue - fee_amount;
+
+    let exchange_rate = Decimal::from_ratio(new_vault_total, total_lp_supply);
     state.exchange_history.save(
         deps.storage,
         env.block.time.seconds().div(DAY),
@@ -136,8 +138,8 @@ pub fn execute_assert_result(
         .add_attributes(vec![
             attr("action", "arb/assert_result"),
             attr("type", lsd_adapter.get_name()),
-            attr("old_value", old_value),
-            attr("new_value", new_value),
+            attr("old_tvl", old_value),
+            attr("new_tvl", new_value),
             attr("used_balance", used_balance),
             attr("xbalance", xbalance),
             attr("unbond_xamount", unbond_xamount),

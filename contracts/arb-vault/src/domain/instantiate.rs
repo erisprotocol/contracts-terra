@@ -41,6 +41,8 @@ pub fn instantiate(deps: DepsMut, env: Env, msg: InstantiateMsg) -> ContractResu
     state.unbond_id.save(deps.storage, &0)?;
     state.fee_config.save(deps.storage, &msg.fee_config.validate(deps.api)?)?;
 
+    state.update_whitelist(deps.storage, deps.api, msg.whitelist)?;
+
     state.balance_locked.save(
         deps.storage,
         &BalanceLocked {

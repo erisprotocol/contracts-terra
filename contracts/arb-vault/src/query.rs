@@ -85,7 +85,7 @@ pub fn query_unbond_requests(
 
                 Ok(UnbondItem {
                     id,
-                    released: item.release_time > current_time,
+                    released: item.release_time <= current_time,
                     start_time: item.start_time,
                     release_time: item.release_time,
                     amount_asset: item.amount_asset,
@@ -136,6 +136,10 @@ pub fn query_user_info(deps: Deps, env: Env, address: String) -> CustomResult<Us
 
     let lp_amount = token_asset_info(config.lp_addr).query_pool(&deps.querier, address)?;
     let utoken_amount = lp_amount.multiply_ratio(balances.vault_total, total_lp_supply);
+
+    // println!("lp_amount {0}", lp_amount);
+    // println!("total_lp_supply {0}", total_lp_supply);
+    // println!("balances {:?}", balances);
 
     Ok(UserInfoResponse {
         utoken_amount,
