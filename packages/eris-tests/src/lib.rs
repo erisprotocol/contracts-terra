@@ -1,3 +1,4 @@
+pub mod arb_contract;
 pub mod base;
 mod custom_gov;
 use std::str::FromStr;
@@ -48,6 +49,16 @@ pub fn mock_app_validators(validators: Option<u64>) -> App {
             router
                 .bank
                 .init_balance(storage, &Addr::unchecked("user2"), vec![coin(1000_000000, "uluna")])
+                .unwrap();
+
+            router
+                .bank
+                .init_balance(storage, &Addr::unchecked("user3"), vec![coin(1000_000000, "uluna")])
+                .unwrap();
+
+            router
+                .bank
+                .init_balance(storage, &Addr::unchecked("fake"), vec![coin(100000_000000, "uluna")])
                 .unwrap();
 
             router

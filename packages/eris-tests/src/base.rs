@@ -1,9 +1,14 @@
+use std::str::FromStr;
+
 use cosmwasm_schema::cw_serde;
 
 use cosmwasm_std::{attr, Addr, Decimal, StdResult, Uint128};
 use cw20::{BalanceResponse, Cw20QueryMsg, MinterResponse};
 
 use cw_multi_test::{App, ContractWrapper, Executor};
+use eris::arb_vault::LsdConfig;
+
+use crate::arb_contract;
 
 pub const MULTIPLIER: u64 = 1_000_000;
 
@@ -39,6 +44,7 @@ impl From<Option<ContractInfo>> for ContractInfoWrapper {
 pub struct BaseErisTestPackage {
     pub owner: Addr,
     pub token_id: Option<u64>,
+    pub ustake: Option<String>,
     pub hub: ContractInfoWrapper,
     pub voting_escrow: ContractInfoWrapper,
     pub emp_gauges: ContractInfoWrapper,
@@ -46,13 +52,15 @@ pub struct BaseErisTestPackage {
     pub prop_gauges: ContractInfoWrapper,
     pub amp_lp: ContractInfoWrapper,
     pub amp_token: ContractInfoWrapper,
+    pub arb_vault: ContractInfoWrapper,
+    pub arb_fake_contract: ContractInfoWrapper,
 }
 
 #[cw_serde]
 pub struct BaseErisTestInitMessage {
     pub owner: Addr,
 
-    pub use_default_hub: bool,
+    pub use_uniform_hub: bool,
 }
 
 impl BaseErisTestPackage {
@@ -67,6 +75,9 @@ impl BaseErisTestPackage {
             amp_gauges: None.into(),
             amp_token: None.into(),
             prop_gauges: None.into(),
+            arb_vault: None.into(),
+            arb_fake_contract: None.into(),
+            ustake: None,
         };
 
         base_pack.init_token(router, msg.owner.clone());
@@ -75,8 +86,10 @@ impl BaseErisTestPackage {
         base_pack.init_emp_gauges(router, msg.owner.clone());
         base_pack.init_amp_gauges(router, msg.owner.clone());
         base_pack.init_prop_gauges(router, msg.owner.clone());
+        base_pack.init_arb_vault(router, msg.owner.clone());
+        base_pack.init_arb_fake_contract(router, msg.owner.clone());
 
-        base_pack.init_hub_delegation_strategy(router, msg.owner, msg.use_default_hub);
+        base_pack.init_hub_delegation_strategy(router, msg.owner, msg.use_uniform_hub);
 
         base_pack
     }
@@ -277,13 +290,100 @@ impl BaseErisTestPackage {
         .into()
     }
 
+    fn init_arb_vault(&mut self, router: &mut App, owner: Addr) {
+        let contract = Box::new(
+            ContractWrapper::new_with_empty(
+                eris_arb_vault::contract::execute,
+                eris_arb_vault::contract::instantiate,
+                eris_arb_vault::contract::query,
+            )
+            .with_reply(eris_arb_vault::contract::reply),
+        );
+
+        let code_id = router.store_code(contract);
+        let hub_addr = self.hub.get_address();
+        let hub_config: eris::hub::ConfigResponse = router
+            .wrap()
+            .query_wasm_smart(hub_addr.clone(), &eris::hub::QueryMsg::Config {})
+            .unwrap();
+
+        self.ustake = Some(hub_config.stake_token);
+
+        let msg = eris::arb_vault::InstantiateMsg {
+            owner: owner.to_string(),
+
+            cw20_code_id: self.token_id.unwrap(),
+            decimals: 6,
+            fee_config: eris::arb_vault::FeeConfig {
+                protocol_fee_contract: "fee".to_string(),
+                protocol_performance_fee: Decimal::from_str("0.1").unwrap(),
+                protocol_withdraw_fee: Decimal::from_str("0.01").unwrap(),
+                immediate_withdraw_fee: Decimal::from_str("0.03").unwrap(),
+            },
+            name: "arbLUNA".to_string(),
+            symbol: "arbLUNA".to_string(),
+            unbond_time_s: 24 * 24 * 60 * 60,
+            utilization_method: eris::arb_vault::UtilizationMethod::Steps(vec![
+                (Decimal::from_ratio(10u128, 1000u128), Decimal::from_ratio(50u128, 100u128)),
+                (Decimal::from_ratio(15u128, 1000u128), Decimal::from_ratio(70u128, 100u128)),
+                (Decimal::from_ratio(20u128, 1000u128), Decimal::from_ratio(90u128, 100u128)),
+                (Decimal::from_ratio(25u128, 1000u128), Decimal::from_ratio(100u128, 100u128)),
+            ]),
+            utoken: "uluna".to_string(),
+            whitelist: vec!["executor".to_string()],
+            lsds: vec![LsdConfig {
+                lsd_type: eris::arb_vault::LsdType::Eris {
+                    addr: hub_addr.to_string(),
+                    cw20: self.ustake.clone().unwrap(),
+                },
+                disabled: false,
+            }],
+        };
+
+        let instance = router
+            .instantiate_contract(code_id, owner, &msg, &[], String::from("arb-vault"), None)
+            .unwrap();
+
+        self.arb_vault = Some(ContractInfo {
+            address: instance,
+            code_id,
+        })
+        .into()
+    }
+
+    fn init_arb_fake_contract(&mut self, router: &mut App, owner: Addr) {
+        let contract = Box::new(ContractWrapper::new_with_empty(
+            arb_contract::execute,
+            arb_contract::instantiate,
+            arb_contract::query,
+        ));
+        let code_id = router.store_code(contract);
+
+        let instance = router
+            .instantiate_contract(
+                code_id,
+                owner,
+                &arb_contract::InstantiateMsg {},
+                &[],
+                String::from("arb-fake-contract"),
+                None,
+            )
+            .unwrap();
+
+        self.arb_fake_contract = Some(ContractInfo {
+            address: instance,
+            code_id,
+        })
+        .into()
+    }
+
     fn init_hub_delegation_strategy(
         &mut self,
         router: &mut App,
         owner: Addr,
-        use_default_hub: bool,
+        use_uniform_hub: bool,
     ) {
-        let delegation_strategy = if use_default_hub {
+        let delegation_strategy = if use_uniform_hub {
             None
         } else {
             Some(eris::hub::DelegationStrategy::Gauges {

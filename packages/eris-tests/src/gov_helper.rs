@@ -1,12 +1,19 @@
 use anyhow::Result;
+use astroport::{
+    asset::{native_asset, token_asset, Asset},
+    router,
+};
 use cosmwasm_std::{
     attr, coin, to_binary, Addr, Delegation, FullDelegation, StdResult, Uint128, VoteOption,
 };
 use cw20::Cw20ExecuteMsg;
 use cw_multi_test::{App, AppResponse, Executor};
-use eris::{emp_gauges::AddEmpInfo, governance_helper::WEEK};
+use eris::{adapters::asset::AssetEx, emp_gauges::AddEmpInfo, governance_helper::WEEK};
 
-use crate::base::{BaseErisTestInitMessage, BaseErisTestPackage};
+use crate::{
+    base::{BaseErisTestInitMessage, BaseErisTestPackage},
+    TerraAppExtension,
+};
 
 pub const MULTIPLIER: u64 = 1000000;
 
@@ -24,10 +31,14 @@ impl EscrowHelper {
                 router_ref,
                 BaseErisTestInitMessage {
                     owner,
-                    use_default_hub,
+                    use_uniform_hub: use_default_hub,
                 },
             ),
         }
+    }
+
+    pub fn get_ustake_addr(&self) -> Addr {
+        Addr::unchecked(self.base.ustake.clone().unwrap())
     }
 
     pub fn emp_tune(&self, router_ref: &mut App) -> Result<AppResponse> {
@@ -348,6 +359,21 @@ impl EscrowHelper {
         router_ref.execute_contract(self.owner.clone(), self.base.hub.get_address(), &execute, &[])
     }
 
+    pub fn hub_submit_batch(&self, router_ref: &mut App) -> Result<AppResponse> {
+        self.hub_execute(router_ref, eris::hub::ExecuteMsg::SubmitBatch {})
+    }
+
+    pub fn hub_reconcile(&self, router_ref: &mut App, amount: u128) -> Result<AppResponse> {
+        router_ref
+            .sudo(cw_multi_test::SudoMsg::Bank(cw_multi_test::BankSudo::Mint {
+                to_address: self.base.hub.get_address_string(),
+                amount: vec![coin(amount, "uluna")],
+            }))
+            .unwrap();
+
+        self.hub_execute(router_ref, eris::hub::ExecuteMsg::Reconcile {})
+    }
+
     pub fn hub_remove_validator(
         &self,
         router_ref: &mut App,
@@ -519,6 +545,109 @@ impl EscrowHelper {
         router_ref.wrap().query_wasm_smart(
             self.base.prop_gauges.get_address_string(),
             &eris::prop_gauges::QueryMsg::Config {},
+        )
+    }
+
+    pub fn arb_query_config(
+        &self,
+        router_ref: &mut App,
+    ) -> StdResult<eris::arb_vault::ConfigResponse> {
+        router_ref.wrap().query_wasm_smart(
+            self.base.arb_vault.get_address_string(),
+            &eris::arb_vault::QueryMsg::Config {},
+        )
+    }
+
+    pub fn arb_query_state(
+        &self,
+        router_ref: &mut App,
+        details: Option<bool>,
+    ) -> StdResult<eris::arb_vault::StateResponse> {
+        router_ref.wrap().query_wasm_smart(
+            self.base.arb_vault.get_address_string(),
+            &eris::arb_vault::QueryMsg::State {
+                details,
+            },
+        )
+    }
+
+    pub fn arb_query_user_info(
+        &self,
+        router_ref: &mut App,
+        address: impl Into<String>,
+    ) -> StdResult<eris::arb_vault::UserInfoResponse> {
+        router_ref.wrap().query_wasm_smart(
+            self.base.arb_vault.get_address_string(),
+            &eris::arb_vault::QueryMsg::UserInfo {
+                address: address.into(),
+            },
+        )
+    }
+
+    pub fn arb_execute(
+        &self,
+        router_ref: &mut App,
+        execute: eris::arb_vault::ExecuteMsg,
+    ) -> Result<AppResponse> {
+        self.arb_execute_sender(router_ref, execute, self.owner.to_string())
+    }
+    pub fn arb_execute_whitelist(
+        &self,
+        router_ref: &mut App,
+        execute: eris::arb_vault::ExecuteMsg,
+    ) -> Result<AppResponse> {
+        self.arb_execute_sender(router_ref, execute, "executor")
+    }
+
+    pub fn arb_execute_sender(
+        &self,
+        router_ref: &mut App,
+        execute: eris::arb_vault::ExecuteMsg,
+        sender: impl Into<String>,
+    ) -> Result<AppResponse> {
+        router_ref.execute_contract(
+            Addr::unchecked(sender),
+            self.base.arb_vault.get_address(),
+            &execute,
+            &[],
+        )
+    }
+
+    pub fn arb_fake_fill_arb_contract(&self, router_ref: &mut App) {
+        let amount = 10000_000000u128;
+        self.hub_bond(router_ref, "fake", amount, "uluna").unwrap();
+
+        let ustake_addr = self.get_ustake_addr();
+        let fake_addr = self.base.arb_fake_contract.get_address_string();
+
+        // send minted ampTOKEN to the fake contract
+        router_ref
+            .execute_contract(
+                Addr::unchecked("fake"),
+                ustake_addr,
+                &Cw20ExecuteMsg::Transfer {
+                    recipient: fake_addr,
+                    amount: Uint128::new(amount),
+                },
+                &vec![],
+            )
+            .unwrap();
+    }
+
+    pub fn arb_provide_liquidity(
+        &self,
+        router_ref: &mut App,
+        sender: &str,
+        amount: u128,
+    ) -> Result<AppResponse> {
+        router_ref.execute_contract(
+            Addr::unchecked(sender),
+            self.base.arb_vault.get_address(),
+            &eris::arb_vault::ExecuteMsg::ProvideLiquidity {
+                asset: native_asset("uluna".to_string(), Uint128::new(amount)),
+                receiver: None,
+            },
+            &[coin(amount, "uluna")],
         )
     }
 }

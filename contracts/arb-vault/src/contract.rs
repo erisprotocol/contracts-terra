@@ -61,7 +61,7 @@ pub fn execute(
             wanted_profit,
         } => execute_arbitrage(deps, env, info, msg, result_token, wanted_profit),
 
-        ExecuteMsg::WithdrawLiquidity {} => execute_withdraw_liquidity(deps, env, info),
+        ExecuteMsg::WithdrawFromLiquidStaking {} => execute_withdraw_liquidity(deps, env, info),
 
         // User actions
         ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),

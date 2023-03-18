@@ -179,7 +179,7 @@ pub enum ExecuteMsg {
     },
 
     // Bot: Withdraw unbonded liquidity from liquid staking providers
-    WithdrawLiquidity {},
+    WithdrawFromLiquidStaking {},
 
     // Internal: Asserts that the execution was a success and the wanted_profit reached.
     /// Creates a request to change the contract's ownership

@@ -1103,6 +1103,7 @@ dependencies = [
  "cw20 0.13.2",
  "cw20-base 0.13.2",
  "eris",
+ "eris-arb-vault",
  "eris-gov-amp-gauges",
  "eris-gov-emp-gauges",
  "eris-gov-prop-gauges",

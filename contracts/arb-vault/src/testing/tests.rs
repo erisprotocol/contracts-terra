@@ -407,7 +407,7 @@ fn throws_if_not_whitelisted_executor() {
         wanted_profit: Decimal::from_ratio(1u128, 100u128),
     };
 
-    let withdraw_msg = ExecuteMsg::WithdrawLiquidity {};
+    let withdraw_msg = ExecuteMsg::WithdrawFromLiquidStaking {};
 
     //
     // NOT WHITELISTED
@@ -437,7 +437,7 @@ fn throws_if_has_withdraw() {
 
     let whitelist_info = mock_info("whitelisted_exec", &[]);
 
-    let withdraw_msg = ExecuteMsg::WithdrawLiquidity {};
+    let withdraw_msg = ExecuteMsg::WithdrawFromLiquidStaking {};
 
     let result =
         execute(deps.as_mut(), mock_env(), whitelist_info.clone(), withdraw_msg).unwrap_err();
@@ -466,7 +466,7 @@ fn check_withdrawing() {
 
     let whitelist_info = mock_info("whitelisted_exec", &[]);
 
-    let withdraw_msg = ExecuteMsg::WithdrawLiquidity {};
+    let withdraw_msg = ExecuteMsg::WithdrawFromLiquidStaking {};
 
     deps.querier.with_withdrawable(Uint128::new(10_000000u128));
 
