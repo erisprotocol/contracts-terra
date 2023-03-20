@@ -166,8 +166,8 @@ impl Steak {
 }
 
 impl LsdAdapter for Steak {
-    fn get_name(&self) -> &str {
-        "steak"
+    fn used_contracts(&self) -> Vec<Addr> {
+        vec![self.cw20.clone(), self.addr.clone()]
     }
 
     fn asset(&self) -> AssetInfo {

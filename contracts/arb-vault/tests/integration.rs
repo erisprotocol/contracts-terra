@@ -1,74 +1,13 @@
 use astroport::asset::{token_asset, token_asset_info};
 use cosmwasm_std::{attr, coin, to_binary, Decimal, StdResult, Uint128};
 use eris::constants::DAY;
-use eris::governance_helper::WEEK;
-use eris_arb_vault::error::ContractError;
 use eris_tests::gov_helper::EscrowHelper;
 use eris_tests::{mock_app, EventChecker, TerraAppExtension};
+use std::ops::Div;
 use std::str::FromStr;
 use std::vec;
 
-use eris::arb_vault::{
-    Balances, ClaimBalance, Config, ConfigResponse, ExecuteMsg, StateResponse, UserInfoResponse,
-    UtilizationMethod,
-};
-
-#[test]
-fn update_config() -> StdResult<()> {
-    let mut router = mock_app();
-    let helper = EscrowHelper::init(&mut router, false);
-
-    let config = helper.arb_query_config(&mut router).unwrap();
-
-    assert_eq!(
-        config.config.utilization_method,
-        UtilizationMethod::Steps(vec![
-            (dec("0.010"), dec("0.5")),
-            (dec("0.015"), dec("0.7")),
-            (dec("0.020"), dec("0.9")),
-            (dec("0.025"), dec("1.0")),
-        ])
-    );
-
-    let result = helper
-        .arb_execute_sender(
-            &mut router,
-            ExecuteMsg::UpdateConfig {
-                utilization_method: Some(UtilizationMethod::Steps(vec![(dec("0.1"), dec("1"))])),
-                unbond_time_s: None,
-                lsds: None,
-                fee_config: None,
-                set_whitelist: None,
-                remove_whitelist: None,
-            },
-            "user",
-        )
-        .unwrap_err();
-    assert_eq!("Unauthorized", result.root_cause().to_string());
-
-    helper
-        .arb_execute(
-            &mut router,
-            ExecuteMsg::UpdateConfig {
-                utilization_method: Some(UtilizationMethod::Steps(vec![(dec("0.1"), dec("1"))])),
-                unbond_time_s: None,
-                lsds: None,
-                fee_config: None,
-                set_whitelist: None,
-                remove_whitelist: None,
-            },
-        )
-        .unwrap();
-
-    let config = helper.arb_query_config(&mut router).unwrap();
-
-    assert_eq!(
-        config.config.utilization_method,
-        UtilizationMethod::Steps(vec![(dec("0.1"), dec("1"))])
-    );
-
-    Ok(())
-}
+use eris::arb_vault::{Balances, ClaimBalance, ExecuteMsg, StateResponse, UserInfoResponse};
 
 #[test]
 fn provide_liquidity_and_arb_fails() -> StdResult<()> {
@@ -80,9 +19,9 @@ fn provide_liquidity_and_arb_fails() -> StdResult<()> {
     helper.hub_bond(router_ref, "user1", 100_000000, "uluna").unwrap();
     helper.arb_fake_fill_arb_contract(router_ref);
 
-    helper.arb_provide_liquidity(router_ref, "user1", 100_000000).unwrap();
-    helper.arb_provide_liquidity(router_ref, "user2", 50_000000).unwrap();
-    helper.arb_provide_liquidity(router_ref, "user3", 150_000000).unwrap();
+    helper.arb_deposit(router_ref, "user1", 100_000000).unwrap();
+    helper.arb_deposit(router_ref, "user2", 50_000000).unwrap();
+    helper.arb_deposit(router_ref, "user3", 150_000000).unwrap();
 
     let user = helper.arb_query_user_info(router_ref, "user1").unwrap();
     assert_eq!(
@@ -95,9 +34,6 @@ fn provide_liquidity_and_arb_fails() -> StdResult<()> {
 
     let amount = Uint128::new(10_000000u128);
     let profit_percent = dec("1.02");
-    let fee_percent = dec("0.1");
-    let absolute_profit = amount * profit_percent - amount;
-    let fee = absolute_profit * fee_percent;
     let no_profit_return = dec("1");
 
     // execute arb
@@ -138,9 +74,9 @@ fn provide_liquidity_and_arb() -> StdResult<()> {
     helper.hub_bond(router_ref, "user1", 100_000000, "uluna").unwrap();
     helper.arb_fake_fill_arb_contract(router_ref);
 
-    helper.arb_provide_liquidity(router_ref, "user1", 100_000000).unwrap();
-    helper.arb_provide_liquidity(router_ref, "user2", 50_000000).unwrap();
-    helper.arb_provide_liquidity(router_ref, "user3", 150_000000).unwrap();
+    helper.arb_deposit(router_ref, "user1", 100_000000).unwrap();
+    helper.arb_deposit(router_ref, "user2", 50_000000).unwrap();
+    helper.arb_deposit(router_ref, "user3", 150_000000).unwrap();
 
     let user = helper.arb_query_user_info(router_ref, "user1").unwrap();
     assert_eq!(
@@ -172,7 +108,6 @@ fn provide_liquidity_and_arb() -> StdResult<()> {
     // ASSERT RESULT
     res.assert_attribute("wasm", attr("profit", "200000")).unwrap();
     res.assert_attribute("wasm", attr("exchange_rate", "1.0006")).unwrap();
-    res.assert_attribute("wasm-erishub/unbond_queued", attr("ustake_to_burn", "10200000")).unwrap();
 
     let user = helper.arb_query_user_info(router_ref, "user1").unwrap();
     assert_eq!(
@@ -195,15 +130,63 @@ fn provide_liquidity_and_arb() -> StdResult<()> {
                 vault_available: uint(300_000000) - amount - fee, // fee is taken from available
                 vault_takeable: uint(300_000000) - amount - fee,
                 locked_user_withdrawls: uint(0),
-                lsd_unbonding: amount * profit_percent,
+                lsd_unbonding: uint(0),
                 lsd_withdrawable: uint(0),
-            },
-            details: Some(eris::arb_vault::StateDetails {
-                claims: vec![ClaimBalance {
+                lsd_xvalue: amount * profit_percent,
+                details: Some(vec![ClaimBalance {
                     name: "eris".to_string(),
                     withdrawable: uint(0),
-                    unbonding: uint(10200000)
-                }],
+                    unbonding: uint(0),
+                    xbalance: uint(10200000),
+                    xfactor: dec("1")
+                }])
+            },
+            details: Some(eris::arb_vault::StateDetails {
+                takeable_steps: vec![
+                    (dec("0.010"), uint(139_890000)),
+                    (dec("0.015"), uint(199_926000)),
+                    (dec("0.020"), uint(259_962000)),
+                    (dec("0.025"), uint(289_980000)),
+                ]
+            })
+        }
+    );
+
+    let res = helper
+        .arb_execute_whitelist(
+            router_ref,
+            ExecuteMsg::UnbondFromLiquidStaking {
+                names: None,
+            },
+        )
+        .unwrap();
+    res.assert_attribute("wasm-erishub/unbond_queued", attr("ustake_to_burn", "10200000")).unwrap();
+
+    let state = helper.arb_query_state(router_ref, Some(true)).unwrap();
+    assert_eq!(
+        state,
+        StateResponse {
+            exchange_rate: dec("1.0006"),
+            total_lp_supply: uint(300_000000),
+            balances: Balances {
+                tvl_utoken: uint(300_000000) + absolute_profit - fee,
+                vault_total: uint(300_000000) + absolute_profit - fee,
+                vault_available: uint(300_000000) - amount - fee, // fee is taken from available
+                vault_takeable: uint(300_000000) - amount - fee,
+                locked_user_withdrawls: uint(0),
+                lsd_unbonding: amount * profit_percent,
+                lsd_withdrawable: uint(0),
+                lsd_xvalue: uint(0),
+                details: Some(vec![ClaimBalance {
+                    name: "eris".to_string(),
+                    withdrawable: uint(0),
+                    // moved to unbonding
+                    unbonding: uint(10200000),
+                    xbalance: uint(0),
+                    xfactor: dec("1")
+                }])
+            },
+            details: Some(eris::arb_vault::StateDetails {
                 takeable_steps: vec![
                     (dec("0.010"), uint(139_890000)),
                     (dec("0.015"), uint(199_926000)),
@@ -225,11 +208,14 @@ fn provide_liquidity_and_arb_submit() -> StdResult<()> {
 
     router_ref.next_block(100);
     helper.hub_bond(router_ref, "user1", 100_000000, "uluna").unwrap();
+    // increase exchange_rate
+    helper.hub_allow_donate(router_ref).unwrap();
+    helper.hub_donate(router_ref, "user1", 10_000000, "uluna").unwrap();
     helper.arb_fake_fill_arb_contract(router_ref);
 
-    helper.arb_provide_liquidity(router_ref, "user1", 100_000000).unwrap();
-    helper.arb_provide_liquidity(router_ref, "user2", 50_000000).unwrap();
-    helper.arb_provide_liquidity(router_ref, "user3", 150_000000).unwrap();
+    helper.arb_deposit(router_ref, "user1", 100_000000).unwrap();
+    helper.arb_deposit(router_ref, "user2", 50_000000).unwrap();
+    helper.arb_deposit(router_ref, "user3", 150_000000).unwrap();
 
     let user = helper.arb_query_user_info(router_ref, "user1").unwrap();
     assert_eq!(
@@ -242,26 +228,22 @@ fn provide_liquidity_and_arb_submit() -> StdResult<()> {
 
     let amount = Uint128::new(10_000000u128);
     let profit_percent = dec("1.02");
+    let eris_exchange_rate = dec("1.1");
     let fee_percent = dec("0.1");
-    let absolute_profit = amount * profit_percent - amount;
+    let absolute_profit = amount * profit_percent - amount - uint(1);
     let fee = absolute_profit * fee_percent;
 
     // EXECUTE ARB
-    let res = helper
+    helper
         .arb_execute_whitelist(
             router_ref,
             ExecuteMsg::ExecuteArbitrage {
-                msg: return_msg(&helper, amount, amount * profit_percent),
+                msg: return_msg(&helper, amount, amount * profit_percent.div(eris_exchange_rate)),
                 result_token: token_asset_info(helper.get_ustake_addr()),
                 wanted_profit: dec("0.01"),
             },
         )
         .unwrap();
-
-    // SUBMIT BATCH
-    router_ref.next_block(DAY * 3);
-    helper.hub_submit_batch(router_ref).unwrap();
-    router_ref.next_block(DAY * 3);
 
     // STATE IS STILL THE SAME AS in provide_liquidity_and_arb
     let state = helper.arb_query_state(router_ref, Some(true)).unwrap();
@@ -273,23 +255,116 @@ fn provide_liquidity_and_arb_submit() -> StdResult<()> {
             balances: Balances {
                 tvl_utoken: uint(300_000000) + absolute_profit - fee,
                 vault_total: uint(300_000000) + absolute_profit - fee,
-                vault_available: uint(300_000000) - amount - fee, // fee is taken from available
+                vault_available: uint(300_000000) - amount - fee,
                 vault_takeable: uint(300_000000) - amount - fee,
                 locked_user_withdrawls: uint(0),
-                lsd_unbonding: amount * profit_percent,
+                lsd_unbonding: uint(0),
                 lsd_withdrawable: uint(0),
-            },
-            details: Some(eris::arb_vault::StateDetails {
-                claims: vec![ClaimBalance {
+                lsd_xvalue: amount * profit_percent - uint(1),
+                details: Some(vec![ClaimBalance {
                     name: "eris".to_string(),
                     withdrawable: uint(0),
-                    unbonding: uint(10200000)
-                }],
+                    unbonding: uint(0),
+                    xbalance: uint(9272727),
+                    xfactor: eris_exchange_rate
+                }])
+            },
+            details: Some(eris::arb_vault::StateDetails {
                 takeable_steps: vec![
-                    (dec("0.010"), uint(139_890000)),
-                    (dec("0.015"), uint(199_926000)),
-                    (dec("0.020"), uint(259_962000)),
-                    (dec("0.025"), uint(289_980000)),
+                    (dec("0.010"), uint(139_890001)),
+                    (dec("0.015"), uint(199_926001)),
+                    (dec("0.020"), uint(259_962001)),
+                    (dec("0.025"), uint(289_980001)),
+                ]
+            })
+        }
+    );
+
+    // MOVE FUNDS TO UNBONDING
+    helper
+        .arb_execute_whitelist(
+            router_ref,
+            ExecuteMsg::UnbondFromLiquidStaking {
+                names: Some(vec!["eris".to_string()]),
+            },
+        )
+        .unwrap();
+
+    // STATE MOVED TO UNBONDING
+    let state = helper.arb_query_state(router_ref, Some(true)).unwrap();
+    assert_eq!(
+        state,
+        StateResponse {
+            exchange_rate: dec("1.0006"),
+            total_lp_supply: uint(300_000000),
+            balances: Balances {
+                tvl_utoken: uint(300_000000) + absolute_profit - fee,
+                vault_total: uint(300_000000) + absolute_profit - fee,
+                vault_available: uint(300_000000) - amount - fee,
+                vault_takeable: uint(300_000000) - amount - fee,
+                locked_user_withdrawls: uint(0),
+                // moved to unbonding
+                lsd_unbonding: amount * profit_percent - uint(1),
+                lsd_withdrawable: uint(0),
+                lsd_xvalue: uint(0),
+                details: Some(vec![ClaimBalance {
+                    name: "eris".to_string(),
+                    withdrawable: uint(0),
+                    unbonding: uint(10199999),
+                    xbalance: uint(0),
+                    xfactor: eris_exchange_rate
+                }])
+            },
+            details: Some(eris::arb_vault::StateDetails {
+                takeable_steps: vec![
+                    (dec("0.010"), uint(139_890001)),
+                    (dec("0.015"), uint(199_926001)),
+                    (dec("0.020"), uint(259_962001)),
+                    (dec("0.025"), uint(289_980001)),
+                ]
+            })
+        }
+    );
+
+    // WAIT SOME DAYS BEFORE START TO UNBONDING
+    router_ref.next_block(DAY * 3);
+
+    // SUBMIT BATCH
+    helper.hub_submit_batch(router_ref).unwrap();
+    router_ref.next_block(DAY * 3);
+
+    // STATE IS STILL THE SAME AS in provide_liquidity_and_arb
+    let state = helper.arb_query_state(router_ref, Some(true)).unwrap();
+    assert_eq!(
+        state,
+        StateResponse {
+            // rounding when unbonding, some is kept in the amplifier
+            exchange_rate: dec("1.000599996666666666"),
+            total_lp_supply: uint(300_000000),
+            balances: Balances {
+                tvl_utoken: uint(300_000000) + absolute_profit - fee - uint(1),
+                vault_total: uint(300_000000) + absolute_profit - fee - uint(1),
+                vault_available: uint(300_000000) - amount - fee,
+                vault_takeable: uint(300_000000) - amount - fee,
+                locked_user_withdrawls: uint(0),
+                lsd_unbonding: amount * profit_percent - uint(2),
+                lsd_withdrawable: uint(0),
+                lsd_xvalue: uint(0),
+                details: Some(vec![ClaimBalance {
+                    name: "eris".to_string(),
+                    withdrawable: uint(0),
+                    unbonding: uint(10200000) - uint(2),
+                    xbalance: uint(0),
+                    // rounding increased exchange rate in the amplifier
+                    xfactor: dec("1.100000000069370619")
+                }])
+            },
+            details: Some(eris::arb_vault::StateDetails {
+                takeable_steps: vec![
+                    (dec("0.010"), uint(139_890001)),
+                    (dec("0.015"), uint(199_926001)),
+                    (dec("0.020"), uint(259_962001)),
+                    (dec("0.025"), uint(289_980001)),
                 ]
             })
         }
@@ -303,60 +378,51 @@ fn provide_liquidity_and_arb_submit() -> StdResult<()> {
     assert_eq!(
         state,
         StateResponse {
-            exchange_rate: dec("1.0006"),
+            exchange_rate: dec("1.000599996666666666"),
             total_lp_supply: uint(300_000000),
             balances: Balances {
-                tvl_utoken: uint(300_000000) + absolute_profit - fee,
-                vault_total: uint(300_000000) + absolute_profit - fee,
-                vault_available: uint(300_000000) - amount - fee, // fee is taken from available
+                tvl_utoken: uint(300_000000) + absolute_profit - fee - uint(1),
+                vault_total: uint(300_000000) + absolute_profit - fee - uint(1),
+                vault_available: uint(300_000000) - amount - fee,
                 vault_takeable: uint(300_000000) - amount - fee,
                 locked_user_withdrawls: uint(0),
                 lsd_unbonding: uint(0),
-                // moved to withdrawable
-                lsd_withdrawable: amount * profit_percent,
+                lsd_withdrawable: amount * profit_percent - uint(2),
+                lsd_xvalue: uint(0),
+                details: Some(vec![ClaimBalance {
+                    name: "eris".to_string(),
+                    withdrawable: uint(10200000) - uint(2),
+                    unbonding: uint(0),
+                    xbalance: uint(0),
+                    xfactor: dec("1.100000000069370619")
+                }])
             },
             details: Some(eris::arb_vault::StateDetails {
-                claims: vec![ClaimBalance {
-                    name: "eris".to_string(),
-                    // moved to withdrawable
-                    withdrawable: uint(10200000),
-                    unbonding: uint(0)
-                }],
                 takeable_steps: vec![
-                    (dec("0.010"), uint(139_890000)),
-                    (dec("0.015"), uint(199_926000)),
-                    (dec("0.020"), uint(259_962000)),
-                    (dec("0.025"), uint(289_980000)),
+                    (dec("0.010"), uint(139_890001)),
+                    (dec("0.015"), uint(199_926001)),
+                    (dec("0.020"), uint(259_962001)),
+                    (dec("0.025"), uint(289_980001)),
                 ]
             })
         }
     );
 
-    // EXECUTE ARB
-    let res = helper
+    helper
         .arb_execute_whitelist(
             router_ref,
-            ExecuteMsg::ExecuteArbitrage {
-                msg: return_msg(&helper, amount, amount * profit_percent),
-                result_token: token_asset_info(helper.get_ustake_addr()),
-                wanted_profit: dec("0.01"),
+            ExecuteMsg::WithdrawFromLiquidStaking {
+                names: None,
             },
         )
-        .unwrap_err();
-
-    assert_eq!(
-        res.root_cause().to_string(),
-        "Withdrawable funds available. Execute withdraw before arbitrage.".to_string()
-    );
-
-    let res =
-        helper.arb_execute_whitelist(router_ref, ExecuteMsg::WithdrawFromLiquidStaking {}).unwrap();
+        .unwrap();
 
     // STATE IS STILL THE SAME AS in provide_liquidity_and_arb this time everything is withdrawn from the lsd vaults
     let state = helper.arb_query_state(router_ref, Some(true)).unwrap();
     assert_eq!(
         state,
         StateResponse {
+            // because reconcile received more uluna than expected -> rounding correct again
             exchange_rate: dec("1.0006"),
             total_lp_supply: uint(300_000000),
             balances: Balances {
@@ -366,16 +432,17 @@ fn provide_liquidity_and_arb_submit() -> StdResult<()> {
                 vault_takeable: uint(300_000000) + absolute_profit - fee,
                 locked_user_withdrawls: uint(0),
                 lsd_unbonding: uint(0),
-                // moved to withdrawable
                 lsd_withdrawable: uint(0),
+                lsd_xvalue: uint(0),
+                details: Some(vec![ClaimBalance {
+                    name: "eris".to_string(),
+                    withdrawable: uint(0),
+                    unbonding: uint(0),
+                    xbalance: uint(0),
+                    xfactor: dec("1.100000000069370619")
+                }])
             },
             details: Some(eris::arb_vault::StateDetails {
-                claims: vec![ClaimBalance {
-                    name: "eris".to_string(),
-                    // moved to withdrawable
-                    withdrawable: uint(0),
-                    unbonding: uint(0)
-                }],
                 takeable_steps: vec![
                     (dec("0.010"), uint(150090000)),
                     (dec("0.015"), uint(210126000)),

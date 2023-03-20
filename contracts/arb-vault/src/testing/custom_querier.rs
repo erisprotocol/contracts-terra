@@ -151,6 +151,19 @@ impl CustomQuerier {
                             })
                             .into(),
                         ),
+                        prism::hub::QueryMsg::State {} => SystemResult::Ok(
+                            to_binary(&prism::hub::StateResponse {
+                                exchange_rate: Decimal::one(),
+                                total_bond_amount: Uint128::zero(),
+                                last_index_modification: 0,
+                                principle_balance_before_exchange_update: Uint128::zero(),
+                                prev_hub_balance: Uint128::zero(),
+                                actual_unbonded_amount: Uint128::zero(),
+                                last_unbonded_time: 0,
+                                last_processed_batch: 0,
+                            })
+                            .into(),
+                        ),
                         _ => err_unsupported_query(msg),
                     };
                 } else if contract_addr == "eris" {

@@ -1,18 +1,17 @@
+use std::str::FromStr;
+
 use anyhow::Result;
-use astroport::{
-    asset::{native_asset, token_asset, Asset},
-    router,
-};
+use astroport::asset::native_asset;
 use cosmwasm_std::{
     attr, coin, to_binary, Addr, Delegation, FullDelegation, StdResult, Uint128, VoteOption,
 };
 use cw20::Cw20ExecuteMsg;
 use cw_multi_test::{App, AppResponse, Executor};
-use eris::{adapters::asset::AssetEx, emp_gauges::AddEmpInfo, governance_helper::WEEK};
+use eris::{emp_gauges::AddEmpInfo, governance_helper::WEEK};
 
 use crate::{
     base::{BaseErisTestInitMessage, BaseErisTestPackage},
-    TerraAppExtension,
+    EventChecker,
 };
 
 pub const MULTIPLIER: u64 = 1000000;
@@ -421,6 +420,36 @@ impl EscrowHelper {
         )
     }
 
+    pub fn hub_allow_donate(&self, router_ref: &mut App) -> Result<AppResponse> {
+        self.hub_execute(
+            router_ref,
+            eris::hub::ExecuteMsg::UpdateConfig {
+                protocol_fee_contract: None,
+                protocol_reward_fee: None,
+                allow_donations: Some(true),
+                delegation_strategy: None,
+                vote_operator: None,
+                epoch_period: None,
+                unbond_period: None,
+            },
+        )
+    }
+
+    pub fn hub_donate(
+        &self,
+        router_ref: &mut App,
+        sender: impl Into<String>,
+        amount: u128,
+        denom: impl Into<String>,
+    ) -> Result<AppResponse> {
+        router_ref.execute_contract(
+            Addr::unchecked(sender),
+            self.base.hub.get_address(),
+            &eris::hub::ExecuteMsg::Donate {},
+            &[coin(amount, denom.into())],
+        )
+    }
+
     pub fn hub_execute_sender(
         &self,
         router_ref: &mut App,
@@ -614,8 +643,14 @@ impl EscrowHelper {
     }
 
     pub fn arb_fake_fill_arb_contract(&self, router_ref: &mut App) {
-        let amount = 10000_000000u128;
-        self.hub_bond(router_ref, "fake", amount, "uluna").unwrap();
+        let amount = 11000_000000u128;
+        let result = self.hub_bond(router_ref, "fake", amount, "uluna").unwrap();
+
+        let minted_event = result.events.iter().find(|f| f.ty == "wasm-erishub/bonded").unwrap();
+        let minted_attribute =
+            minted_event.attributes.iter().find(|a| a.key == "ustake_minted").unwrap();
+
+        let amount = Uint128::from_str(&minted_attribute.value).unwrap();
 
         let ustake_addr = self.get_ustake_addr();
         let fake_addr = self.base.arb_fake_contract.get_address_string();
@@ -627,14 +662,14 @@ impl EscrowHelper {
                 ustake_addr,
                 &Cw20ExecuteMsg::Transfer {
                     recipient: fake_addr,
-                    amount: Uint128::new(amount),
+                    amount: amount,
                 },
                 &vec![],
             )
             .unwrap();
     }
 
-    pub fn arb_provide_liquidity(
+    pub fn arb_deposit(
         &self,
         router_ref: &mut App,
         sender: &str,
@@ -643,7 +678,7 @@ impl EscrowHelper {
         router_ref.execute_contract(
             Addr::unchecked(sender),
             self.base.arb_vault.get_address(),
-            &eris::arb_vault::ExecuteMsg::ProvideLiquidity {
+            &eris::arb_vault::ExecuteMsg::Deposit {
                 asset: native_asset("uluna".to_string(), Uint128::new(amount)),
                 receiver: None,
             },

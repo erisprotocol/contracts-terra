@@ -10,6 +10,7 @@ use eris::arb_vault::{Config, InstantiateMsg, LsdConfig, ValidatedConfig};
 use crate::{
     constants::{CONTRACT_NAME, CONTRACT_VERSION, INSTANTIATE_TOKEN_REPLY_ID},
     error::{ContractError, ContractResult, CustomResult},
+    extensions::UtilizationMethodEx,
     state::{BalanceLocked, State},
 };
 
@@ -27,6 +28,8 @@ pub fn instantiate(deps: DepsMut, env: Env, msg: InstantiateMsg) -> ContractResu
         .into_iter()
         .map(|lsd| lsd.validate(deps.api))
         .collect::<StdResult<Vec<LsdConfig<Addr>>>>()?;
+
+    msg.utilization_method.validate()?;
 
     let config = ValidatedConfig {
         lp_addr: Addr::unchecked(""),

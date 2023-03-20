@@ -84,6 +84,7 @@ pub fn create_default_lsd_configs() -> Vec<LsdConfig<String>> {
     vec![
         LsdConfig {
             disabled: false,
+            name: "eris".into(),
             lsd_type: eris::arb_vault::LsdType::Eris {
                 addr: "eris".into(),
                 cw20: "eriscw".into(),
@@ -91,6 +92,7 @@ pub fn create_default_lsd_configs() -> Vec<LsdConfig<String>> {
         },
         LsdConfig {
             disabled: false,
+            name: "backbone".into(),
             lsd_type: eris::arb_vault::LsdType::Backbone {
                 addr: "backbone".into(),
                 cw20: "backbonecw".into(),
@@ -98,6 +100,7 @@ pub fn create_default_lsd_configs() -> Vec<LsdConfig<String>> {
         },
         LsdConfig {
             disabled: false,
+            name: "stader".into(),
             lsd_type: eris::arb_vault::LsdType::Stader {
                 addr: "stader".into(),
                 cw20: "stadercw".into(),
@@ -105,6 +108,7 @@ pub fn create_default_lsd_configs() -> Vec<LsdConfig<String>> {
         },
         LsdConfig {
             disabled: false,
+            name: "prism".into(),
             lsd_type: eris::arb_vault::LsdType::Prism {
                 addr: "prism".into(),
                 cw20: "prismcw".into(),
@@ -249,6 +253,10 @@ pub(super) fn setup_test() -> OwnedDeps<MockStorage, MockApi, CustomQuerier> {
     );
 
     store_liquidity_token(deps.as_mut(), 1, "lptoken".to_string());
+    deps.querier.set_cw20_balance("eriscw", MOCK_CONTRACT_ADDR, 0u128);
+    deps.querier.set_cw20_balance("backbonecw", MOCK_CONTRACT_ADDR, 0u128);
+    deps.querier.set_cw20_balance("stadercw", MOCK_CONTRACT_ADDR, 0u128);
+    deps.querier.set_cw20_balance("prismcw", MOCK_CONTRACT_ADDR, 0u128);
 
     deps
 }

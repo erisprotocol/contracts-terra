@@ -92,7 +92,7 @@ impl<'a> State<'a> {
         }
     }
 
-    pub fn assert_whitelisted(
+    pub fn assert_sender_whitelisted(
         &self,
         storage: &dyn Storage,
         sender: &Addr,

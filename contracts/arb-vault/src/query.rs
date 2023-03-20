@@ -10,8 +10,8 @@ use cosmwasm_std::{Decimal, Deps, Env, Order, StdResult};
 
 use cw_storage_plus::Bound;
 use eris::arb_vault::{
-    ConfigResponse, ExchangeHistory, ExchangeRatesResponse, StateDetails, StateResponse,
-    TakeableResponse, UnbondItem, UnbondRequestsResponse, UserInfoResponse,
+    BalancesOptionalDetails, ConfigResponse, ExchangeHistory, ExchangeRatesResponse, StateDetails,
+    StateResponse, TakeableResponse, UnbondItem, UnbondRequestsResponse, UserInfoResponse,
 };
 use eris::constants::DAY;
 use eris::voting_escrow::{DEFAULT_LIMIT, MAX_LIMIT};
@@ -97,16 +97,19 @@ pub fn query_unbond_requests(
     })
 }
 
-pub fn query_state(deps: Deps, env: Env, details: Option<bool>) -> CustomResult<StateResponse> {
+pub fn query_state(
+    deps: Deps,
+    env: Env,
+    include_details: Option<bool>,
+) -> CustomResult<StateResponse> {
     let state = State::default();
     let config = state.config.load(deps.storage)?;
     let mut lsds = config.lsd_group(&env);
 
     let total_lp_supply = config.query_lp_supply(&deps.querier)?;
     let balances = lsds.get_total_assets_err(deps, &env, &state, &config)?;
-    let details = if let Some(true) = details {
+    let details = if include_details.unwrap_or_default() {
         Some(StateDetails {
-            claims: lsds.get_balances(&deps)?,
             takeable_steps: balances.calc_all_takeable_steps(&config).map_err(|e| {
                 ContractError::CalculationError("takeable for steps".into(), e.to_string())
             })?,
@@ -118,7 +121,21 @@ pub fn query_state(deps: Deps, env: Env, details: Option<bool>) -> CustomResult<
     let resp = StateResponse {
         exchange_rate: Decimal::from_ratio(balances.vault_total, total_lp_supply),
         total_lp_supply,
-        balances,
+        balances: BalancesOptionalDetails {
+            tvl_utoken: balances.tvl_utoken,
+            vault_total: balances.vault_total,
+            vault_available: balances.vault_available,
+            vault_takeable: balances.vault_takeable,
+            locked_user_withdrawls: balances.locked_user_withdrawls,
+            lsd_unbonding: balances.lsd_unbonding,
+            lsd_withdrawable: balances.lsd_withdrawable,
+            lsd_xvalue: balances.lsd_xvalue,
+            details: if include_details.unwrap_or_default() {
+                Some(balances.details)
+            } else {
+                None
+            },
+        },
         details,
     };
 

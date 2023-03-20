@@ -332,6 +332,7 @@ impl BaseErisTestPackage {
             utoken: "uluna".to_string(),
             whitelist: vec!["executor".to_string()],
             lsds: vec![LsdConfig {
+                name: "eris".into(),
                 lsd_type: eris::arb_vault::LsdType::Eris {
                     addr: hub_addr.to_string(),
                     cw20: self.ustake.clone().unwrap(),

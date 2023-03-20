@@ -1,10 +1,10 @@
 use astroport::asset::AssetInfo;
-use cosmwasm_std::{CosmosMsg, Decimal, Deps, Uint128};
+use cosmwasm_std::{Addr, CosmosMsg, Decimal, Deps, Uint128};
 
 use crate::error::CustomResult;
 
 pub trait LsdAdapter {
-    fn get_name(&self) -> &str;
+    fn used_contracts(&self) -> Vec<Addr>;
 
     fn asset(&self) -> AssetInfo;
 

@@ -139,8 +139,8 @@ impl Prism {
 }
 
 impl LsdAdapter for Prism {
-    fn get_name(&self) -> &str {
-        "prism"
+    fn used_contracts(&self) -> Vec<Addr> {
+        vec![self.cw20.clone(), self.addr.clone()]
     }
 
     fn asset(&self) -> AssetInfo {

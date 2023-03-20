@@ -1,4 +1,4 @@
-use crate::asserts::{assert_has_funds, assert_max_amount, assert_min_profit, assert_no_withdrawl};
+use crate::asserts::{assert_has_funds, assert_max_amount, assert_min_profit};
 use crate::error::{ContractError, ContractResult};
 use crate::extensions::ConfigEx;
 use crate::helpers::{calc_fees, get_share_from_deposit};
@@ -27,14 +27,28 @@ pub fn receive_cw20(
     info: MessageInfo,
     cw20_msg: Cw20ReceiveMsg,
 ) -> ContractResult {
-    match from_binary(&cw20_msg.msg) {
-        Ok(Cw20HookMsg::Unbond {
+    match from_binary(&cw20_msg.msg)? {
+        Cw20HookMsg::Unbond {
             immediate,
-        }) => {
+        } => {
             let cw20_sender = deps.api.addr_validate(&cw20_msg.sender)?;
             execute_unbond_user(deps, env, info, cw20_sender, cw20_msg.amount, immediate)
         },
-        Err(err) => Err(ContractError::Std(err)),
+        // Cw20HookMsg::Swap {
+        //     ask_asset_info,
+        //     belief_price,
+        //     max_spread,
+        //     to,
+        // } => swap::execute_swap_cw20(
+        //     deps,
+        //     env,
+        //     cw20_msg.sender,
+        //     token_asset(info.sender, cw20_msg.amount),
+        //     ask_asset_info,
+        //     belief_price,
+        //     max_spread,
+        //     to,
+        // ),
     }
 }
 
@@ -51,13 +65,21 @@ pub fn execute_arbitrage(
     let mut lsds = config.lsd_group(&env);
     let balances = lsds.get_total_assets_err(deps.as_ref(), &env, &state, &config)?;
 
-    lsds.get(result_token.clone())?;
-    state.assert_whitelisted(deps.storage, &info.sender)?;
+    let lsd = lsds.get_adapter_by_asset(result_token.clone())?;
+    lsd.assert_not_disabled()?;
+    state.assert_sender_whitelisted(deps.storage, &info.sender)?;
     state.assert_not_nested(deps.storage)?;
     assert_has_funds(&message.funds_amount)?;
     assert_min_profit(&wanted_profit)?;
     assert_max_amount(&config, &balances, &wanted_profit, &message.funds_amount)?;
-    assert_no_withdrawl(&balances)?;
+
+    // setup contract to call, by default the sender is called with the funds requested
+    let contract_addr = if let Some(contract_addr) = message.contract_addr {
+        deps.api.addr_validate(&contract_addr)?
+    } else {
+        info.sender
+    };
+    lsds.assert_not_lsd_contract(&contract_addr)?;
 
     // create balance checkpoint with total value, as it needs to be higher after full execution.
     state.balance_checkpoint.save(
@@ -67,13 +89,6 @@ pub fn execute_arbitrage(
             tvl_utoken: balances.tvl_utoken,
         },
     )?;
-
-    // setup contract to call, by default the sender is called with the funds requested
-    let contract_addr = if let Some(contract_addr) = message.contract_addr {
-        deps.api.addr_validate(&contract_addr)?
-    } else {
-        info.sender
-    };
 
     let execute_flashloan = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: contract_addr.to_string(),
@@ -96,13 +111,18 @@ pub fn execute_arbitrage(
         .add_attribute("action", "arb/execute_arbitrage"))
 }
 
-pub fn execute_withdraw_liquidity(deps: DepsMut, env: Env, info: MessageInfo) -> ContractResult {
+pub fn execute_withdraw_liquidity(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    names: Option<Vec<String>>,
+) -> ContractResult {
     let state = State::default();
     let config = state.config.load(deps.storage)?;
-    let mut lsds = config.lsd_group(&env);
+    let mut lsds = config.lsd_group_by_names(&env, names);
 
     state.assert_not_nested(deps.storage)?;
-    state.assert_whitelisted(deps.storage, &info.sender)?;
+    state.assert_sender_whitelisted(deps.storage, &info.sender)?;
 
     let (messages, attributes) = lsds.get_withdraw_msgs(&deps)?;
 
@@ -113,7 +133,29 @@ pub fn execute_withdraw_liquidity(deps: DepsMut, env: Env, info: MessageInfo) ->
     Ok(Response::new().add_messages(messages).add_attributes(attributes))
 }
 
-pub fn execute_provide_liquidity(
+pub fn execute_unbond_liquidity(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    names: Option<Vec<String>>,
+) -> ContractResult {
+    let state = State::default();
+    let config = state.config.load(deps.storage)?;
+    let mut lsds = config.lsd_group_by_names(&env, names);
+
+    state.assert_not_nested(deps.storage)?;
+    state.assert_sender_whitelisted(deps.storage, &info.sender)?;
+
+    let (messages, attributes) = lsds.get_unbond_msgs(&deps)?;
+
+    if messages.is_empty() {
+        return Err(ContractError::NothingToWithdraw {});
+    }
+
+    Ok(Response::new().add_messages(messages).add_attributes(attributes))
+}
+
+pub fn execute_deposit(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
@@ -143,10 +185,6 @@ pub fn execute_provide_liquidity(
 
     // removing the deposit amount for correct share calculation
     let vault_utoken = assets.vault_total.checked_sub(deposit_amount)?;
-
-    // print!("Total: {:?}", total_value);
-    // print!("Assets: {:?}", assets);
-
     let share = get_share_from_deposit(&deps.querier, &config, vault_utoken, deposit_amount)?;
 
     // Mint LP tokens for the sender or for the receiver (if set)
@@ -159,12 +197,12 @@ pub fn execute_provide_liquidity(
     messages.push(mint_liquidity_token_message(&deps, &config, env, recipient.clone(), share)?);
 
     Ok(Response::new().add_messages(messages).add_attributes(vec![
-        attr("action", "arb/provide_liquidity"),
+        attr("action", "arb/execute_deposit"),
         attr("sender", info.sender.to_string()),
         attr("recipient", recipient.to_string()),
-        attr("vault_utoken_before", vault_utoken),
-        attr("vault_utoken_after", assets.vault_total),
+        attr("deposit_amount", deposit_amount),
         attr("share", share.to_string()),
+        attr("vault_utoken_new", assets.vault_total),
     ]))
 }
 

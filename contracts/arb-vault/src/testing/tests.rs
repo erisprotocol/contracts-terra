@@ -72,7 +72,9 @@ fn update_config() {
     let upd_msg = ExecuteMsg::UpdateConfig {
         utilization_method: None,
         unbond_time_s: Some(10u64),
-        lsds: None,
+        disable_lsd: None,
+        insert_lsd: None,
+        remove_lsd: None,
         fee_config: None,
         set_whitelist: None,
         remove_whitelist: None,
@@ -117,7 +119,9 @@ fn update_config() {
     let upd_msg = ExecuteMsg::UpdateConfig {
         utilization_method: Some(UtilizationMethod::Steps(vec![])),
         unbond_time_s: None,
-        lsds: None,
+        disable_lsd: None,
+        insert_lsd: None,
+        remove_lsd: None,
         fee_config: None,
         remove_whitelist: None,
         set_whitelist: None,
@@ -155,7 +159,7 @@ fn update_config() {
 fn provide_liquidity_wrong_token() {
     let mut deps = setup_test();
 
-    let provide_msg = ExecuteMsg::ProvideLiquidity {
+    let provide_msg = ExecuteMsg::Deposit {
         asset: native_asset("notsupported".into(), Uint128::new(100_000000)),
         receiver: None,
     };
@@ -174,7 +178,7 @@ fn provide_liquidity_wrong_token() {
 fn provide_liquidity_wrong_amount() {
     let mut deps = setup_test();
 
-    let provide_msg = ExecuteMsg::ProvideLiquidity {
+    let provide_msg = ExecuteMsg::Deposit {
         asset: native_asset("utoken".into(), Uint128::new(123_000000)),
         receiver: None,
     };
@@ -198,7 +202,7 @@ fn provide_liquidity_wrong_amount() {
 fn provide_liquidity_zero_throws() {
     let mut deps = setup_test();
 
-    let provide_msg = ExecuteMsg::ProvideLiquidity {
+    let provide_msg = ExecuteMsg::Deposit {
         asset: native_asset("utoken".into(), Uint128::new(0)),
         receiver: None,
     };
@@ -219,7 +223,7 @@ fn _provide_liquidity() -> (OwnedDeps<MockStorage, MockApi, CustomQuerier>, Resp
     // this is used to fake calculating the share.
     deps.querier.set_cw20_balance("lptoken", "share_user", 50_000000u128);
 
-    let provide_msg = ExecuteMsg::ProvideLiquidity {
+    let provide_msg = ExecuteMsg::Deposit {
         asset: native_asset("utoken".to_string(), Uint128::new(100_000000)),
         receiver: None,
     };
@@ -245,12 +249,12 @@ fn provide_liquidity_success() {
     assert_eq!(
         res.attributes,
         vec![
-            attr("action", "arb/provide_liquidity"),
+            attr("action", "arb/execute_deposit"),
             attr("sender", "user"),
             attr("recipient", "user"),
-            attr("vault_utoken_before", "0"),
-            attr("vault_utoken_after", "100000000"),
-            attr("share", "100000000")
+            attr("deposit_amount", "100000000"),
+            attr("share", "100000000"),
+            attr("vault_utoken_new", "100000000"),
         ]
     );
 }
@@ -260,7 +264,7 @@ fn _provide_liquidity_again() -> (OwnedDeps<MockStorage, MockApi, CustomQuerier>
 
     deps.querier.set_bank_balance(100_000000 + 120_000000);
 
-    let provide_msg = ExecuteMsg::ProvideLiquidity {
+    let provide_msg = ExecuteMsg::Deposit {
         asset: native_asset("utoken".to_string(), Uint128::new(120_000000)),
         receiver: None,
     };
@@ -286,12 +290,12 @@ fn provide_liquidity_again_success() {
     assert_eq!(
         res.attributes,
         vec![
-            attr("action", "arb/provide_liquidity"),
+            attr("action", "arb/execute_deposit"),
             attr("sender", "user"),
             attr("recipient", "user"),
-            attr("vault_utoken_before", "100000000"),
-            attr("vault_utoken_after", "220000000"),
-            attr("share", "120000000")
+            attr("deposit_amount", "120000000"),
+            attr("share", "120000000"),
+            attr("vault_utoken_new", "220000000"),
         ]
     );
 }
@@ -407,7 +411,9 @@ fn throws_if_not_whitelisted_executor() {
         wanted_profit: Decimal::from_ratio(1u128, 100u128),
     };
 
-    let withdraw_msg = ExecuteMsg::WithdrawFromLiquidStaking {};
+    let withdraw_msg = ExecuteMsg::WithdrawFromLiquidStaking {
+        names: None,
+    };
 
     //
     // NOT WHITELISTED
@@ -431,34 +437,34 @@ fn throws_if_not_whitelisted_executor() {
     assert_eq!(result, ContractError::NothingToWithdraw {});
 }
 
-#[test]
-fn throws_if_has_withdraw() {
-    let mut deps = setup_test();
+// #[test]
+// fn throws_if_has_withdraw() {
+//     let mut deps = setup_test();
 
-    let whitelist_info = mock_info("whitelisted_exec", &[]);
+//     let whitelist_info = mock_info("whitelisted_exec", &[]);
 
-    let withdraw_msg = ExecuteMsg::WithdrawFromLiquidStaking {};
+//     let withdraw_msg = ExecuteMsg::WithdrawFromLiquidStaking {};
 
-    let result =
-        execute(deps.as_mut(), mock_env(), whitelist_info.clone(), withdraw_msg).unwrap_err();
-    assert_eq!(result, ContractError::NothingToWithdraw {});
+//     let result =
+//         execute(deps.as_mut(), mock_env(), whitelist_info.clone(), withdraw_msg).unwrap_err();
+//     assert_eq!(result, ContractError::NothingToWithdraw {});
 
-    deps.querier.with_withdrawable(Uint128::new(10));
-    deps.querier.set_bank_balances(&[coin(222_000000, "utoken")]);
+//     deps.querier.with_withdrawable(Uint128::new(10));
+//     deps.querier.set_bank_balances(&[coin(222_000000, "utoken")]);
 
-    let execute_msg = ExecuteMsg::ExecuteArbitrage {
-        msg: ExecuteSubMsg {
-            contract_addr: None,
-            msg: to_binary(&Empty {}).unwrap(),
-            funds_amount: Uint128::new(100_000000u128),
-        },
-        result_token: token_asset_info(Addr::unchecked("eriscw")),
-        wanted_profit: Decimal::from_ratio(1u128, 100u128),
-    };
-    let result = execute(deps.as_mut(), mock_env(), whitelist_info, execute_msg).unwrap_err();
+//     let execute_msg = ExecuteMsg::ExecuteArbitrage {
+//         msg: ExecuteSubMsg {
+//             contract_addr: None,
+//             msg: to_binary(&Empty {}).unwrap(),
+//             funds_amount: Uint128::new(100_000000u128),
+//         },
+//         result_token: token_asset_info(Addr::unchecked("eriscw")),
+//         wanted_profit: Decimal::from_ratio(1u128, 100u128),
+//     };
+//     let result = execute(deps.as_mut(), mock_env(), whitelist_info, execute_msg).unwrap_err();
 
-    assert_eq!(result, ContractError::WithdrawBeforeExecute {});
-}
+//     assert_eq!(result, ContractError::WithdrawBeforeExecute {});
+// }
 
 #[test]
 fn check_withdrawing() {
@@ -466,7 +472,9 @@ fn check_withdrawing() {
 
     let whitelist_info = mock_info("whitelisted_exec", &[]);
 
-    let withdraw_msg = ExecuteMsg::WithdrawFromLiquidStaking {};
+    let withdraw_msg = ExecuteMsg::WithdrawFromLiquidStaking {
+        names: None,
+    };
 
     deps.querier.with_withdrawable(Uint128::new(10_000000u128));
 
@@ -479,7 +487,7 @@ fn check_withdrawing() {
             attr("action", "arb/execute_withdraw_liquidity"),
             attr("type", "eris"), // eris has factor 1.1
             attr("withdraw_amount", "11000000"),
-            attr("type", "steak"),
+            attr("type", "backbone"),
             attr("withdraw_amount", "10000000"),
             attr("type", "stader"), // stader has factor 1.02
             attr("withdraw_amount", "10200000"),
@@ -1606,7 +1614,9 @@ fn query_check_balances() {
                 vault_takeable: pool_takeable,
                 locked_user_withdrawls: locked,
                 lsd_unbonding: unbonding,
-                lsd_withdrawable: withdrawable
+                lsd_withdrawable: withdrawable,
+                lsd_xvalue: Uint128::zero(),
+                details: None,
             },
             exchange_rate: Decimal::from_str("2.4008").unwrap(),
             details: None
@@ -1625,32 +1635,41 @@ fn query_check_balances() {
                 vault_takeable: pool_takeable,
                 locked_user_withdrawls: locked,
                 lsd_unbonding: unbonding,
-                lsd_withdrawable: withdrawable
-            },
-            exchange_rate: Decimal::from_str("2.4008").unwrap(),
-            details: Some(StateDetails {
-                claims: vec![
+                lsd_withdrawable: withdrawable,
+                lsd_xvalue: Uint128::zero(),
+                details: Some(vec![
                     ClaimBalance {
                         name: "eris".to_string(),
                         withdrawable: eris_exchange_rate * withdrawable_per_lsd,
-                        unbonding: eris_exchange_rate * unbonding_per_lsd
+                        unbonding: eris_exchange_rate * unbonding_per_lsd,
+                        xfactor: eris_exchange_rate,
+                        xbalance: Uint128::zero(),
                     },
                     ClaimBalance {
-                        name: "steak".to_string(),
+                        name: "backbone".to_string(),
                         withdrawable: withdrawable_per_lsd,
-                        unbonding: unbonding_per_lsd
+                        unbonding: unbonding_per_lsd,
+                        xfactor: Decimal::one(),
+                        xbalance: Uint128::zero(),
                     },
                     ClaimBalance {
                         name: "stader".to_string(),
                         withdrawable: stader_exchange_rate * withdrawable_per_lsd,
-                        unbonding: stader_exchange_rate * unbonding_per_lsd
+                        unbonding: stader_exchange_rate * unbonding_per_lsd,
+                        xfactor: stader_exchange_rate,
+                        xbalance: Uint128::zero(),
                     },
                     ClaimBalance {
                         name: "prism".to_string(),
                         withdrawable: withdrawable_per_lsd,
-                        unbonding: unbonding_per_lsd
+                        unbonding: unbonding_per_lsd,
+                        xfactor: Decimal::one(),
+                        xbalance: Uint128::zero(),
                     },
-                ],
+                ]),
+            },
+            exchange_rate: Decimal::from_str("2.4008").unwrap(),
+            details: Some(StateDetails {
                 takeable_steps: vec![
                     // 1% = 50% of pool
                     (Decimal::from_ratio(10u128, 1000u128), Uint128::new(0u128),),
@@ -1785,7 +1804,7 @@ fn execute_arb_throws() {
     };
     let res = execute(deps.as_mut(), mock_env(), whitelist_info.clone(), exec_msg)
         .expect_err("expects error");
-    assert_eq!(res, ContractError::AssetUnknown {});
+    assert_eq!(res, ContractError::AdapterNotFound("token - xxx".to_string()));
 
     let exec_msg = ExecuteMsg::ExecuteArbitrage {
         msg: ExecuteSubMsg {
@@ -1820,15 +1839,28 @@ fn execute_arb_throws() {
 
     let exec_msg = ExecuteMsg::ExecuteArbitrage {
         msg: ExecuteSubMsg {
-            contract_addr: None,
+            contract_addr: Some("eris".to_string()),
             funds_amount: takeable,
             msg: to_binary("exec_any_swap").unwrap(),
         },
         result_token: token_asset_info(Addr::unchecked("eriscw")),
         wanted_profit,
     };
+    let res = execute(deps.as_mut(), mock_env(), whitelist_info.clone(), exec_msg).unwrap_err();
+    assert_eq!(res, ContractError::CannotCallLsdContract {});
+
+    let exec_msg = ExecuteMsg::ExecuteArbitrage {
+        msg: ExecuteSubMsg {
+            contract_addr: Some("eriscw".to_string()),
+            funds_amount: takeable,
+            msg: to_binary("exec_any_swap").unwrap(),
+        },
+        result_token: token_asset_info(Addr::unchecked("eriscw")),
+        wanted_profit,
+    };
+
     let res = execute(deps.as_mut(), mock_env(), whitelist_info, exec_msg).unwrap_err();
-    assert_eq!(res, ContractError::WithdrawBeforeExecute {});
+    assert_eq!(res, ContractError::CannotCallLsdContract {});
 }
 
 #[test]
@@ -1926,7 +1958,7 @@ fn execute_arb() {
         deps.as_mut(),
         mock_env(),
         user_info,
-        ExecuteMsg::ProvideLiquidity {
+        ExecuteMsg::Deposit {
             asset: native_asset("utoken".to_string(), Uint128::new(100)),
             receiver: None,
         },
@@ -1938,7 +1970,7 @@ fn execute_arb() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        whitelist_info,
+        whitelist_info.clone(),
         ExecuteMsg::ExecuteArbitrage {
             msg: ExecuteSubMsg {
                 contract_addr: None,
@@ -1983,28 +2015,11 @@ fn execute_arb() {
             attr("old_tvl", old_tvl.to_string()),
             attr("new_tvl", new_tvl.to_string()),
             attr("used_balance", takeable.to_string()),
-            attr("xbalance", eris_amount.to_string()),
-            attr("unbond_xamount", eris_amount),
-            attr("xfactor", "1.1"),
-            attr("xvalue", eris_exchange_rate * eris_amount),
-            //approx. profit
             attr("profit", "605039"),
             attr("exchange_rate", "1.99478989"),
             attr("fee_amount", "6050"),
         ]
     );
-
-    //
-    // APPLYING SUB MSG TO NEW BALANCE
-    //
-
-    // xasset moved to unbonding
-    deps.querier.set_cw20_balance("eriscw", MOCK_CONTRACT_ADDR, 0);
-    deps.querier.with_unbonding_eris(eris_amount);
-
-    //
-    // END APPLYING SUB MSG TO NEW BALANCE
-    //
 
     assert_eq!(
         old_state,
@@ -2019,10 +2034,41 @@ fn execute_arb() {
                 locked_user_withdrawls: Uint128::new(120000000),
                 lsd_unbonding: Uint128::new(98880000),
                 lsd_withdrawable: Uint128::new(0),
+                lsd_xvalue: Uint128::new(0),
+                details: None
             },
             details: None
         }
     );
+
+    assert_eq!(res.messages.len(), 1);
+    assert_eq!(
+        res.messages[0].msg,
+        native_asset("utoken".to_string(), Uint128::new(6050))
+            .into_msg(&deps.as_ref().querier, "fee")
+            .unwrap()
+    );
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        whitelist_info.clone(),
+        ExecuteMsg::UnbondFromLiquidStaking {
+            names: None,
+        },
+    )
+    .unwrap();
+
+    //
+    // APPLYING SUB MSG TO NEW BALANCE
+    //
+    // xasset moved to unbonding
+    deps.querier.set_cw20_balance("eriscw", MOCK_CONTRACT_ADDR, 0);
+    deps.querier.with_unbonding_eris(eris_amount);
+
+    //
+    // END APPLYING SUB MSG TO NEW BALANCE
+    //
 
     let new_state = query_state(deps.as_ref(), mock_env(), None).unwrap();
     assert_eq!(
@@ -2038,13 +2084,14 @@ fn execute_arb() {
                 locked_user_withdrawls: Uint128::new(120000000),
                 lsd_unbonding: Uint128::new(98880000 + (eris_amount * eris_exchange_rate).u128()),
                 lsd_withdrawable: Uint128::new(0),
+                lsd_xvalue: Uint128::new(0),
+                details: None
             },
             details: None
         }
     );
 
-    assert_eq!(res.messages.len(), 2);
-
+    assert_eq!(res.messages.len(), 1);
     match res.messages[0].msg.clone() {
         CosmosMsg::Wasm(WasmMsg::Execute {
             funds,
@@ -2076,13 +2123,6 @@ fn execute_arb() {
         },
         _ => panic!("DO NOT ENTER HERE"),
     }
-
-    assert_eq!(
-        res.messages[1].msg,
-        native_asset("utoken".to_string(), Uint128::new(6050))
-            .into_msg(&deps.as_ref().querier, "fee")
-            .unwrap()
-    );
 
     //
     // EXPECT NEW SHARE TO BE BIGGER

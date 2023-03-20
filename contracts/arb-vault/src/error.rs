@@ -29,9 +29,6 @@ pub enum ContractError {
     #[error("Nothing to withdraw")]
     NothingToWithdraw {},
 
-    #[error("Withdrawable funds available. Execute withdraw before arbitrage.")]
-    WithdrawBeforeExecute {},
-
     #[error("Not enough profit")]
     NotEnoughProfit {},
 
@@ -57,8 +54,11 @@ pub enum ContractError {
     #[error("Contract can't be migrated!")]
     MigrationError {},
 
-    #[error("Asset is not known")]
-    AssetUnknown {},
+    #[error("Adapter not found: {0}")]
+    AdapterNotFound(String),
+
+    #[error("Adapter duplicated: {0}")]
+    AdapterNameDuplicate(String),
 
     #[error("cannot find `instantiate` event")]
     CannotFindInstantiateEvent {},
@@ -69,8 +69,14 @@ pub enum ContractError {
     #[error("Invalid reply id: {0}")]
     InvalidReplyId(u64),
 
-    #[error("Specified unbond time is too high")]
-    UnbondTimeTooHigh,
+    #[error("Specified {0} is too low")]
+    ConfigToLow(String),
+
+    #[error("Specified {0} is too high")]
+    ConfigTooHigh(String),
+
+    #[error("Adapter {0} is disabled")]
+    AdapterDisabled(String),
 
     #[error("Adapter {adapter}: {msg} - {orig}")]
     AdapterError {
@@ -114,6 +120,15 @@ pub enum ContractError {
 
     #[error("Either set or remove the whitelist")]
     CannotRemoveWhitelistWhileSettingIt {},
+
+    #[error("Cannot remove an adapter that has funds")]
+    CannotRemoveAdapterThatHasFunds {},
+
+    #[error("Cannot call LSD contract")]
+    CannotCallLsdContract {},
+
+    #[error("CW20 tokens can be swapped via Cw20::Send message only")]
+    Cw20DirectSwap {},
 }
 
 pub fn adapter_error(adapter: &str, msg: &str, orig: StdError) -> ContractError {

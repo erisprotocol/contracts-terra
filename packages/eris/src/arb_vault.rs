@@ -43,6 +43,7 @@ pub struct InstantiateMsg {
 #[cw_serde]
 pub struct LsdConfig<T> {
     pub disabled: bool,
+    pub name: String,
     pub lsd_type: LsdType<T>,
 }
 
@@ -50,6 +51,7 @@ impl LsdConfig<String> {
     pub fn validate(self, api: &dyn Api) -> StdResult<LsdConfig<Addr>> {
         Ok(LsdConfig {
             disabled: self.disabled,
+            name: self.name,
             lsd_type: match self.lsd_type {
                 LsdType::Eris {
                     addr,
@@ -145,7 +147,7 @@ pub enum ExecuteMsg {
     // User action: Receive to queue funds for withdraw
     Receive(Cw20ReceiveMsg),
     // User action: Provide liquidity to the pool and specify who will receive the pool token.
-    ProvideLiquidity {
+    Deposit {
         asset: Asset,
         receiver: Option<String>,
     },
@@ -157,11 +159,27 @@ pub enum ExecuteMsg {
         id: u64,
     },
 
+    // /// Swap is allowed between the [TOKEN] and the arb[TOKEN]
+    // Swap {
+    //     offer_asset: Asset,
+    //     ask_asset_info: Option<AssetInfo>,
+    //     belief_price: Option<Decimal>,
+    //     max_spread: Option<Decimal>,
+    //     to: Option<String>,
+    // },
+
     // Admin User: Update config
     UpdateConfig {
         utilization_method: Option<UtilizationMethod>,
         unbond_time_s: Option<u64>,
-        lsds: Option<Vec<LsdConfig<String>>>,
+
+        // insert an lsd
+        insert_lsd: Option<LsdConfig<String>>,
+        // disable LSD
+        disable_lsd: Option<String>,
+        // removes a LSD (only when nothing is unbonding and withdrawable)
+        remove_lsd: Option<String>,
+
         fee_config: Option<FeeConfig<String>>,
         set_whitelist: Option<Vec<String>>,
         // opens up executions so anyone can execute.
@@ -179,7 +197,15 @@ pub enum ExecuteMsg {
     },
 
     // Bot: Withdraw unbonded liquidity from liquid staking providers
-    WithdrawFromLiquidStaking {},
+    WithdrawFromLiquidStaking {
+        // specify which adapters should be withdrawn
+        names: Option<Vec<String>>,
+    },
+    // Bot: Start unbonding liquidity from liquid staking providers
+    UnbondFromLiquidStaking {
+        // specify which adapters should be withdrawn
+        names: Option<Vec<String>>,
+    },
 
     // Internal: Asserts that the execution was a success and the wanted_profit reached.
     /// Creates a request to change the contract's ownership
@@ -225,6 +251,13 @@ pub enum Cw20HookMsg {
     Unbond {
         immediate: Option<bool>,
     },
+    // /// Swap is allowed between arb[TOKEN] and allowed swap LSDs e.g. amp[TOKEN]
+    // Swap {
+    //     ask_asset_info: Option<AssetInfo>,
+    //     belief_price: Option<Decimal>,
+    //     max_spread: Option<Decimal>,
+    //     to: Option<String>,
+    // },
 }
 
 /// This structure describes the query messages available in the contract.
@@ -352,7 +385,7 @@ impl FeeConfig<String> {
 pub struct StateResponse {
     pub exchange_rate: Decimal,
     pub total_lp_supply: Uint128,
-    pub balances: Balances,
+    pub balances: BalancesOptionalDetails,
 
     pub details: Option<StateDetails>,
 }
@@ -362,13 +395,12 @@ pub struct UserDetails {}
 
 #[cw_serde]
 pub struct StateDetails {
-    pub claims: Vec<ClaimBalance>,
     pub takeable_steps: Vec<(Decimal, Uint128)>,
 }
 
 #[cw_serde]
-pub struct Balances {
-    // total locked value (utoken) in the contract (vault_available + lsd_unbonding + lsd_withdrawable)
+pub struct Balances<T> {
+    // total locked value (utoken) in the contract (vault_available + lsd_unbonding + lsd_withdrawable + lsd_xvalue)
     pub tvl_utoken: Uint128,
     // total value used for arbitrage (tvl_utoken - locked_user_withdrawls)
     pub vault_total: Uint128,
@@ -382,7 +414,14 @@ pub struct Balances {
     pub lsd_unbonding: Uint128,
     // amount that is currently withdrawable
     pub lsd_withdrawable: Uint128,
+    // amount that is currently in the contract as xtokens denominated in the utoken(amp[TOKEN], b[TOKEN], etc.)
+    pub lsd_xvalue: Uint128,
+
+    pub details: T,
 }
+
+pub type BalancesDetails = Balances<Vec<ClaimBalance>>;
+pub type BalancesOptionalDetails = Balances<Option<Vec<ClaimBalance>>>;
 
 #[cw_serde]
 pub struct UserInfoResponse {
@@ -395,6 +434,8 @@ pub struct ClaimBalance {
     pub name: String,
     pub withdrawable: Uint128,
     pub unbonding: Uint128,
+    pub xbalance: Uint128,
+    pub xfactor: Decimal,
 }
 
 #[cw_serde]

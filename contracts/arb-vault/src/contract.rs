@@ -3,7 +3,7 @@ use crate::domain;
 use crate::domain::callback::handle_callback;
 use crate::domain::config::execute_update_config;
 use crate::domain::execute::{
-    execute_arbitrage, execute_provide_liquidity, execute_withdraw_liquidity,
+    execute_arbitrage, execute_deposit, execute_unbond_liquidity, execute_withdraw_liquidity,
     execute_withdraw_unbonded, execute_withdraw_unbonding_immediate, receive_cw20,
 };
 use crate::domain::ownership::{claim_ownership, drop_ownership_proposal, propose_new_owner};
@@ -49,11 +49,6 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        // Allowed by Owner
-        ExecuteMsg::UpdateConfig {
-            ..
-        } => execute_update_config(deps, env, info, msg),
-
         // Allowed by Execute whitelist
         ExecuteMsg::ExecuteArbitrage {
             msg,
@@ -61,20 +56,47 @@ pub fn execute(
             wanted_profit,
         } => execute_arbitrage(deps, env, info, msg, result_token, wanted_profit),
 
-        ExecuteMsg::WithdrawFromLiquidStaking {} => execute_withdraw_liquidity(deps, env, info),
+        ExecuteMsg::WithdrawFromLiquidStaking {
+            names,
+        } => execute_withdraw_liquidity(deps, env, info, names),
+
+        ExecuteMsg::UnbondFromLiquidStaking {
+            names,
+        } => execute_unbond_liquidity(deps, env, info, names),
 
         // User actions
         ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),
-        ExecuteMsg::ProvideLiquidity {
+        ExecuteMsg::Deposit {
             asset,
             receiver,
-        } => execute_provide_liquidity(deps, env, info, asset, receiver),
+        } => execute_deposit(deps, env, info, asset, receiver),
         ExecuteMsg::WithdrawUnbonded {
             ..
         } => execute_withdraw_unbonded(deps, env, info),
         ExecuteMsg::WithdrawImmediate {
             id,
         } => execute_withdraw_unbonding_immediate(deps, env, info, id),
+
+        // ExecuteMsg::Swap {
+        //     offer_asset,
+        //     ask_asset_info,
+        //     belief_price,
+        //     max_spread,
+        //     to,
+        // } => domain::swap::execute_swap_native(
+        //     deps,
+        //     env,
+        //     info,
+        //     offer_asset,
+        //     ask_asset_info,
+        //     belief_price,
+        //     max_spread,
+        //     to,
+        // ),
+        // Allowed by Owner
+        ExecuteMsg::UpdateConfig {
+            ..
+        } => execute_update_config(deps, env, info, msg),
 
         ExecuteMsg::ProposeNewOwner {
             owner,
