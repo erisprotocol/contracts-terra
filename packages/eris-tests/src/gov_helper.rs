@@ -9,10 +9,7 @@ use cw20::Cw20ExecuteMsg;
 use cw_multi_test::{App, AppResponse, Executor};
 use eris::{emp_gauges::AddEmpInfo, governance_helper::WEEK};
 
-use crate::{
-    base::{BaseErisTestInitMessage, BaseErisTestPackage},
-    EventChecker,
-};
+use crate::base::{BaseErisTestInitMessage, BaseErisTestPackage};
 
 pub const MULTIPLIER: u64 = 1000000;
 
@@ -684,5 +681,35 @@ impl EscrowHelper {
             },
             &[coin(amount, "uluna")],
         )
+    }
+
+    pub fn arb_withdraw(&self, router_ref: &mut App, sender: &str) -> Result<AppResponse> {
+        self.arb_execute_sender(
+            router_ref,
+            eris::arb_vault::ExecuteMsg::WithdrawUnbonded {},
+            sender,
+        )
+    }
+
+    pub fn arb_unbond(
+        &self,
+        router_ref: &mut App,
+        sender: &str,
+        amount: u128,
+        immediate: Option<bool>,
+    ) -> Result<AppResponse> {
+        let config = self.arb_query_config(router_ref).unwrap();
+        let lp = config.config.lp_addr;
+
+        let cw20msg = Cw20ExecuteMsg::Send {
+            contract: self.base.arb_vault.get_address_string(),
+            amount: Uint128::new(amount),
+            msg: to_binary(&eris::arb_vault::Cw20HookMsg::Unbond {
+                immediate,
+            })
+            .unwrap(),
+        };
+
+        router_ref.execute_contract(Addr::unchecked(sender), lp, &cw20msg, &[])
     }
 }

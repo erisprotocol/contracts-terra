@@ -453,7 +453,43 @@ fn provide_liquidity_and_arb_submit() -> StdResult<()> {
         }
     );
 
+    check_normal_withdraw(router_ref, &helper);
+    check_immediate_withdraw(router_ref, helper);
+
     Ok(())
+}
+
+fn check_normal_withdraw(router_ref: &mut cw_multi_test::App, helper: &EscrowHelper) {
+    let balance = router_ref.wrap().query_balance("user2", "uluna").unwrap();
+    let res = helper.arb_unbond(router_ref, "user2", 50_000000, None).unwrap();
+    let balance2 = router_ref.wrap().query_balance("user2", "uluna").unwrap();
+
+    res.assert_attribute("wasm", attr("burnt_amount", "50000000")).unwrap();
+    res.assert_attribute("wasm", attr("withdraw_amount", "50030000")).unwrap();
+    res.assert_attribute("wasm", attr("receive_amount", "49529700")).unwrap();
+    res.assert_attribute("wasm", attr("protocol_fee", "500300")).unwrap();
+    assert_eq!(balance.amount, balance2.amount);
+
+    router_ref.next_block(DAY * 25);
+
+    let balance3 = router_ref.wrap().query_balance("user2", "uluna").unwrap();
+    assert_eq!(balance3.amount, balance2.amount);
+    helper.arb_withdraw(router_ref, "user2").unwrap();
+    let balance4 = router_ref.wrap().query_balance("user2", "uluna").unwrap();
+    assert_eq!(balance3.amount + uint(49529700), balance4.amount);
+}
+
+fn check_immediate_withdraw(router_ref: &mut cw_multi_test::App, helper: EscrowHelper) {
+    let balance = router_ref.wrap().query_balance("user3", "uluna").unwrap();
+    let res = helper.arb_unbond(router_ref, "user3", 50_000000, Some(true)).unwrap();
+    let new_balance = router_ref.wrap().query_balance("user3", "uluna").unwrap();
+
+    res.assert_attribute("wasm", attr("burnt_amount", "50000000")).unwrap();
+    res.assert_attribute("wasm", attr("withdraw_amount", "50030000")).unwrap();
+    res.assert_attribute("wasm", attr("receive_amount", "48028800")).unwrap();
+    res.assert_attribute("wasm", attr("protocol_fee", "500300")).unwrap();
+    res.assert_attribute("wasm", attr("pool_fee", "1500900")).unwrap();
+    assert_eq!(balance.amount + uint(48028800), new_balance.amount);
 }
 
 fn return_msg(
