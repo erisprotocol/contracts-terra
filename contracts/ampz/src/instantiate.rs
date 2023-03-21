@@ -19,6 +19,7 @@ pub fn exec_instantiate(deps: DepsMut, _env: Env, msg: InstantiateMsg) -> StdRes
     state.controller.save(deps.storage, &deps.api.addr_validate(&msg.controller)?)?;
     state.zapper.save(deps.storage, &Compounder(deps.api.addr_validate(&msg.zapper)?))?;
     state.astroport.save(deps.storage, &msg.astroport.validate(deps.api)?)?;
+    state.capapult.save(deps.storage, &msg.capapult.validate(deps.api)?)?;
 
     state.owner.save(deps.storage, &deps.api.addr_validate(&msg.owner)?)?;
     state.hub.save(deps.storage, &Hub(deps.api.addr_validate(msg.hub.as_str())?))?;

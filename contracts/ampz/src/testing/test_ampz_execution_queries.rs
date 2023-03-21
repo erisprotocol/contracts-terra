@@ -17,7 +17,9 @@ fn check_query_user_info() {
     let mut deps = setup_test();
 
     let execution1 = Execution {
-        destination: eris::ampz::DestinationState::DepositAmplifier {},
+        destination: eris::ampz::DestinationState::DepositAmplifier {
+            receiver: None,
+        },
         schedule: Schedule {
             interval_s: 8 * HOUR,
             start: None,
@@ -38,7 +40,9 @@ fn check_query_user_info() {
     .unwrap();
 
     let execution2 = Execution {
-        destination: eris::ampz::DestinationState::DepositAmplifier {},
+        destination: eris::ampz::DestinationState::DepositAmplifier {
+            receiver: None,
+        },
         schedule: Schedule {
             interval_s: 10 * HOUR,
             start: Some(2 * DAY),
@@ -150,7 +154,9 @@ fn check_query_executions() {
     assert_eq!(executions.executions, vec![]);
 
     let execution1 = Execution {
-        destination: eris::ampz::DestinationState::DepositAmplifier {},
+        destination: eris::ampz::DestinationState::DepositAmplifier {
+            receiver: None,
+        },
         schedule: Schedule {
             interval_s: 6 * HOUR,
             start: None,
@@ -173,7 +179,9 @@ fn check_query_executions() {
     assert_eq!(executions.executions, vec![(Uint128::new(1), execution1.clone())]);
 
     let execution2 = Execution {
-        destination: eris::ampz::DestinationState::DepositAmplifier {},
+        destination: eris::ampz::DestinationState::DepositAmplifier {
+            receiver: None,
+        },
         schedule: Schedule {
             interval_s: 6 * HOUR,
             start: Some(2 * DAY),

@@ -13,8 +13,8 @@ use eris::constants::{DAY, HOUR};
 use serde::de::DeserializeOwned;
 
 use eris::ampz::{
-    AstroportConfig, CallbackMsg, ExecuteMsg, Execution, FeeConfig, InstantiateMsg, QueryMsg,
-    Schedule,
+    AstroportConfig, CallbackMsg, CapapultConfig, ExecuteMsg, Execution, FeeConfig, InstantiateMsg,
+    QueryMsg, Schedule,
 };
 
 use crate::constants::CONTRACT_DENOM;
@@ -127,6 +127,12 @@ pub(super) fn setup_test() -> OwnedDeps<MockStorage, MockApi, CustomQuerier> {
                 operator_bps: 200u16.try_into().unwrap(),
                 receiver: "fee_receiver".into(),
             },
+            capapult: CapapultConfig {
+                market: "capapult_market".into(),
+                overseer: "capapult_overseer".into(),
+                custody: "capapult_custody".into(),
+                stable_cw: "solid".into(),
+            },
         },
     )
     .unwrap();
@@ -141,7 +147,9 @@ pub(super) fn add_default_execution(
 ) -> (u128, Execution) {
     let interval_s = 6 * HOUR;
     let execution = Execution {
-        destination: eris::ampz::DestinationState::DepositAmplifier {},
+        destination: eris::ampz::DestinationState::DepositAmplifier {
+            receiver: None,
+        },
         schedule: Schedule {
             interval_s,
             start: None,
@@ -173,7 +181,9 @@ pub(super) fn finish_amplifier(
     executor: &str,
 ) -> Response {
     let finish_execution = CallbackMsg::FinishExecution {
-        destination: eris::ampz::DestinationRuntime::DepositAmplifier {},
+        destination: eris::ampz::DestinationRuntime::DepositAmplifier {
+            receiver: None,
+        },
         executor: Addr::unchecked(executor),
     };
 

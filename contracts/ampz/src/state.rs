@@ -2,7 +2,7 @@ use cosmwasm_std::{Addr, Order, StdResult, Storage};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 use eris::{
     adapters::{compounder::Compounder, farm::Farm, generator::Generator, hub::Hub},
-    ampz::{AstroportConfig, Execution, FeeConfig},
+    ampz::{AstroportConfig, CapapultConfig, Execution, FeeConfig},
 };
 
 use crate::error::ContractError;
@@ -14,6 +14,9 @@ pub(crate) struct State<'a> {
     pub zapper: Item<'a, Compounder>,
     // config regarding supported astroport tokens and generator address
     pub astroport: Item<'a, AstroportConfig<Generator>>,
+
+    pub capapult: Item<'a, CapapultConfig<Addr>>,
+
     /// Account who can call certain privileged functions
     pub owner: Item<'a, Addr>,
     /// Pending ownership transfer, awaiting acceptance by the new owner
@@ -55,6 +58,7 @@ impl Default for State<'static> {
             farms: Item::new("farms"),
             hub: Item::new("hub"),
             astroport: Item::new("astro_generator"),
+            capapult: Item::new("capapult"),
 
             id: Item::new("id"),
 

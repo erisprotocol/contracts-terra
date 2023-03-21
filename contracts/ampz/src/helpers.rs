@@ -1,4 +1,4 @@
-use cosmwasm_std::{Addr, QuerierWrapper, StdResult};
+use cosmwasm_std::{Addr, Api, QuerierWrapper, StdResult};
 
 use crate::constants::CONTRACT_DENOM;
 #[derive(Clone)]
@@ -23,4 +23,11 @@ pub(crate) fn query_all_delegations(
         .collect();
 
     Ok(result)
+}
+
+pub(crate) fn validate_receiver(api: &dyn Api, receiver: &Option<Addr>) -> StdResult<()> {
+    if let Some(receiver) = receiver {
+        api.addr_validate(receiver.as_ref())?;
+    }
+    Ok(())
 }
