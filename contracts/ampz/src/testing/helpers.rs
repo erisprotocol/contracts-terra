@@ -130,6 +130,7 @@ pub(super) fn setup_test() -> OwnedDeps<MockStorage, MockApi, CustomQuerier> {
             capapult: CapapultConfig {
                 market: "capapult_market".into(),
                 overseer: "capapult_overseer".into(),
+                custody: "capapult_custody".into(),
                 stable_cw: "solid".into(),
             },
         },

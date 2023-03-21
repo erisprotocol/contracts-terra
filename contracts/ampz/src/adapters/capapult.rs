@@ -1,7 +1,8 @@
 use astroport::asset::Asset;
-use cosmwasm_std::{coins, to_binary, Addr, CosmosMsg, Env, QuerierWrapper, StdResult, WasmMsg};
-use cw20::Expiration;
+use cosmwasm_std::{to_binary, Addr, CosmosMsg, QuerierWrapper, StdResult, WasmMsg};
 use eris::adapters::asset::AssetEx;
+
+use crate::error::{ContractError, CustomResult};
 
 pub struct CapapultMarket(pub Addr);
 
@@ -29,46 +30,32 @@ impl CapapultMarket {
     }
 }
 
-pub struct CapapultOverseer(pub Addr);
+pub struct CapapultLocker {
+    pub overseer: Addr,
+    pub custody: Addr,
+}
 
-impl CapapultOverseer {
-    pub fn lock_collateral(&self, env: &Env, asset: Asset) -> StdResult<Vec<CosmosMsg>> {
-        match &asset.info {
-            astroport::asset::AssetInfo::Token {
-                ..
-            } => {
-                let increase_allowance_msg = asset.increase_allowance_msg(
-                    self.0.to_string(),
-                    Some(Expiration::AtHeight(env.block.height + 1)),
-                )?;
-
-                let asset_info_str = asset.info.to_string();
-
-                let lock_collateral_msg = CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: self.0.to_string(),
-                    msg: to_binary(&capapult::overseer::ExecuteMsg::LockCollateral {
-                        collaterals: vec![(asset_info_str, asset.amount.into())],
-                    })?,
-                    funds: vec![],
-                });
-                Ok(vec![increase_allowance_msg, lock_collateral_msg])
-            },
-            astroport::asset::AssetInfo::NativeToken {
-                ..
-            } => {
-                let asset_info_str = asset.info.to_string();
-                let funds = coins(asset.amount.u128(), asset_info_str.clone());
-
-                let lock_collateral_msg = CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: self.0.to_string(),
-                    msg: to_binary(&capapult::overseer::ExecuteMsg::LockCollateral {
-                        collaterals: vec![(asset_info_str, asset.amount.into())],
-                    })?,
-                    funds,
-                });
-                Ok(vec![lock_collateral_msg])
-            },
+impl CapapultLocker {
+    pub fn deposit_and_lock_collateral(&self, asset: Asset) -> CustomResult<Vec<CosmosMsg>> {
+        if asset.info.is_native_token() {
+            return Err(ContractError::NotSupported {});
         }
+
+        let deposit_collateral_msg = asset.transfer_msg_target(
+            &self.custody,
+            Some(to_binary(&capapult::custody::Cw20HookMsg::DepositCollateral {})?),
+        )?;
+
+        let asset_info_str = asset.info.to_string();
+        let lock_collateral_msg = CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: self.overseer.to_string(),
+            msg: to_binary(&capapult::overseer::ExecuteMsg::LockCollateral {
+                collaterals: vec![(asset_info_str, asset.amount.into())],
+            })?,
+            funds: vec![],
+        });
+
+        Ok(vec![deposit_collateral_msg, lock_collateral_msg])
     }
 }
 

@@ -78,6 +78,9 @@ impl ExecutionExt for Execution {
                 DepositMarket::Capapult {
                     asset_info,
                 } => {
+                    if asset_info.is_native_token() {
+                        return Err(ContractError::NotSupported {});
+                    }
                     self.check_path_to(deps, state, asset_info.clone())?;
                 },
             },

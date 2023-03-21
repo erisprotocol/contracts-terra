@@ -3,8 +3,8 @@ use eris::adapters::asset::AssetEx;
 use eris::adapters::generator::Generator;
 use eris::constants::{DAY, HOUR};
 
-use crate::adapters::capapult::{CapapultMarket, CapapultOverseer};
-use crate::protos::msgex::CosmosMsgEx;
+use crate::adapters::capapult::{CapapultLocker, CapapultMarket};
+use crate::protos::msgex::{CosmosMsgEx, CosmosMsgsEx};
 use crate::testing::helpers::finish_amplifier;
 use crate::{contract::execute, error::ContractError};
 
@@ -611,7 +611,7 @@ fn check_execution_source_wallet_cw20_deposit_collateral() {
     )
     .unwrap();
 
-    assert_eq!(res.messages.len(), 4);
+    assert_eq!(res.messages.len(), 3);
 
     assert_eq!(
         res.messages[0].msg,
@@ -623,12 +623,14 @@ fn check_execution_source_wallet_cw20_deposit_collateral() {
         token_asset(eriscw.clone(), Uint128::new(485)).transfer_msg(&user()).unwrap()
     );
 
-    let msgs = CapapultOverseer(Addr::unchecked("capapult_overseer"))
-        .lock_collateral(&mock_env(), token_asset(eriscw, Uint128::new(485)))
-        .unwrap();
+    let msgs = CapapultLocker {
+        overseer: Addr::unchecked("capapult_overseer"),
+        custody: Addr::unchecked("capapult_custody"),
+    }
+    .deposit_and_lock_collateral(token_asset(eriscw, Uint128::new(485)))
+    .unwrap();
 
-    assert_eq!(res.messages[2].msg, msgs[0].clone().to_authz_msg(user(), &mock_env()).unwrap());
-    assert_eq!(res.messages[3].msg, msgs[1].clone().to_authz_msg(user(), &mock_env()).unwrap());
+    assert_eq!(res.messages[2].msg, msgs.to_authz_msg(user(), &mock_env()).unwrap());
 }
 
 #[test]
@@ -715,7 +717,7 @@ fn check_execution_source_wallet_deposit_collateral_same_asset() {
     )
     .unwrap();
 
-    assert_eq!(res.messages.len(), 4);
+    assert_eq!(res.messages.len(), 3);
 
     assert_eq!(
         res.messages[0].msg,
@@ -727,10 +729,12 @@ fn check_execution_source_wallet_deposit_collateral_same_asset() {
         token_asset(eriscw.clone(), Uint128::new(482)).transfer_msg(&user()).unwrap()
     );
 
-    let msgs = CapapultOverseer(Addr::unchecked("capapult_overseer"))
-        .lock_collateral(&mock_env(), token_asset(eriscw, Uint128::new(482)))
-        .unwrap();
+    let msgs = CapapultLocker {
+        overseer: Addr::unchecked("capapult_overseer"),
+        custody: Addr::unchecked("capapult_custody"),
+    }
+    .deposit_and_lock_collateral(token_asset(eriscw, Uint128::new(482)))
+    .unwrap();
 
-    assert_eq!(res.messages[2].msg, msgs[0].clone().to_authz_msg(user(), &mock_env()).unwrap());
-    assert_eq!(res.messages[3].msg, msgs[1].clone().to_authz_msg(user(), &mock_env()).unwrap());
+    assert_eq!(res.messages[2].msg, msgs.to_authz_msg(user(), &mock_env()).unwrap());
 }

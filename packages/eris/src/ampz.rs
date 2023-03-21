@@ -98,6 +98,7 @@ pub struct CapapultConfig<T> {
     pub market: T,
     pub overseer: T,
     pub stable_cw: T,
+    pub custody: T,
 }
 
 impl CapapultConfig<String> {
@@ -105,6 +106,7 @@ impl CapapultConfig<String> {
         Ok(CapapultConfig {
             market: api.addr_validate(&self.market)?,
             overseer: api.addr_validate(&self.overseer)?,
+            custody: api.addr_validate(&self.custody)?,
             stable_cw: api.addr_validate(&self.stable_cw)?,
         })
     }
@@ -345,6 +347,8 @@ pub struct ConfigResponse {
     pub zapper: String,
 
     pub astroport: AstroportConfig<String>,
+
+    pub capapult: CapapultConfig<String>,
 
     pub fee: FeeConfig<String>,
 }

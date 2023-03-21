@@ -5,8 +5,8 @@ use eris::adapters::compounder::Compounder;
 use eris::adapters::farm::Farm;
 use eris::adapters::hub::Hub;
 
-use crate::adapters::capapult::{CapapultMarket, CapapultOverseer};
-use crate::protos::msgex::CosmosMsgEx;
+use crate::adapters::capapult::{CapapultLocker, CapapultMarket};
+use crate::protos::msgex::{CosmosMsgEx, CosmosMsgsEx};
 use crate::testing::helpers::mock_env_at_timestamp_height;
 use crate::{contract::execute, error::ContractError};
 
@@ -900,7 +900,7 @@ fn check_callback_lock_collateral_capa() {
         }),
     )
     .unwrap();
-    assert_eq!(res.messages.len(), 5);
+    assert_eq!(res.messages.len(), 4);
     assert_eq!(
         res.messages[0].msg,
         token_asset(eriscw.clone(), Uint128::new(1))
@@ -920,14 +920,14 @@ fn check_callback_lock_collateral_capa() {
             .unwrap(),
     );
 
-    let msgs = CapapultOverseer(Addr::unchecked("capapult_overseer"))
-        .lock_collateral(&mock_env(), token_asset(eriscw.clone(), Uint128::new(97)))
-        .unwrap();
+    let msgs = CapapultLocker {
+        overseer: Addr::unchecked("capapult_overseer"),
+        custody: Addr::unchecked("capapult_custody"),
+    }
+    .deposit_and_lock_collateral(token_asset(eriscw.clone(), Uint128::new(97)))
+    .unwrap();
 
-    println!("MSG {:?}", msgs[0]);
-
-    assert_eq!(res.messages[3].msg, msgs[0].clone().to_authz_msg("user", &mock_env()).unwrap());
-    assert_eq!(res.messages[4].msg, msgs[1].clone().to_authz_msg("user", &mock_env()).unwrap());
+    assert_eq!(res.messages[3].msg, msgs.to_authz_msg("user", &mock_env()).unwrap());
 
     // user as executor "manual execution"
     let res = execute(
@@ -949,7 +949,7 @@ fn check_callback_lock_collateral_capa() {
     )
     .unwrap();
 
-    assert_eq!(res.messages.len(), 4);
+    assert_eq!(res.messages.len(), 3);
     assert_eq!(
         res.messages[0].msg,
         token_asset(eriscw.clone(), Uint128::new(1))
@@ -963,12 +963,14 @@ fn check_callback_lock_collateral_capa() {
             .unwrap(),
     );
 
-    let msgs = CapapultOverseer(Addr::unchecked("capapult_overseer"))
-        .lock_collateral(&mock_env(), token_asset(eriscw.clone(), Uint128::new(99)))
-        .unwrap();
+    let msgs = CapapultLocker {
+        overseer: Addr::unchecked("capapult_overseer"),
+        custody: Addr::unchecked("capapult_custody"),
+    }
+    .deposit_and_lock_collateral(token_asset(eriscw.clone(), Uint128::new(99)))
+    .unwrap();
 
-    assert_eq!(res.messages[2].msg, msgs[0].clone().to_authz_msg("user", &mock_env()).unwrap());
-    assert_eq!(res.messages[3].msg, msgs[1].clone().to_authz_msg("user", &mock_env()).unwrap());
+    assert_eq!(res.messages[2].msg, msgs.to_authz_msg("user", &mock_env()).unwrap());
 
     // protocol controller as executor
     let res = execute(
@@ -990,7 +992,7 @@ fn check_callback_lock_collateral_capa() {
     )
     .unwrap();
 
-    assert_eq!(res.messages.len(), 4);
+    assert_eq!(res.messages.len(), 3);
     assert_eq!(
         res.messages[0].msg,
         token_asset(eriscw.clone(), Uint128::new(3))
@@ -1003,10 +1005,12 @@ fn check_callback_lock_collateral_capa() {
             .transfer_msg(&Addr::unchecked("user"))
             .unwrap(),
     );
-    let msgs = CapapultOverseer(Addr::unchecked("capapult_overseer"))
-        .lock_collateral(&mock_env(), token_asset(eriscw, Uint128::new(97)))
-        .unwrap();
+    let msgs = CapapultLocker {
+        overseer: Addr::unchecked("capapult_overseer"),
+        custody: Addr::unchecked("capapult_custody"),
+    }
+    .deposit_and_lock_collateral(token_asset(eriscw, Uint128::new(97)))
+    .unwrap();
 
-    assert_eq!(res.messages[2].msg, msgs[0].clone().to_authz_msg("user", &mock_env()).unwrap());
-    assert_eq!(res.messages[3].msg, msgs[1].clone().to_authz_msg("user", &mock_env()).unwrap());
+    assert_eq!(res.messages[2].msg, msgs.to_authz_msg("user", &mock_env()).unwrap());
 }

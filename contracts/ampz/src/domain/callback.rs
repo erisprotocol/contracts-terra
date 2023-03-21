@@ -8,10 +8,10 @@ use cosmwasm_std::{
 };
 use eris::ampz::{CallbackMsg, CallbackWrapper, DepositMarket, DestinationRuntime, RepayMarket};
 
-use crate::adapters::capapult::{CapapultMarket, CapapultOverseer};
+use crate::adapters::capapult::{CapapultLocker, CapapultMarket};
 use crate::constants::CONTRACT_DENOM;
 use crate::error::{ContractError, ContractResult};
-use crate::protos::msgex::CosmosMsgEx;
+use crate::protos::msgex::{CosmosMsgEx, CosmosMsgsEx};
 use crate::state::State;
 use eris::adapters::ampz::Ampz;
 use eris::adapters::asset::{AssetEx, AssetInfosEx, AssetsEx};
@@ -87,7 +87,7 @@ pub fn callback(
             if balances.is_empty() {
                 // when executing a swap and nothing needs to be swapped, we can still continue
                 attrs.push(attr("skipped-swap", "1"));
-                attrs.push(attr("to", format!("{:?}", into)));
+                attrs.push(attr("to", into.to_string()));
             } else {
                 let zapper = state.zapper.load(deps.storage)?;
 
@@ -97,10 +97,12 @@ pub fn callback(
                     attrs.push(attr("from", asset.to_string()));
                 }
 
+                let multi_swap_msg = zapper.multi_swap_msg(balances, into.clone(), funds, None)?;
+
                 // it uses the ERIS zapper multi-swap feature
                 msgs.append(&mut allowances);
-                msgs.push(zapper.multi_swap_msg(balances, into.clone(), funds, None)?);
-                attrs.push(attr("to", format!("{:?}", into)));
+                msgs.push(multi_swap_msg);
+                attrs.push(attr("to", into.to_string()));
             }
         },
 
@@ -181,8 +183,6 @@ pub fn callback(
                                 &user,
                             )?;
 
-                            attrs.push(attr("amount", asset.amount.to_string()));
-
                             let capapult_market = CapapultMarket(capa.market);
 
                             // check if user has an open loan
@@ -227,16 +227,17 @@ pub fn callback(
                                 &user,
                             )?;
 
-                            attrs.push(attr("amount", asset.amount.to_string()));
-
                             // top up the collateral in capapult (increase allowance + lock_collateral)
-                            let capapult_overseer = CapapultOverseer(capa.overseer);
+                            let capapult_locker = CapapultLocker {
+                                overseer: capa.overseer,
+                                custody: capa.custody,
+                            };
                             let deposit_collateral_msgs =
-                                capapult_overseer.lock_collateral(&env, asset)?;
+                                capapult_locker.deposit_and_lock_collateral(asset)?;
 
-                            for msg in deposit_collateral_msgs {
-                                msgs.push(msg.to_authz_msg(user.to_string(), &env)?)
-                            }
+                            msgs.push(
+                                deposit_collateral_msgs.to_authz_msg(user.to_string(), &env)?,
+                            );
                         },
                     }
                 },
@@ -266,10 +267,10 @@ fn pay_fees_and_send_to_receiver(
 ) -> Result<Asset, ContractError> {
     // this method, queries the contract for the expected asset, pays fees on it and sends it to the receiver.
     let amount = asset_info.query_pool(&deps.querier, env.contract.address.to_string())?;
-    let balances = vec![asset_info.with_balance(amount)];
     if amount.is_zero() {
         return Err(ContractError::NothingToDeposit {});
     }
+    let balances = vec![asset_info.with_balance(amount)];
     let mut balances = pay_fees(state, deps, msgs, attrs, balances, executor, user)?;
     let balance = balances.remove(0);
     msgs.push(balance.transfer_msg(receiver)?);
