@@ -361,8 +361,9 @@ fn distribute(
                         // reduce amount from total_amount. Rest is distributed by share
                         total_amount = total_amount.checked_sub(amount)?;
 
-                        let send_msg =
-                            stablecoin.with_balance(amount).transfer_msg_target(&target)?;
+                        let send_msg = stablecoin
+                            .with_balance(amount)
+                            .transfer_msg_target(&target.addr, target.msg)?;
                         messages.push(send_msg);
                         attributes.push(("type".to_string(), "fill_up".to_string()));
                         attributes.push(("to".to_string(), target.addr.to_string()));
@@ -375,10 +376,11 @@ fn distribute(
 
     let total_weight = weighted.iter().map(|target| target.weight).sum::<u64>();
 
-    for target in &weighted {
+    for target in weighted {
         let amount = total_amount.multiply_ratio(target.weight, total_weight);
         if !amount.is_zero() {
-            let send_msg = stablecoin.with_balance(amount).transfer_msg_target(target)?;
+            let send_msg =
+                stablecoin.with_balance(amount).transfer_msg_target(&target.addr, target.msg)?;
             messages.push(send_msg);
             attributes.push(("to".to_string(), target.addr.to_string()));
             attributes.push(("amount".to_string(), amount.to_string()));

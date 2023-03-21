@@ -26,6 +26,7 @@ pub fn update_config(
 
             fee,
             hub,
+            capapult,
         } => {
             let state = State::default();
             state.assert_owner(deps.storage, &info.sender)?;
@@ -71,6 +72,10 @@ pub fn update_config(
 
             if let Some(astroport) = astroport {
                 state.astroport.save(deps.storage, &astroport.validate(deps.api)?)?;
+            }
+
+            if let Some(capapult) = capapult {
+                state.capapult.save(deps.storage, &capapult.validate(deps.api)?)?;
             }
 
             if let Some(zapper) = zapper {

@@ -1,10 +1,13 @@
 use std::collections::HashMap;
 
+use astroport::asset::native_asset_info;
 use cosmwasm_std::testing::{BankQuerier, StakingQuerier};
 use cosmwasm_std::{
-    from_binary, from_slice, Empty, Querier, QuerierResult, QueryRequest, SystemError, WasmQuery,
+    from_binary, from_slice, to_binary, Empty, Querier, QuerierResult, QueryRequest, SystemError,
+    Uint128, WasmQuery,
 };
 use cw20::Cw20QueryMsg;
+use eris::compound_proxy;
 
 use super::cw20_querier::Cw20Querier;
 use super::helpers::err_unsupported_query;
@@ -78,6 +81,30 @@ impl CustomQuerier {
             }) => {
                 if let Ok(query) = from_binary::<Cw20QueryMsg>(msg) {
                     return self.cw20_querier.handle_query(contract_addr, query);
+                }
+
+                if let Ok(compound_proxy::QueryMsg::SupportsSwap {
+                    to,
+                    ..
+                }) = from_binary::<compound_proxy::QueryMsg>(msg)
+                {
+                    return Ok(to_binary(&compound_proxy::SupportsSwapResponse {
+                        suppored: to != native_asset_info("notsupported".into()),
+                    })
+                    .into())
+                    .into();
+                }
+
+                if let Ok(capapult::market::QueryMsg::BorrowerInfo {
+                    borrower,
+                }) = from_binary::<capapult::market::QueryMsg>(msg)
+                {
+                    return Ok(to_binary(&capapult::market::BorrowerInfoResponse {
+                        borrower,
+                        loan_amount: Uint128::new(400).into(),
+                    })
+                    .into())
+                    .into();
                 }
 
                 err_unsupported_query(msg)

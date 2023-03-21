@@ -2,12 +2,10 @@ use std::collections::HashMap;
 
 use astroport::asset::{Asset, AssetInfo};
 use cosmwasm_std::{
-    to_binary, Addr, BankMsg, Coin, CosmosMsg, MessageInfo, QuerierWrapper, StdError, StdResult,
-    Uint128, WasmMsg,
+    to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, MessageInfo, QuerierWrapper, StdError,
+    StdResult, Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, Expiration};
-
-use crate::fees_collector::TargetConfig;
 
 pub trait AssetInfosEx {
     fn query_balances(&self, querier: &QuerierWrapper, address: &Addr) -> StdResult<Vec<Asset>>;
@@ -79,7 +77,7 @@ impl AssetsEx for Vec<Asset> {
 
 pub trait AssetEx {
     fn transfer_msg(&self, to: &Addr) -> StdResult<CosmosMsg>;
-    fn transfer_msg_target(&self, to: &TargetConfig<Addr>) -> StdResult<CosmosMsg>;
+    fn transfer_msg_target(&self, to_addr: &Addr, to_msg: Option<Binary>) -> StdResult<CosmosMsg>;
     fn transfer_from_msg(&self, from: &Addr, to: &Addr) -> StdResult<CosmosMsg>;
     fn increase_allowance_msg(
         &self,
@@ -120,15 +118,15 @@ impl AssetEx for Asset {
         }
     }
 
-    fn transfer_msg_target(&self, to: &TargetConfig<Addr>) -> StdResult<CosmosMsg> {
-        if let Some(msg) = to.msg.clone() {
+    fn transfer_msg_target(&self, to_addr: &Addr, to_msg: Option<Binary>) -> StdResult<CosmosMsg> {
+        if let Some(msg) = to_msg {
             match &self.info {
                 AssetInfo::Token {
                     contract_addr,
                 } => Ok(CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: contract_addr.to_string(),
                     msg: to_binary(&Cw20ExecuteMsg::Send {
-                        contract: to.addr.to_string(),
+                        contract: to_addr.to_string(),
                         amount: self.amount,
                         msg,
                     })?,
@@ -137,7 +135,7 @@ impl AssetEx for Asset {
                 AssetInfo::NativeToken {
                     denom,
                 } => Ok(CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: to.addr.to_string(),
+                    contract_addr: to_addr.to_string(),
                     msg,
                     funds: vec![Coin {
                         denom: denom.to_string(),
@@ -146,7 +144,7 @@ impl AssetEx for Asset {
                 })),
             }
         } else {
-            self.transfer_msg(&to.addr)
+            self.transfer_msg(to_addr)
         }
     }
 

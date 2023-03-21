@@ -67,6 +67,7 @@ fn check_update_config() {
                 operator_bps: 20u16.try_into().unwrap(),
                 receiver: "new_fee_receiver".into(),
             }),
+            capapult: None,
             hub: Some("new_hub".into()),
         },
     )
@@ -93,6 +94,7 @@ fn check_update_config() {
                 operator_bps: 20u16.try_into().unwrap(),
                 receiver: "new_fee_receiver".into(),
             }),
+            capapult: None,
             hub: Some("new_hub".into()),
         },
     )
@@ -139,6 +141,7 @@ fn check_update_config() {
                 operator_bps: 20u16.try_into().unwrap(),
                 receiver: "new_fee_receiver".into(),
             }),
+            capapult: None,
             hub: Some("new_hub".into()),
         },
     )
@@ -184,6 +187,7 @@ fn update_config_unauthorized() {
             astroport: None,
             fee: None,
             hub: None,
+            capapult: None,
         },
     )
     .unwrap_err();
