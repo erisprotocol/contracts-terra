@@ -4,6 +4,7 @@ use cw20_base::ContractError as cw20baseError;
 use thiserror::Error;
 
 pub type ContractResult = Result<Response, ContractError>;
+pub type CustomResult<T = ()> = Result<T, ContractError>;
 
 /// This enum describes hub contract errors
 #[derive(Error, Debug, PartialEq)]

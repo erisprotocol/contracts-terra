@@ -1,11 +1,12 @@
-use cosmwasm_std::testing::mock_info;
+use cosmwasm_std::testing::{mock_env, mock_info};
 use eris::adapters::ampz::Ampz;
 use eris::adapters::asset::AssetEx;
 use eris::adapters::compounder::Compounder;
 use eris::adapters::farm::Farm;
 use eris::adapters::hub::Hub;
 
-use crate::protos::msgex::CosmosMsgEx;
+use crate::adapters::capapult::{CapapultLocker, CapapultMarket};
+use crate::protos::msgex::{CosmosMsgEx, CosmosMsgsEx};
 use crate::testing::helpers::mock_env_at_timestamp_height;
 use crate::{contract::execute, error::ContractError};
 
@@ -22,6 +23,9 @@ use crate::constants::CONTRACT_DENOM;
 
 fn astro() -> Addr {
     Addr::unchecked("astro")
+}
+fn solid() -> Addr {
+    Addr::unchecked("solid")
 }
 
 #[test]
@@ -254,7 +258,9 @@ fn check_callback_deposit_amplifier() {
             id: 1,
             user: Addr::unchecked("user"),
             message: CallbackMsg::FinishExecution {
-                destination: eris::ampz::DestinationRuntime::DepositAmplifier {},
+                destination: eris::ampz::DestinationRuntime::DepositAmplifier {
+                    receiver: None,
+                },
                 executor: Addr::unchecked("executor"),
             },
         }),
@@ -273,7 +279,9 @@ fn check_callback_deposit_amplifier() {
             id: 1,
             user: Addr::unchecked("user"),
             message: CallbackMsg::FinishExecution {
-                destination: eris::ampz::DestinationRuntime::DepositAmplifier {},
+                destination: eris::ampz::DestinationRuntime::DepositAmplifier {
+                    receiver: None,
+                },
                 executor: Addr::unchecked("executor"),
             },
         }),
@@ -307,7 +315,9 @@ fn check_callback_deposit_amplifier() {
             id: 1,
             user: Addr::unchecked("user"),
             message: CallbackMsg::FinishExecution {
-                destination: eris::ampz::DestinationRuntime::DepositAmplifier {},
+                destination: eris::ampz::DestinationRuntime::DepositAmplifier {
+                    receiver: None,
+                },
                 executor: Addr::unchecked("user"),
             },
         }),
@@ -336,7 +346,9 @@ fn check_callback_deposit_amplifier() {
             id: 1,
             user: Addr::unchecked("user"),
             message: CallbackMsg::FinishExecution {
-                destination: eris::ampz::DestinationRuntime::DepositAmplifier {},
+                destination: eris::ampz::DestinationRuntime::DepositAmplifier {
+                    receiver: None,
+                },
                 executor: Addr::unchecked("controller"),
             },
         }),
@@ -372,6 +384,7 @@ fn check_callback_deposit_farm() {
                 destination: eris::ampz::DestinationRuntime::DepositFarm {
                     asset_infos: vec![],
                     farm: "farm".to_string(),
+                    receiver: None,
                 },
                 executor: Addr::unchecked("executor"),
             },
@@ -394,6 +407,7 @@ fn check_callback_deposit_farm() {
             user: Addr::unchecked("user"),
             message: CallbackMsg::FinishExecution {
                 destination: eris::ampz::DestinationRuntime::DepositFarm {
+                    receiver: None,
                     asset_infos: vec![
                         native_asset_info(CONTRACT_DENOM.into()),
                         token_asset_info(astro()),
@@ -459,6 +473,7 @@ fn check_callback_deposit_farm() {
             user: Addr::unchecked("user"),
             message: CallbackMsg::FinishExecution {
                 destination: eris::ampz::DestinationRuntime::DepositFarm {
+                    receiver: None,
                     asset_infos: vec![
                         native_asset_info(CONTRACT_DENOM.into()),
                         token_asset_info(astro()),
@@ -515,6 +530,7 @@ fn check_callback_deposit_farm() {
             user: Addr::unchecked("user"),
             message: CallbackMsg::FinishExecution {
                 destination: eris::ampz::DestinationRuntime::DepositFarm {
+                    receiver: None,
                     asset_infos: vec![
                         native_asset_info(CONTRACT_DENOM.into()),
                         token_asset_info(astro()),
@@ -575,6 +591,7 @@ fn check_callback_swap_to() {
             user: Addr::unchecked("user"),
             message: CallbackMsg::FinishExecution {
                 destination: eris::ampz::DestinationRuntime::SendSwapResultToUser {
+                    receiver: None,
                     asset_info: native_asset_info("ibc/xxx".to_string()),
                 },
                 executor: Addr::unchecked("executor"),
@@ -596,6 +613,7 @@ fn check_callback_swap_to() {
             user: Addr::unchecked("user"),
             message: CallbackMsg::FinishExecution {
                 destination: eris::ampz::DestinationRuntime::SendSwapResultToUser {
+                    receiver: None,
                     asset_info: native_asset_info("ibc/xxx".to_string()),
                 },
                 executor: Addr::unchecked("executor"),
@@ -633,6 +651,7 @@ fn check_callback_swap_to() {
             user: Addr::unchecked("user"),
             message: CallbackMsg::FinishExecution {
                 destination: eris::ampz::DestinationRuntime::SendSwapResultToUser {
+                    receiver: None,
                     asset_info: native_asset_info("ibc/xxx".to_string()),
                 },
                 executor: Addr::unchecked("user"),
@@ -665,6 +684,7 @@ fn check_callback_swap_to() {
             user: Addr::unchecked("user"),
             message: CallbackMsg::FinishExecution {
                 destination: eris::ampz::DestinationRuntime::SendSwapResultToUser {
+                    receiver: None,
                     asset_info: native_asset_info("ibc/xxx".to_string()),
                 },
                 executor: Addr::unchecked("controller"),
@@ -686,4 +706,311 @@ fn check_callback_swap_to() {
             .transfer_msg(&Addr::unchecked("user"))
             .unwrap(),
     );
+}
+
+#[test]
+fn check_callback_repay_capa() {
+    let mut deps = setup_test();
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info("user", &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::Repay {
+                    market: eris::ampz::RepayMarket::Capapult,
+                },
+                executor: Addr::unchecked("executor"),
+            },
+        }),
+    )
+    .unwrap_err();
+
+    assert_eq!(res, ContractError::CallbackOnlyCalledByContract {});
+
+    deps.querier.set_cw20_balance(MOCK_CONTRACT_ADDR, "solid", 100);
+
+    // any executor
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info(MOCK_CONTRACT_ADDR, &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::Repay {
+                    market: eris::ampz::RepayMarket::Capapult,
+                },
+                executor: Addr::unchecked("executor"),
+            },
+        }),
+    )
+    .unwrap();
+    assert_eq!(res.messages.len(), 4);
+    assert_eq!(
+        res.messages[0].msg,
+        token_asset(solid(), Uint128::new(1))
+            .transfer_msg(&Addr::unchecked("fee_receiver"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[1].msg,
+        token_asset(solid(), Uint128::new(2)).transfer_msg(&Addr::unchecked("executor")).unwrap()
+    );
+    assert_eq!(
+        res.messages[2].msg,
+        token_asset(solid(), Uint128::new(97)).transfer_msg(&Addr::unchecked("user")).unwrap(),
+    );
+    assert_eq!(
+        res.messages[3].msg,
+        CapapultMarket(Addr::unchecked("capapult_market"))
+            .repay_loan(token_asset(Addr::unchecked("solid"), Uint128::new(97)))
+            .unwrap()
+            .to_authz_msg("user", &mock_env())
+            .unwrap()
+    );
+
+    // user as executor "manual execution"
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info(MOCK_CONTRACT_ADDR, &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::Repay {
+                    market: eris::ampz::RepayMarket::Capapult,
+                },
+                executor: Addr::unchecked("user"),
+            },
+        }),
+    )
+    .unwrap();
+
+    assert_eq!(res.messages.len(), 3);
+    assert_eq!(
+        res.messages[0].msg,
+        token_asset(solid(), Uint128::new(1))
+            .transfer_msg(&Addr::unchecked("fee_receiver"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[1].msg,
+        token_asset(solid(), Uint128::new(99)).transfer_msg(&Addr::unchecked("user")).unwrap(),
+    );
+    assert_eq!(
+        res.messages[2].msg,
+        CapapultMarket(Addr::unchecked("capapult_market"))
+            .repay_loan(token_asset(Addr::unchecked("solid"), Uint128::new(99)))
+            .unwrap()
+            .to_authz_msg("user", &mock_env())
+            .unwrap()
+    );
+
+    // protocol controller as executor
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info(MOCK_CONTRACT_ADDR, &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::Repay {
+                    market: eris::ampz::RepayMarket::Capapult,
+                },
+                executor: Addr::unchecked("controller"),
+            },
+        }),
+    )
+    .unwrap();
+
+    assert_eq!(res.messages.len(), 3);
+    assert_eq!(
+        res.messages[0].msg,
+        token_asset(solid(), Uint128::new(3))
+            .transfer_msg(&Addr::unchecked("fee_receiver"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[1].msg,
+        token_asset(solid(), Uint128::new(97)).transfer_msg(&Addr::unchecked("user")).unwrap(),
+    );
+    assert_eq!(
+        res.messages[2].msg,
+        CapapultMarket(Addr::unchecked("capapult_market"))
+            .repay_loan(token_asset(Addr::unchecked("solid"), Uint128::new(97)))
+            .unwrap()
+            .to_authz_msg("user", &mock_env())
+            .unwrap()
+    );
+}
+
+#[test]
+fn check_callback_lock_collateral_capa() {
+    let mut deps = setup_test();
+
+    let eriscw = Addr::unchecked("eriscw");
+    let eriscw_assetinfo = token_asset_info(eriscw.clone());
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info("user", &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::DepositCollateral {
+                    market: eris::ampz::DepositMarket::Capapult {
+                        asset_info: eriscw_assetinfo.clone(),
+                    },
+                },
+                executor: Addr::unchecked("executor"),
+            },
+        }),
+    )
+    .unwrap_err();
+
+    assert_eq!(res, ContractError::CallbackOnlyCalledByContract {});
+
+    deps.querier.set_cw20_balance(MOCK_CONTRACT_ADDR, "eriscw", 100);
+
+    // any executor
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info(MOCK_CONTRACT_ADDR, &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::DepositCollateral {
+                    market: eris::ampz::DepositMarket::Capapult {
+                        asset_info: eriscw_assetinfo.clone(),
+                    },
+                },
+                executor: Addr::unchecked("executor"),
+            },
+        }),
+    )
+    .unwrap();
+    assert_eq!(res.messages.len(), 4);
+    assert_eq!(
+        res.messages[0].msg,
+        token_asset(eriscw.clone(), Uint128::new(1))
+            .transfer_msg(&Addr::unchecked("fee_receiver"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[1].msg,
+        token_asset(eriscw.clone(), Uint128::new(2))
+            .transfer_msg(&Addr::unchecked("executor"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[2].msg,
+        token_asset(eriscw.clone(), Uint128::new(97))
+            .transfer_msg(&Addr::unchecked("user"))
+            .unwrap(),
+    );
+
+    let msgs = CapapultLocker {
+        overseer: Addr::unchecked("capapult_overseer"),
+        custody: Addr::unchecked("capapult_custody"),
+    }
+    .deposit_and_lock_collateral(token_asset(eriscw.clone(), Uint128::new(97)))
+    .unwrap();
+
+    assert_eq!(res.messages[3].msg, msgs.to_authz_msg("user", &mock_env()).unwrap());
+
+    // user as executor "manual execution"
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info(MOCK_CONTRACT_ADDR, &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::DepositCollateral {
+                    market: eris::ampz::DepositMarket::Capapult {
+                        asset_info: eriscw_assetinfo.clone(),
+                    },
+                },
+                executor: Addr::unchecked("user"),
+            },
+        }),
+    )
+    .unwrap();
+
+    assert_eq!(res.messages.len(), 3);
+    assert_eq!(
+        res.messages[0].msg,
+        token_asset(eriscw.clone(), Uint128::new(1))
+            .transfer_msg(&Addr::unchecked("fee_receiver"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[1].msg,
+        token_asset(eriscw.clone(), Uint128::new(99))
+            .transfer_msg(&Addr::unchecked("user"))
+            .unwrap(),
+    );
+
+    let msgs = CapapultLocker {
+        overseer: Addr::unchecked("capapult_overseer"),
+        custody: Addr::unchecked("capapult_custody"),
+    }
+    .deposit_and_lock_collateral(token_asset(eriscw.clone(), Uint128::new(99)))
+    .unwrap();
+
+    assert_eq!(res.messages[2].msg, msgs.to_authz_msg("user", &mock_env()).unwrap());
+
+    // protocol controller as executor
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info(MOCK_CONTRACT_ADDR, &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::DepositCollateral {
+                    market: eris::ampz::DepositMarket::Capapult {
+                        asset_info: eriscw_assetinfo,
+                    },
+                },
+                executor: Addr::unchecked("controller"),
+            },
+        }),
+    )
+    .unwrap();
+
+    assert_eq!(res.messages.len(), 3);
+    assert_eq!(
+        res.messages[0].msg,
+        token_asset(eriscw.clone(), Uint128::new(3))
+            .transfer_msg(&Addr::unchecked("fee_receiver"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[1].msg,
+        token_asset(eriscw.clone(), Uint128::new(97))
+            .transfer_msg(&Addr::unchecked("user"))
+            .unwrap(),
+    );
+    let msgs = CapapultLocker {
+        overseer: Addr::unchecked("capapult_overseer"),
+        custody: Addr::unchecked("capapult_custody"),
+    }
+    .deposit_and_lock_collateral(token_asset(eriscw, Uint128::new(97)))
+    .unwrap();
+
+    assert_eq!(res.messages[2].msg, msgs.to_authz_msg("user", &mock_env()).unwrap());
 }

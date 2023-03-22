@@ -36,7 +36,9 @@ fn proper_instantiation() {
 fn setup_execution() {
     let mut deps = setup_test();
     let execution = Execution {
-        destination: eris::ampz::DestinationState::DepositAmplifier {},
+        destination: eris::ampz::DestinationState::DepositAmplifier {
+            receiver: None,
+        },
         schedule: Schedule {
             interval_s: 6 * HOUR,
             start: None,
@@ -137,6 +139,7 @@ fn setup_execution_farm() {
     let mut execution = Execution {
         destination: eris::ampz::DestinationState::DepositFarm {
             farm: "unknown".into(),
+            receiver: None,
         },
         schedule: Schedule {
             interval_s: 100,
@@ -162,6 +165,7 @@ fn setup_execution_farm() {
 
     execution = Execution {
         destination: eris::ampz::DestinationState::DepositFarm {
+            receiver: None,
             farm: "unknown".into(),
         },
         schedule: Schedule {
@@ -188,6 +192,7 @@ fn setup_execution_farm() {
 
     // add with valid farm
     execution.destination = eris::ampz::DestinationState::DepositFarm {
+        receiver: None,
         farm: "farm1".into(),
     };
     let res = execute(

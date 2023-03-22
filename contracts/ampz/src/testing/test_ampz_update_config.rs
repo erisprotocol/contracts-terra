@@ -39,6 +39,12 @@ fn check_default_config() {
                 fee_bps: 100u16.try_into().unwrap(),
                 operator_bps: 200u16.try_into().unwrap(),
                 receiver: "fee_receiver".into()
+            },
+            capapult: eris::ampz::CapapultConfig {
+                market: "capapult_market".into(),
+                overseer: "capapult_overseer".into(),
+                custody: "capapult_custody".into(),
+                stable_cw: "solid".into(),
             }
         }
     );
@@ -67,6 +73,7 @@ fn check_update_config() {
                 operator_bps: 20u16.try_into().unwrap(),
                 receiver: "new_fee_receiver".into(),
             }),
+            capapult: None,
             hub: Some("new_hub".into()),
         },
     )
@@ -93,6 +100,7 @@ fn check_update_config() {
                 operator_bps: 20u16.try_into().unwrap(),
                 receiver: "new_fee_receiver".into(),
             }),
+            capapult: None,
             hub: Some("new_hub".into()),
         },
     )
@@ -116,6 +124,12 @@ fn check_update_config() {
                 fee_bps: 10u16.try_into().unwrap(),
                 operator_bps: 20u16.try_into().unwrap(),
                 receiver: "new_fee_receiver".into()
+            },
+            capapult: eris::ampz::CapapultConfig {
+                market: "capapult_market".into(),
+                overseer: "capapult_overseer".into(),
+                custody: "capapult_custody".into(),
+                stable_cw: "solid".into(),
             }
         }
     );
@@ -139,6 +153,7 @@ fn check_update_config() {
                 operator_bps: 20u16.try_into().unwrap(),
                 receiver: "new_fee_receiver".into(),
             }),
+            capapult: None,
             hub: Some("new_hub".into()),
         },
     )
@@ -162,6 +177,12 @@ fn check_update_config() {
                 fee_bps: 10u16.try_into().unwrap(),
                 operator_bps: 20u16.try_into().unwrap(),
                 receiver: "new_fee_receiver".into()
+            },
+            capapult: eris::ampz::CapapultConfig {
+                market: "capapult_market".into(),
+                overseer: "capapult_overseer".into(),
+                custody: "capapult_custody".into(),
+                stable_cw: "solid".into(),
             }
         }
     );
@@ -184,6 +205,7 @@ fn update_config_unauthorized() {
             astroport: None,
             fee: None,
             hub: None,
+            capapult: None,
         },
     )
     .unwrap_err();

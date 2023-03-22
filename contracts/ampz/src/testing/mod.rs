@@ -9,3 +9,4 @@ pub mod test_ampz_execution_remove;
 pub mod test_ampz_execution_types;
 pub mod test_ampz_update_config;
 mod tests_ampz;
+pub mod test_ampz_execution_receiver;

@@ -25,7 +25,9 @@ fn check_execution_interval() {
 
     let interval_s = 6 * HOUR;
     let execution = Execution {
-        destination: eris::ampz::DestinationState::DepositAmplifier {},
+        destination: eris::ampz::DestinationState::DepositAmplifier {
+            receiver: None,
+        },
         schedule: Schedule {
             interval_s,
             start: None,
@@ -35,7 +37,9 @@ fn check_execution_interval() {
     };
 
     let finish_execution = CallbackMsg::FinishExecution {
-        destination: eris::ampz::DestinationRuntime::DepositAmplifier {},
+        destination: eris::ampz::DestinationRuntime::DepositAmplifier {
+            receiver: None,
+        },
         executor: Addr::unchecked("controller"),
     };
 

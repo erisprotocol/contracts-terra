@@ -4,8 +4,9 @@ use itertools::Itertools;
 
 use crate::state::State;
 use eris::ampz::{
-    AstroportConfig, ConfigResponse, ExecutionDetail, ExecutionResponse, ExecutionSchedule,
-    ExecutionsResponse, ExecutionsScheduleResponse, FeeConfig, StateResponse, UserInfoResponse,
+    AstroportConfig, CapapultConfig, ConfigResponse, ExecutionDetail, ExecutionResponse,
+    ExecutionSchedule, ExecutionsResponse, ExecutionsScheduleResponse, FeeConfig, StateResponse,
+    UserInfoResponse,
 };
 
 const MAX_LIMIT: u32 = 30;
@@ -19,16 +20,22 @@ pub fn config(deps: Deps) -> StdResult<ConfigResponse> {
         controller: state.controller.load(deps.storage)?.into(),
         new_owner: state.new_owner.may_load(deps.storage)?.map(|addr| addr.into()),
         hub: state.hub.load(deps.storage)?.0.into(),
-        farms: state.farms.load(deps.storage)?.into_iter().map(|a| a.0.to_string()).collect_vec(),
+        farms: state.farms.load(deps.storage)?.into_iter().map(|a| a.0.into()).collect_vec(),
         astroport: state.astroport.load(deps.storage).map(|a| AstroportConfig {
-            generator: a.generator.0.to_string(),
+            generator: a.generator.0.into(),
             coins: a.coins,
+        })?,
+        capapult: state.capapult.load(deps.storage).map(|a| CapapultConfig {
+            market: a.market.into(),
+            overseer: a.overseer.into(),
+            custody: a.custody.into(),
+            stable_cw: a.stable_cw.into(),
         })?,
         zapper: state.zapper.load(deps.storage)?.0.into(),
         fee: state.fee.load(deps.storage).map(|f| FeeConfig {
             fee_bps: f.fee_bps,
             operator_bps: f.operator_bps,
-            receiver: f.receiver.to_string(),
+            receiver: f.receiver.into(),
         })?,
     })
 }

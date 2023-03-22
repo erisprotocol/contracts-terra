@@ -1,14 +1,10 @@
-use std::{cmp, vec};
-
-use astroport::asset::native_asset_info;
-use cosmwasm_std::{attr, Attribute, DepsMut, Env, MessageInfo, Response, Uint128};
-use eris::constants::HOUR;
-
-use crate::constants::CONTRACT_DENOM;
 use crate::error::{ContractError, ContractResult};
+use crate::extensions::executionext::ExecutionExt;
 use crate::state::State;
-use eris::adapters::farm::Farm;
-use eris::ampz::{DestinationState, Execution, Source};
+use cosmwasm_std::{attr, Attribute, DepsMut, Env, MessageInfo, Response, Uint128};
+use eris::ampz::Execution;
+use eris::constants::HOUR;
+use std::{cmp, vec};
 
 pub fn add_execution(
     deps: DepsMut,
@@ -27,32 +23,7 @@ pub fn add_execution(
 
     let state = State::default();
 
-    match &execution.destination {
-        DestinationState::DepositAmplifier {} => (),
-        DestinationState::DepositFarm {
-            farm,
-        } => {
-            let allowed_farms = state.farms.load(deps.storage)?;
-            let farm = Farm(deps.api.addr_validate(farm)?);
-            if !allowed_farms.contains(&farm) {
-                return Err(ContractError::FarmNotSupported(farm.0.to_string()));
-            }
-        },
-        DestinationState::SwapTo {
-            asset_info,
-        } => {
-            // this checks if there is a configured route from the source asset to the destination asset
-            let from_assets = get_source_assets(&execution, asset_info, &state, &deps)?;
-
-            let zapper = state.zapper.load(deps.storage)?;
-
-            for from in from_assets {
-                if !zapper.query_support_swap(&deps.querier, from.clone(), asset_info.clone())? {
-                    return Err(ContractError::SwapNotSupported(from, asset_info.clone()));
-                }
-            }
-        },
-    }
+    execution.validate(&deps, &state)?;
 
     let source = execution.source.try_get_uniq_key();
     let new_id = state.id.load(deps.storage)?;
@@ -102,42 +73,6 @@ pub fn add_execution(
     Ok(Response::new()
         .add_attribute("action", "ampz/add_execution")
         .add_attribute("id", new_id.to_string()))
-}
-
-fn get_source_assets(
-    execution: &Execution,
-    asset_info: &astroport::asset::AssetInfo,
-    state: &State,
-    deps: &DepsMut,
-) -> Result<Vec<astroport::asset::AssetInfo>, ContractError> {
-    let from_assets = match &execution.source {
-        Source::Claim => {
-            if *asset_info == native_asset_info(CONTRACT_DENOM.to_string()) {
-                // cant use claim (uluna) to swap to uluna (useless)
-                Err(ContractError::CannotSwapToSameToken {})?
-            }
-
-            // for claiming staking rewards only check the default chain denom
-            vec![native_asset_info(CONTRACT_DENOM.to_string())]
-        },
-        Source::AstroRewards {
-            ..
-        } => {
-            // for astroport check that all possible reward coins are supported
-            state.astroport.load(deps.storage)?.coins
-        },
-        Source::Wallet {
-            over,
-            ..
-        } => {
-            if over.info == *asset_info {
-                // cant use same input token to swap to token (useless)
-                Err(ContractError::CannotSwapToSameToken {})?
-            }
-            vec![over.info.clone()]
-        },
-    };
-    Ok(from_assets)
 }
 
 pub fn remove_executions(

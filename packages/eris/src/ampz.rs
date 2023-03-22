@@ -18,6 +18,7 @@ pub struct InstantiateMsg {
 
     pub zapper: String,
     pub astroport: AstroportConfig<String>,
+    pub capapult: CapapultConfig<String>,
     pub fee: FeeConfig<String>,
 }
 
@@ -92,6 +93,25 @@ impl AstroportConfig<String> {
     }
 }
 
+#[cw_serde]
+pub struct CapapultConfig<T> {
+    pub market: T,
+    pub overseer: T,
+    pub stable_cw: T,
+    pub custody: T,
+}
+
+impl CapapultConfig<String> {
+    pub fn validate(self, api: &dyn Api) -> StdResult<CapapultConfig<Addr>> {
+        Ok(CapapultConfig {
+            market: api.addr_validate(&self.market)?,
+            overseer: api.addr_validate(&self.overseer)?,
+            custody: api.addr_validate(&self.custody)?,
+            stable_cw: api.addr_validate(&self.stable_cw)?,
+        })
+    }
+}
+
 /// This structure describes the execute messages available in the contract.
 #[cw_serde]
 pub enum ExecuteMsg {
@@ -131,6 +151,7 @@ pub enum ExecuteMsg {
         zapper: Option<String>,
         hub: Option<String>,
         astroport: Option<AstroportConfig<String>>,
+        capapult: Option<CapapultConfig<String>>,
         fee: Option<FeeConfig<String>>,
     },
 }
@@ -175,44 +196,61 @@ pub struct CallbackWrapper {
 
 #[cw_serde]
 pub enum DestinationState {
-    DepositAmplifier {},
+    DepositAmplifier {
+        #[serde(default)]
+        receiver: Option<Addr>,
+    },
     DepositFarm {
         farm: String,
+        #[serde(default)]
+        receiver: Option<Addr>,
     },
     SwapTo {
         asset_info: AssetInfo,
+        #[serde(default)]
+        receiver: Option<Addr>,
     },
-}
-
-impl DestinationState {
-    pub fn to_runtime(self, asset_infos: Vec<AssetInfo>) -> DestinationRuntime {
-        match self {
-            DestinationState::DepositAmplifier {} => DestinationRuntime::DepositAmplifier {},
-            DestinationState::DepositFarm {
-                farm,
-            } => DestinationRuntime::DepositFarm {
-                asset_infos,
-                farm,
-            },
-            DestinationState::SwapTo {
-                asset_info,
-            } => DestinationRuntime::SendSwapResultToUser {
-                asset_info,
-            },
-        }
-    }
+    DepositCollateral {
+        market: DepositMarket,
+    },
+    Repay {
+        market: RepayMarket,
+    },
 }
 
 #[cw_serde]
 pub enum DestinationRuntime {
-    DepositAmplifier {},
+    DepositAmplifier {
+        receiver: Option<Addr>,
+    },
     DepositFarm {
         asset_infos: Vec<AssetInfo>,
         farm: String,
+        receiver: Option<Addr>,
     },
     SendSwapResultToUser {
         asset_info: AssetInfo,
+        receiver: Option<Addr>,
     },
+    DepositCollateral {
+        market: DepositMarket,
+    },
+    Repay {
+        market: RepayMarket,
+    },
+}
+
+#[cw_serde]
+pub enum DepositMarket {
+    Capapult {
+        // specifies which asset to deposit into capapult
+        asset_info: AssetInfo,
+    },
+}
+
+#[cw_serde]
+pub enum RepayMarket {
+    Capapult,
 }
 
 /// This structure describes the callback messages of the contract.
@@ -309,6 +347,8 @@ pub struct ConfigResponse {
     pub zapper: String,
 
     pub astroport: AstroportConfig<String>,
+
+    pub capapult: CapapultConfig<String>,
 
     pub fee: FeeConfig<String>,
 }
