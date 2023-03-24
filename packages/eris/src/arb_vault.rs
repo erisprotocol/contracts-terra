@@ -334,6 +334,7 @@ pub struct ConfigResponse {
     pub config: Config<Addr>,
     pub fee_config: FeeConfig<Addr>,
     pub owner: Addr,
+    pub whitelist: Option<Vec<Addr>>,
 }
 
 /// ## Description

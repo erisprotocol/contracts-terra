@@ -1,4 +1,4 @@
-use cosmwasm_std::{Decimal, OverflowError, Response, StdError};
+use cosmwasm_std::{Decimal, OverflowError, Response, StdError, Uint128};
 use thiserror::Error;
 
 pub type ContractResult = Result<Response, ContractError>;
@@ -31,6 +31,15 @@ pub enum ContractError {
 
     #[error("Not enough profit")]
     NotEnoughProfit {},
+
+    #[error(
+        "Profit balances does not match: profit {profit} vs profit_by_asset {profit_by_xasset} old {old_balance}"
+    )]
+    ProfitBalancesDoesNotMatch {
+        profit_by_xasset: Uint128,
+        profit: Uint128,
+        old_balance: Uint128,
+    },
 
     #[error("Not enough balance. Do not take from locked")]
     DoNotTakeLockedBalance {},

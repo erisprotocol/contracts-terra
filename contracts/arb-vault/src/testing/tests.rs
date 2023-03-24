@@ -60,6 +60,7 @@ fn proper_initialization() {
                 protocol_withdraw_fee: Decimal::from_str("0.02").unwrap(),
                 immediate_withdraw_fee: Decimal::from_str("0.05").unwrap(),
             },
+            whitelist: Some(vec![Addr::unchecked("whitelisted_exec")]),
             owner: Addr::unchecked("owner"),
         }
     );
@@ -112,6 +113,7 @@ fn update_config() {
                 protocol_withdraw_fee: Decimal::from_str("0.02").unwrap(),
                 immediate_withdraw_fee: Decimal::from_str("0.05").unwrap(),
             },
+            whitelist: Some(vec![Addr::unchecked("whitelisted_exec")]),
             owner: Addr::unchecked("owner"),
         }
     );
@@ -150,6 +152,7 @@ fn update_config() {
                 protocol_withdraw_fee: Decimal::from_str("0.02").unwrap(),
                 immediate_withdraw_fee: Decimal::from_str("0.05").unwrap(),
             },
+            whitelist: Some(vec![Addr::unchecked("whitelisted_exec")]),
             owner: Addr::unchecked("owner"),
         }
     );
@@ -2004,6 +2007,8 @@ fn execute_arb() {
     // END APPLYING SUB MSG TO NEW BALANCE
     //
 
+    println!("{:?}", eris_amount);
+
     let res = execute(deps.as_mut(), mock_env(), contract_info, sub_msg).unwrap();
 
     let new_tvl = old_tvl + eris_exchange_rate * eris_amount - takeable;
@@ -2012,6 +2017,8 @@ fn execute_arb() {
         vec![
             attr("action", "arb/assert_result"),
             attr("type", "eris"),
+            attr("result_token", "eriscw"),
+            attr("received_xamount", "37219127"),
             attr("old_tvl", old_tvl.to_string()),
             attr("new_tvl", new_tvl.to_string()),
             attr("used_balance", takeable.to_string()),
@@ -2052,7 +2059,7 @@ fn execute_arb() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        whitelist_info.clone(),
+        whitelist_info,
         ExecuteMsg::UnbondFromLiquidStaking {
             names: None,
         },

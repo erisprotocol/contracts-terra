@@ -44,6 +44,7 @@ pub fn execute_assert_result(
     let new_balances = lsds.get_total_assets_err(deps.as_ref(), &env, &state, &config)?;
     let total_lp_supply = config.query_lp_supply(&deps.querier)?;
 
+    let result_token_string = result_token.to_string();
     let active_lsd_adapter = lsds.get_adapter_by_asset(result_token)?;
     let active_lsd_balance = new_balances.get_by_name(&active_lsd_adapter.name)?;
 
@@ -59,20 +60,27 @@ pub fn execute_assert_result(
         .checked_sub(old_value)
         .map_err(|e| ContractError::CalculationError("profit".into(), e.to_string()))?;
 
+    let received_x_amount = active_lsd_balance
+        .xbalance
+        .checked_sub(old_balance.active_balance.xbalance)
+        .map_err(|e| ContractError::CalculationError("profit_by_asset".into(), e.to_string()))?;
+    let profit_by_xasset = received_x_amount * active_lsd_balance.xfactor - used_balance;
+
+    if profit < profit_by_xasset {
+        // profit over all assets should be higher than the profit by asset only.
+        // profit = profit over all assets
+        // profit_by_asset = profit only from the added amount of xasset
+        return Err(ContractError::ProfitBalancesDoesNotMatch {
+            profit,
+            profit_by_xasset,
+            old_balance: old_balance.active_balance.xbalance,
+        });
+    }
+
     // we allow for a fixed 10 % lower profit than wanted -> still minimum profit at 0.45 %
     // this can be seen as some allowed slippage
     let profit_percentage = Decimal::from_ratio(profit, used_balance);
     let min_profit_percent = wanted_profit * Decimal::percent(90);
-
-    // println!("Old-Assets: {:?}", old_assets);
-    // println!("X-Factor: {:?}", xfactor.to_string());
-    // println!("X-Value: {:?}", xvalue);
-    // println!("X-Balance: {:?}", xbalance);
-    // println!("New-Value: {:?}", new_value);
-    // println!("New-Assets: {:?}", new_assets);
-    // println!("Used-Balance: {:?}", used_balance);
-    // println!("Profit: {}", profit_percentage);
-    // println!("Min-Profit: {}", min_profit_percent);
 
     if profit_percentage < min_profit_percent {
         return Err(ContractError::NotEnoughProfit {});
@@ -133,6 +141,8 @@ pub fn execute_assert_result(
         .add_attributes(vec![
             attr("action", "arb/assert_result"),
             attr("type", active_lsd_adapter.name.clone()),
+            attr("result_token", result_token_string),
+            attr("received_xamount", received_x_amount),
             attr("old_tvl", old_value),
             attr("new_tvl", new_value),
             attr("used_balance", used_balance),

@@ -6,7 +6,7 @@ use crate::helpers::calc_fees;
 use crate::state::{State, UnbondHistory};
 
 use astroport::asset::token_asset_info;
-use cosmwasm_std::{Decimal, Deps, Env, Order, StdResult};
+use cosmwasm_std::{Decimal, Deps, Env, Order, StdResult, Uint128};
 
 use cw_storage_plus::Bound;
 use eris::arb_vault::{
@@ -21,10 +21,12 @@ pub fn query_config(deps: Deps) -> CustomResult<ConfigResponse> {
     let config = state.config.load(deps.storage)?;
     let fee_config = state.fee_config.load(deps.storage)?;
     let owner = state.owner.load(deps.storage)?;
+    let whitelist = state.whitelisted_addrs.may_load(deps.storage)?;
     Ok(ConfigResponse {
         config,
         owner,
         fee_config,
+        whitelist,
     })
 }
 
@@ -119,7 +121,11 @@ pub fn query_state(
     };
 
     let resp = StateResponse {
-        exchange_rate: Decimal::from_ratio(balances.vault_total, total_lp_supply),
+        exchange_rate: if total_lp_supply.is_zero() {
+            Decimal::one()
+        } else {
+            Decimal::from_ratio(balances.vault_total, total_lp_supply)
+        },
         total_lp_supply,
         balances: BalancesOptionalDetails {
             tvl_utoken: balances.tvl_utoken,
@@ -152,7 +158,11 @@ pub fn query_user_info(deps: Deps, env: Env, address: String) -> CustomResult<Us
     let balances = lsds.get_total_assets_err(deps, &env, &state, &config)?;
 
     let lp_amount = token_asset_info(config.lp_addr).query_pool(&deps.querier, address)?;
-    let utoken_amount = lp_amount.multiply_ratio(balances.vault_total, total_lp_supply);
+    let utoken_amount = if total_lp_supply.is_zero() {
+        Uint128::zero()
+    } else {
+        lp_amount.multiply_ratio(balances.vault_total, total_lp_supply)
+    };
 
     // println!("lp_amount {0}", lp_amount);
     // println!("total_lp_supply {0}", total_lp_supply);

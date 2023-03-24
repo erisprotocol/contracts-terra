@@ -1,6 +1,6 @@
 use crate::asserts::{assert_has_funds, assert_max_amount, assert_min_profit};
 use crate::error::{ContractError, ContractResult};
-use crate::extensions::ConfigEx;
+use crate::extensions::{BalancesEx, ConfigEx};
 use crate::helpers::{calc_fees, get_share_from_deposit};
 use crate::state::{BalanceCheckpoint, BalanceLocked, State, UnbondHistory};
 
@@ -79,6 +79,7 @@ pub fn execute_arbitrage(
     } else {
         info.sender
     };
+    let active_balance = balances.get_by_name(&lsd.name)?.clone();
     lsds.assert_not_lsd_contract(&contract_addr)?;
 
     // create balance checkpoint with total value, as it needs to be higher after full execution.
@@ -87,6 +88,7 @@ pub fn execute_arbitrage(
         &BalanceCheckpoint {
             vault_available: balances.vault_available,
             tvl_utoken: balances.tvl_utoken,
+            active_balance,
         },
     )?;
 
