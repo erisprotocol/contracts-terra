@@ -151,7 +151,7 @@ pub fn execute_unbond_liquidity(
     let (messages, attributes) = lsds.get_unbond_msgs(&deps)?;
 
     if messages.is_empty() {
-        return Err(ContractError::NothingToWithdraw {});
+        return Err(ContractError::NothingToUnbond {});
     }
 
     Ok(Response::new().add_messages(messages).add_attributes(attributes))
