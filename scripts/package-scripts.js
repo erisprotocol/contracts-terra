@@ -7,7 +7,7 @@ module.exports = {
     },
     schema: {
       default:
-        "nps schema.create schema.transform schema.hub schema.ampz schema.token schema.ampextractor schema.farm  schema.compound schema.fees schema.generator schema.votingescrow schema.ampgauges schema.empgauges schema.propgauges",
+        "nps schema.create schema.transform schema.hub schema.ampz schema.arb schema.token schema.ampextractor schema.farm  schema.compound schema.fees schema.generator schema.votingescrow schema.ampgauges schema.empgauges schema.propgauges",
 
       transform: "ts-node transform.ts",
 
@@ -15,6 +15,7 @@ module.exports = {
 
       hub: "cd .. && json2ts -i contracts/hub/**/*.json -o ../liquid-staking-scripts/types/hub",
       ampz: "cd .. && json2ts -i contracts/ampz/schema/*.json -o ../liquid-staking-scripts/types/ampz",
+      arb: "cd .. && json2ts -i contracts/arb-vault/schema/*.json -o ../liquid-staking-scripts/types/arb-vault",
 
       token:
         "cd .. && json2ts -i contracts/token/**/*.json -o ../liquid-staking-scripts/types/token",

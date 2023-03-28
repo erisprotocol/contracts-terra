@@ -31,7 +31,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> C
     match msg {
         ExecuteMsg::Execute {
             id,
-        } => crate::domain::execute::execute_id(deps, env, info, id),
+        } => crate::domain::execute::execute_id(deps, env, info, id.u128()),
         ExecuteMsg::AddExecution {
             execution,
             overwrite,
@@ -92,6 +92,10 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             limit,
             start_after,
         } => to_binary(&queries::executions(deps, start_after, limit)?),
+        QueryMsg::ExecutionsSchedule {
+            limit,
+            start_after,
+        } => to_binary(&queries::executions_schedule(deps, start_after, limit)?),
         QueryMsg::Execution {
             id,
         } => to_binary(&queries::execution(deps, env, id)?),
@@ -100,13 +104,9 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
 
 #[entry_point]
 pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
-    // let contract_version = get_contract_version(deps.storage)?;
-
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     Ok(Response::new()
-        // .add_attribute("previous_contract_name", &contract_version.contract)
-        // .add_attribute("previous_contract_version", &contract_version.version)
         .add_attribute("new_contract_name", CONTRACT_NAME)
         .add_attribute("new_contract_version", CONTRACT_VERSION))
 }

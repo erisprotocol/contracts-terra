@@ -2,7 +2,7 @@ use crate::error::ContractError;
 use crate::extensions::BalancesEx;
 
 use cosmwasm_std::{Decimal, Uint128};
-use eris::arb_vault::{Balances, ValidatedConfig};
+use eris::arb_vault::{BalancesDetails, ValidatedConfig};
 
 //----------------------------------------------------------------------------------------
 //  ASSERTS
@@ -10,7 +10,7 @@ use eris::arb_vault::{Balances, ValidatedConfig};
 
 pub fn assert_max_amount(
     config: &ValidatedConfig,
-    balances: &Balances,
+    balances: &BalancesDetails,
     wanted_profit: &Decimal,
     wanted_amount: &Uint128,
 ) -> Result<(), ContractError> {
@@ -26,6 +26,14 @@ pub fn assert_min_profit(wanted_profit: &Decimal) -> Result<(), ContractError> {
     // min profit must be bigger than 0.5 % (5/1000)
     if wanted_profit.lt(&Decimal::from_ratio(5u128, 1000u128)) {
         return Err(ContractError::NotEnoughProfit {});
+    }
+
+    Ok(())
+}
+
+pub fn assert_has_funds(funds_amount: &Uint128) -> Result<(), ContractError> {
+    if funds_amount.is_zero() {
+        return Err(ContractError::InvalidZeroAmount {});
     }
 
     Ok(())

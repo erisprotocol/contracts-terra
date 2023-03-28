@@ -2,8 +2,10 @@ use astroport::asset::AssetInfo;
 use cosmwasm_std::{Deps, Order, StdResult};
 use cw_storage_plus::Bound;
 use eris::{
-    adapters::pair::Pair,
-    compound_proxy::{ConfigResponse, LpConfig, LpStateResponse, RouteResponseItem},
+    adapters::{factory::Factory, pair::Pair},
+    compound_proxy::{
+        ConfigResponse, LpConfig, LpStateResponse, RouteResponseItem, SupportsSwapResponse,
+    },
 };
 
 use crate::{
@@ -110,4 +112,33 @@ pub fn get_routes(
             })
         })
         .collect()
+}
+
+pub fn query_supports_swap(
+    deps: Deps,
+    from: AssetInfo,
+    to: AssetInfo,
+) -> StdResult<SupportsSwapResponse> {
+    let suppored = if from == to {
+        true
+    } else {
+        let state = State::default();
+        let key = (from.as_bytes(), to.as_bytes());
+        let route_config = state.routes.load(deps.storage, key);
+
+        if route_config.is_ok() {
+            true
+        } else {
+            let factory: Option<Factory> = state.config.load(deps.storage)?.factory;
+            if let Some(factory) = &factory {
+                factory.get_pair(&deps.querier, from, to).is_ok()
+            } else {
+                false
+            }
+        }
+    };
+
+    Ok(SupportsSwapResponse {
+        suppored,
+    })
 }

@@ -4,6 +4,7 @@ use cosmwasm_std::{coins, Addr, Uint128};
 
 use eris::adapters::hub::Hub;
 use eris::ampz::ExecuteMsg;
+use eris::constants::DAY;
 
 use crate::constants::CONTRACT_DENOM;
 use crate::contract::execute;
@@ -22,10 +23,10 @@ fn controller_executes_receives_no_fee() {
 
     let res = execute(
         deps.as_mut(),
-        mock_env_at_timestamp(1000),
+        mock_env_at_timestamp(DAY),
         mock_info("controller", &[]),
         ExecuteMsg::Execute {
-            id: 1,
+            id: Uint128::new(1),
         },
     )
     .unwrap();
@@ -62,10 +63,11 @@ fn user_executes_no_controller_fee() {
 
     let res = execute(
         deps.as_mut(),
+        // only user can execute before
         mock_env_at_timestamp(1000),
         mock_info("user", &[]),
         ExecuteMsg::Execute {
-            id: 1,
+            id: Uint128::new(1),
         },
     )
     .unwrap();
@@ -100,10 +102,10 @@ fn anyone_executes_multiple_fee() {
 
     let res = execute(
         deps.as_mut(),
-        mock_env_at_timestamp(1000),
+        mock_env_at_timestamp(DAY),
         mock_info("anyone", &[]),
         ExecuteMsg::Execute {
-            id: 1,
+            id: Uint128::new(1),
         },
     )
     .unwrap();

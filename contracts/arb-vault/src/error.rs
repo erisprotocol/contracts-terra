@@ -1,4 +1,4 @@
-use cosmwasm_std::{Decimal, OverflowError, Response, StdError};
+use cosmwasm_std::{Decimal, OverflowError, Response, StdError, Uint128};
 use thiserror::Error;
 
 pub type ContractResult = Result<Response, ContractError>;
@@ -14,6 +14,9 @@ pub enum ContractError {
     #[error("Unauthorized")]
     Unauthorized {},
 
+    #[error("Unauthorized: Sender not on whitelist")]
+    UnauthorizedNotWhitelisted {},
+
     #[error("Event of zero transfer")]
     InvalidZeroAmount {},
 
@@ -26,14 +29,17 @@ pub enum ContractError {
     #[error("Nothing to withdraw")]
     NothingToWithdraw {},
 
-    #[error("Bot Address is not whitelisted")]
-    NotWhitelisted {},
-
-    #[error("Contract Address is not whitelisted")]
-    NotWhitelistedContract {},
-
     #[error("Not enough profit")]
     NotEnoughProfit {},
+
+    #[error(
+        "Profit balances does not match: profit {profit} vs profit_by_asset {profit_by_xasset} old {old_balance}"
+    )]
+    ProfitBalancesDoesNotMatch {
+        profit_by_xasset: Uint128,
+        profit: Uint128,
+        old_balance: Uint128,
+    },
 
     #[error("Not enough balance. Do not take from locked")]
     DoNotTakeLockedBalance {},
@@ -53,15 +59,15 @@ pub enum ContractError {
     #[error("Not enough assets available in the pool.")]
     NotEnoughAssetsInThePool {},
 
-    #[error("Some options provided are not known.")]
-    UnknownOptions {},
-
     // used
     #[error("Contract can't be migrated!")]
     MigrationError {},
 
-    #[error("Asset is not known")]
-    AssetUnknown {},
+    #[error("Adapter not found: {0}")]
+    AdapterNotFound(String),
+
+    #[error("Adapter duplicated: {0}")]
+    AdapterNameDuplicate(String),
 
     #[error("cannot find `instantiate` event")]
     CannotFindInstantiateEvent {},
@@ -72,8 +78,14 @@ pub enum ContractError {
     #[error("Invalid reply id: {0}")]
     InvalidReplyId(u64),
 
-    #[error("Specified unbond time is too high")]
-    UnbondTimeTooHigh,
+    #[error("Specified {0} is too low")]
+    ConfigToLow(String),
+
+    #[error("Specified {0} is too high")]
+    ConfigTooHigh(String),
+
+    #[error("Adapter {0} is disabled")]
+    AdapterDisabled(String),
 
     #[error("Adapter {adapter}: {msg} - {orig}")]
     AdapterError {
@@ -114,6 +126,18 @@ pub enum ContractError {
 
     #[error("Ownership proposal expired")]
     OwnershipProposalExpired {},
+
+    #[error("Either set or remove the whitelist")]
+    CannotRemoveWhitelistWhileSettingIt {},
+
+    #[error("Cannot remove an adapter that has funds")]
+    CannotRemoveAdapterThatHasFunds {},
+
+    #[error("Cannot call LSD contract")]
+    CannotCallLsdContract {},
+
+    #[error("CW20 tokens can be swapped via Cw20::Send message only")]
+    Cw20DirectSwap {},
 }
 
 pub fn adapter_error(adapter: &str, msg: &str, orig: StdError) -> ContractError {

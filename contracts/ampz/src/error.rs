@@ -1,8 +1,10 @@
+use astroport::asset::AssetInfo;
 use cosmwasm_std::{OverflowError, Response, StdError};
 use cw20_base::ContractError as cw20baseError;
 use thiserror::Error;
 
 pub type ContractResult = Result<Response, ContractError>;
+pub type CustomResult<T = ()> = Result<T, ContractError>;
 
 /// This enum describes hub contract errors
 #[derive(Error, Debug, PartialEq)]
@@ -21,6 +23,12 @@ pub enum ContractError {
 
     #[error("Unauthorized: sender is not new owner")]
     UnauthorizedSenderNotNewOwner {},
+
+    #[error("New owner must be different to the current owner")]
+    NewOwnerMustBeDifferent {},
+
+    #[error("Interval must be longer or equal to 6 hours")]
+    IntervalTooShort {},
 
     #[error("Execution can only be added/removed by the same user")]
     MustBeSameUser {},
@@ -43,6 +51,12 @@ pub enum ContractError {
     #[error("The farm {0} is not supported")]
     FarmNotSupported(String),
 
+    #[error("The swap from {0} to {1} is not supported")]
+    SwapNotSupported(AssetInfo, AssetInfo),
+
+    #[error("Cannot swap to the same token")]
+    CannotSwapToSameToken {},
+
     #[error("Contract is already executing")]
     IsExecuting {},
 
@@ -63,4 +77,7 @@ pub enum ContractError {
 
     #[error("Contract can't be migrated!")]
     MigrationError {},
+
+    #[error("Cannot add and remove farms in the same transaction!")]
+    CannotAddAndRemoveFarms {},
 }

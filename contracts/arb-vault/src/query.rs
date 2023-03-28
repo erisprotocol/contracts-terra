@@ -6,12 +6,12 @@ use crate::helpers::calc_fees;
 use crate::state::{State, UnbondHistory};
 
 use astroport::asset::token_asset_info;
-use cosmwasm_std::{Decimal, Deps, Env, Order, StdResult};
+use cosmwasm_std::{Decimal, Deps, Env, Order, StdResult, Uint128};
 
 use cw_storage_plus::Bound;
 use eris::arb_vault::{
-    ConfigResponse, ExchangeHistory, ExchangeRatesResponse, StateDetails, StateResponse,
-    TakeableResponse, UnbondItem, UnbondRequestsResponse, UserInfoResponse,
+    BalancesOptionalDetails, ConfigResponse, ExchangeHistory, ExchangeRatesResponse, StateDetails,
+    StateResponse, TakeableResponse, UnbondItem, UnbondRequestsResponse, UserInfoResponse,
 };
 use eris::constants::DAY;
 use eris::voting_escrow::{DEFAULT_LIMIT, MAX_LIMIT};
@@ -21,10 +21,12 @@ pub fn query_config(deps: Deps) -> CustomResult<ConfigResponse> {
     let config = state.config.load(deps.storage)?;
     let fee_config = state.fee_config.load(deps.storage)?;
     let owner = state.owner.load(deps.storage)?;
+    let whitelist = state.whitelisted_addrs.may_load(deps.storage)?;
     Ok(ConfigResponse {
         config,
         owner,
         fee_config,
+        whitelist,
     })
 }
 
@@ -85,7 +87,7 @@ pub fn query_unbond_requests(
 
                 Ok(UnbondItem {
                     id,
-                    released: item.release_time > current_time,
+                    released: item.release_time <= current_time,
                     start_time: item.start_time,
                     release_time: item.release_time,
                     amount_asset: item.amount_asset,
@@ -97,16 +99,19 @@ pub fn query_unbond_requests(
     })
 }
 
-pub fn query_state(deps: Deps, env: Env, details: Option<bool>) -> CustomResult<StateResponse> {
+pub fn query_state(
+    deps: Deps,
+    env: Env,
+    include_details: Option<bool>,
+) -> CustomResult<StateResponse> {
     let state = State::default();
     let config = state.config.load(deps.storage)?;
     let mut lsds = config.lsd_group(&env);
 
     let total_lp_supply = config.query_lp_supply(&deps.querier)?;
     let balances = lsds.get_total_assets_err(deps, &env, &state, &config)?;
-    let details = if let Some(true) = details {
+    let details = if include_details.unwrap_or_default() {
         Some(StateDetails {
-            claims: lsds.get_balances(&deps)?,
             takeable_steps: balances.calc_all_takeable_steps(&config).map_err(|e| {
                 ContractError::CalculationError("takeable for steps".into(), e.to_string())
             })?,
@@ -116,9 +121,27 @@ pub fn query_state(deps: Deps, env: Env, details: Option<bool>) -> CustomResult<
     };
 
     let resp = StateResponse {
-        exchange_rate: Decimal::from_ratio(balances.vault_total, total_lp_supply),
+        exchange_rate: if total_lp_supply.is_zero() {
+            Decimal::one()
+        } else {
+            Decimal::from_ratio(balances.vault_total, total_lp_supply)
+        },
         total_lp_supply,
-        balances,
+        balances: BalancesOptionalDetails {
+            tvl_utoken: balances.tvl_utoken,
+            vault_total: balances.vault_total,
+            vault_available: balances.vault_available,
+            vault_takeable: balances.vault_takeable,
+            locked_user_withdrawls: balances.locked_user_withdrawls,
+            lsd_unbonding: balances.lsd_unbonding,
+            lsd_withdrawable: balances.lsd_withdrawable,
+            lsd_xvalue: balances.lsd_xvalue,
+            details: if include_details.unwrap_or_default() {
+                Some(balances.details)
+            } else {
+                None
+            },
+        },
         details,
     };
 
@@ -135,7 +158,15 @@ pub fn query_user_info(deps: Deps, env: Env, address: String) -> CustomResult<Us
     let balances = lsds.get_total_assets_err(deps, &env, &state, &config)?;
 
     let lp_amount = token_asset_info(config.lp_addr).query_pool(&deps.querier, address)?;
-    let utoken_amount = lp_amount.multiply_ratio(balances.vault_total, total_lp_supply);
+    let utoken_amount = if total_lp_supply.is_zero() {
+        Uint128::zero()
+    } else {
+        lp_amount.multiply_ratio(balances.vault_total, total_lp_supply)
+    };
+
+    // println!("lp_amount {0}", lp_amount);
+    // println!("total_lp_supply {0}", total_lp_supply);
+    // println!("balances {:?}", balances);
 
     Ok(UserInfoResponse {
         utoken_amount,

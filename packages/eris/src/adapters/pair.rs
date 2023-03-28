@@ -90,7 +90,7 @@ impl Pair {
                     ask_asset_info: None,
                     belief_price,
                     max_spread,
-                    to: None,
+                    to,
                 })?,
                 funds: vec![Coin {
                     denom: denom.clone(),

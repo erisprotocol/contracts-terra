@@ -42,6 +42,25 @@ impl CosmosMsgEx for CosmosMsg {
     }
 }
 
+pub trait CosmosMsgsEx {
+    fn to_authz_msg(self, sender: impl Into<String>, env: &Env) -> StdResult<CosmosMsg>;
+}
+
+impl CosmosMsgsEx for Vec<CosmosMsg> {
+    fn to_authz_msg(self, sender: impl Into<String>, env: &Env) -> StdResult<CosmosMsg> {
+        let mut exec = MsgExec::new();
+        exec.grantee = env.contract.address.to_string();
+        exec.msgs = vec![];
+
+        let sender: String = sender.into();
+
+        for msg in self {
+            exec.msgs.push(msg.to_proto_msg(sender.clone())?.to_any()?)
+        }
+
+        Ok(exec.to_authz_cosmos_msg())
+    }
+}
 pub trait MsgExecuteContractEx {
     fn to_authz_cosmos_msg(self, env: &Env) -> StdResult<CosmosMsg>;
 }

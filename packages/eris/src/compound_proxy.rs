@@ -190,6 +190,12 @@ pub enum QueryMsg {
         start_after: Option<(AssetInfo, AssetInfo)>,
         limit: Option<u32>,
     },
+
+    #[returns(SupportsSwapResponse)]
+    SupportsSwap {
+        from: AssetInfo,
+        to: AssetInfo,
+    },
 }
 
 #[cw_serde]
@@ -235,6 +241,11 @@ pub struct LpStateResponse {
     pub assets: Vec<Asset>,
     /// The total amount of LP tokens currently issued
     pub total_share: Uint128,
+}
+
+#[cw_serde]
+pub struct SupportsSwapResponse {
+    pub suppored: bool,
 }
 
 /// This structure describes a migration message.

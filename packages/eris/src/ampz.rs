@@ -18,6 +18,7 @@ pub struct InstantiateMsg {
 
     pub zapper: String,
     pub astroport: AstroportConfig<String>,
+    pub capapult: CapapultConfig<String>,
     pub fee: FeeConfig<String>,
 }
 
@@ -92,11 +93,30 @@ impl AstroportConfig<String> {
     }
 }
 
+#[cw_serde]
+pub struct CapapultConfig<T> {
+    pub market: T,
+    pub overseer: T,
+    pub stable_cw: T,
+    pub custody: T,
+}
+
+impl CapapultConfig<String> {
+    pub fn validate(self, api: &dyn Api) -> StdResult<CapapultConfig<Addr>> {
+        Ok(CapapultConfig {
+            market: api.addr_validate(&self.market)?,
+            overseer: api.addr_validate(&self.overseer)?,
+            custody: api.addr_validate(&self.custody)?,
+            stable_cw: api.addr_validate(&self.stable_cw)?,
+        })
+    }
+}
+
 /// This structure describes the execute messages available in the contract.
 #[cw_serde]
 pub enum ExecuteMsg {
     Execute {
-        id: u128,
+        id: Uint128,
     },
 
     // being executed via authz
@@ -109,7 +129,7 @@ pub enum ExecuteMsg {
         execution: Execution,
     },
     RemoveExecutions {
-        ids: Option<Vec<u128>>,
+        ids: Option<Vec<Uint128>>,
     },
 
     /// The callback of type [`CallbackMsg`]
@@ -131,6 +151,7 @@ pub enum ExecuteMsg {
         zapper: Option<String>,
         hub: Option<String>,
         astroport: Option<AstroportConfig<String>>,
+        capapult: Option<CapapultConfig<String>>,
         fee: Option<FeeConfig<String>>,
     },
 }
@@ -175,33 +196,61 @@ pub struct CallbackWrapper {
 
 #[cw_serde]
 pub enum DestinationState {
-    DepositAmplifier {},
+    DepositAmplifier {
+        #[serde(default)]
+        receiver: Option<Addr>,
+    },
     DepositFarm {
         farm: String,
+        #[serde(default)]
+        receiver: Option<Addr>,
     },
-}
-
-impl DestinationState {
-    pub fn to_runtime(self, asset_infos: Vec<AssetInfo>) -> DestinationRuntime {
-        match self {
-            DestinationState::DepositAmplifier {} => DestinationRuntime::DepositAmplifier {},
-            DestinationState::DepositFarm {
-                farm,
-            } => DestinationRuntime::DepositFarm {
-                asset_infos,
-                farm,
-            },
-        }
-    }
+    SwapTo {
+        asset_info: AssetInfo,
+        #[serde(default)]
+        receiver: Option<Addr>,
+    },
+    DepositCollateral {
+        market: DepositMarket,
+    },
+    Repay {
+        market: RepayMarket,
+    },
 }
 
 #[cw_serde]
 pub enum DestinationRuntime {
-    DepositAmplifier {},
+    DepositAmplifier {
+        receiver: Option<Addr>,
+    },
     DepositFarm {
         asset_infos: Vec<AssetInfo>,
         farm: String,
+        receiver: Option<Addr>,
     },
+    SendSwapResultToUser {
+        asset_info: AssetInfo,
+        receiver: Option<Addr>,
+    },
+    DepositCollateral {
+        market: DepositMarket,
+    },
+    Repay {
+        market: RepayMarket,
+    },
+}
+
+#[cw_serde]
+pub enum DepositMarket {
+    Capapult {
+        // specifies which asset to deposit into capapult
+        asset_info: AssetInfo,
+    },
+}
+
+#[cw_serde]
+pub enum RepayMarket {
+    Capapult,
 }
 
 /// This structure describes the callback messages of the contract.
@@ -265,13 +314,19 @@ pub enum QueryMsg {
 
     #[returns(ExecutionsResponse)]
     Executions {
-        start_after: Option<u128>,
+        start_after: Option<Uint128>,
+        limit: Option<u32>,
+    },
+
+    #[returns(ExecutionsScheduleResponse)]
+    ExecutionsSchedule {
+        start_after: Option<Uint128>,
         limit: Option<u32>,
     },
 
     #[returns(ExecutionResponse)]
     Execution {
-        id: u128,
+        id: Uint128,
     },
 }
 
@@ -293,12 +348,14 @@ pub struct ConfigResponse {
 
     pub astroport: AstroportConfig<String>,
 
+    pub capapult: CapapultConfig<String>,
+
     pub fee: FeeConfig<String>,
 }
 
 #[cw_serde]
 pub struct StateResponse {
-    pub next_id: u128,
+    pub next_id: Uint128,
 }
 
 #[cw_serde]
@@ -308,7 +365,13 @@ pub struct UserInfoResponse {
 
 #[cw_serde]
 pub struct ExecutionsResponse {
-    pub executions: Vec<(u128, Execution)>,
+    pub executions: Vec<(Uint128, Execution)>,
+}
+
+#[cw_serde]
+pub struct ExecutionsScheduleResponse {
+    // (id, last_execution, interval_s)
+    pub executions: Vec<ExecutionSchedule>,
 }
 
 #[cw_serde]
@@ -318,10 +381,17 @@ pub struct ExecutionResponse {
 
 #[cw_serde]
 pub struct ExecutionDetail {
-    pub id: u128,
+    pub id: Uint128,
     pub execution: Execution,
     pub last_execution: u64,
     pub can_execute: bool,
+}
+
+#[cw_serde]
+pub struct ExecutionSchedule {
+    pub id: Uint128,
+    pub last_execution: u64,
+    pub interval_s: u64,
 }
 
 #[cw_serde]

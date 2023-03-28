@@ -13,6 +13,5 @@ pub mod constants;
 pub mod domain;
 pub mod extensions;
 mod helpers;
-#[cfg(test)]
-mod mock_querier;
+
 mod query;

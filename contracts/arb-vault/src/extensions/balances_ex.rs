@@ -1,6 +1,6 @@
 use crate::error::{ContractError, CustomResult};
 use cosmwasm_std::{Decimal, Uint128};
-use eris::arb_vault::{Balances, UtilizationMethod, ValidatedConfig};
+use eris::arb_vault::{BalancesDetails, ClaimBalance, UtilizationMethod, ValidatedConfig};
 
 pub trait BalancesEx {
     fn get_max_utilization_for_profit(
@@ -19,9 +19,11 @@ pub trait BalancesEx {
         config: &ValidatedConfig,
         profit: &Decimal,
     ) -> CustomResult<Uint128>;
+
+    fn get_by_name(&self, name: &str) -> CustomResult<&ClaimBalance>;
 }
 
-impl BalancesEx for Balances {
+impl BalancesEx for BalancesDetails {
     fn get_max_utilization_for_profit(
         &self,
         config: &ValidatedConfig,
@@ -71,6 +73,14 @@ impl BalancesEx for Balances {
             calc_vault_takeable(max_utilization, self.vault_total, self.vault_takeable)?;
 
         Ok(vault_takeable)
+    }
+
+    fn get_by_name(&self, name: &str) -> CustomResult<&ClaimBalance> {
+        if let Some(claim) = self.details.iter().find(|detail| detail.name == *name) {
+            Ok(claim)
+        } else {
+            Err(ContractError::AdapterNotFound(name.into()))
+        }
     }
 }
 

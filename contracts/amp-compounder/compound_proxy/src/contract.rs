@@ -1,16 +1,19 @@
 use std::collections::HashSet;
 
+use crate::constants::{CONTRACT_NAME, CONTRACT_VERSION};
 use crate::error::ContractError;
 use crate::execute::{compound, handle_callback, multi_swap, update_config};
-use crate::queries::{get_lp, get_lp_state, get_lps, get_routes, query_config};
+use crate::queries::{
+    get_lp, get_lp_state, get_lps, get_routes, query_config, query_supports_swap,
+};
 use crate::simulation::query_compound_simulation;
 use crate::state::{Config, State};
-
 use astroport::asset::addr_opt_validate;
 use astroport::common::{claim_ownership, drop_ownership_proposal, propose_new_owner};
 use cosmwasm_std::{
     entry_point, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
 };
+use cw2::set_contract_version;
 use eris::adapters::factory::Factory;
 use eris::compound_proxy::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 
@@ -167,12 +170,20 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             rewards,
             lp_token,
         } => to_binary(&query_compound_simulation(deps, rewards, lp_token)?),
+        QueryMsg::SupportsSwap {
+            from,
+            to,
+        } => to_binary(&query_supports_swap(deps, from, to)?),
     }
 }
 
 /// ## Description
 /// Used for migration of contract. Returns the default object of type [`Response`].
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
-    Ok(Response::default())
+pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+    Ok(Response::new()
+        .add_attribute("new_contract_name", CONTRACT_NAME)
+        .add_attribute("new_contract_version", CONTRACT_VERSION))
 }

@@ -1,6 +1,6 @@
-use crate::asserts::{assert_max_amount, assert_min_profit};
+use crate::asserts::{assert_has_funds, assert_max_amount, assert_min_profit};
 use crate::error::{ContractError, ContractResult};
-use crate::extensions::ConfigEx;
+use crate::extensions::{BalancesEx, ConfigEx};
 use crate::helpers::{calc_fees, get_share_from_deposit};
 use crate::state::{BalanceCheckpoint, BalanceLocked, State, UnbondHistory};
 
@@ -14,6 +14,7 @@ use cosmwasm_std::{
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 use eris::arb_vault::{CallbackMsg, Cw20HookMsg, ExecuteSubMsg, ValidatedConfig};
 use eris::CustomResponse;
+use itertools::Itertools;
 use std::vec;
 
 //----------------------------------------------------------------------------------------
@@ -26,14 +27,28 @@ pub fn receive_cw20(
     info: MessageInfo,
     cw20_msg: Cw20ReceiveMsg,
 ) -> ContractResult {
-    match from_binary(&cw20_msg.msg) {
-        Ok(Cw20HookMsg::Unbond {
+    match from_binary(&cw20_msg.msg)? {
+        Cw20HookMsg::Unbond {
             immediate,
-        }) => {
+        } => {
             let cw20_sender = deps.api.addr_validate(&cw20_msg.sender)?;
             execute_unbond_user(deps, env, info, cw20_sender, cw20_msg.amount, immediate)
         },
-        Err(err) => Err(ContractError::Std(err)),
+        // Cw20HookMsg::Swap {
+        //     ask_asset_info,
+        //     belief_price,
+        //     max_spread,
+        //     to,
+        // } => swap::execute_swap_cw20(
+        //     deps,
+        //     env,
+        //     cw20_msg.sender,
+        //     token_asset(info.sender, cw20_msg.amount),
+        //     ask_asset_info,
+        //     belief_price,
+        //     max_spread,
+        //     to,
+        // ),
     }
 }
 
@@ -45,28 +60,18 @@ pub fn execute_arbitrage(
     result_token: AssetInfo,
     wanted_profit: Decimal,
 ) -> ContractResult {
-    if message.funds_amount.is_zero() {
-        return Err(ContractError::InvalidZeroAmount {});
-    }
-
     let state = State::default();
     let config = state.config.load(deps.storage)?;
     let mut lsds = config.lsd_group(&env);
     let balances = lsds.get_total_assets_err(deps.as_ref(), &env, &state, &config)?;
 
-    lsds.get(result_token.clone())?;
+    let lsd = lsds.get_adapter_by_asset(result_token.clone())?;
+    lsd.assert_not_disabled()?;
+    state.assert_sender_whitelisted(deps.storage, &info.sender)?;
     state.assert_not_nested(deps.storage)?;
+    assert_has_funds(&message.funds_amount)?;
     assert_min_profit(&wanted_profit)?;
     assert_max_amount(&config, &balances, &wanted_profit, &message.funds_amount)?;
-
-    // create balance checkpoint with total value, as it needs to be higher after full execution.
-    state.balance_checkpoint.save(
-        deps.storage,
-        &BalanceCheckpoint {
-            vault_available: balances.vault_available,
-            tvl_utoken: balances.tvl_utoken,
-        },
-    )?;
 
     // setup contract to call, by default the sender is called with the funds requested
     let contract_addr = if let Some(contract_addr) = message.contract_addr {
@@ -74,6 +79,18 @@ pub fn execute_arbitrage(
     } else {
         info.sender
     };
+    let active_balance = balances.get_by_name(&lsd.name)?.clone();
+    lsds.assert_not_lsd_contract(&contract_addr)?;
+
+    // create balance checkpoint with total value, as it needs to be higher after full execution.
+    state.balance_checkpoint.save(
+        deps.storage,
+        &BalanceCheckpoint {
+            vault_available: balances.vault_available,
+            tvl_utoken: balances.tvl_utoken,
+            active_balance,
+        },
+    )?;
 
     let execute_flashloan = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: contract_addr.to_string(),
@@ -96,12 +113,18 @@ pub fn execute_arbitrage(
         .add_attribute("action", "arb/execute_arbitrage"))
 }
 
-pub fn execute_withdraw_liquidity(deps: DepsMut, env: Env, _info: MessageInfo) -> ContractResult {
+pub fn execute_withdraw_liquidity(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    names: Option<Vec<String>>,
+) -> ContractResult {
     let state = State::default();
     let config = state.config.load(deps.storage)?;
-    let mut lsds = config.lsd_group(&env);
+    let mut lsds = config.lsd_group_by_names(&env, names);
 
     state.assert_not_nested(deps.storage)?;
+    state.assert_sender_whitelisted(deps.storage, &info.sender)?;
 
     let (messages, attributes) = lsds.get_withdraw_msgs(&deps)?;
 
@@ -112,7 +135,29 @@ pub fn execute_withdraw_liquidity(deps: DepsMut, env: Env, _info: MessageInfo) -
     Ok(Response::new().add_messages(messages).add_attributes(attributes))
 }
 
-pub fn execute_provide_liquidity(
+pub fn execute_unbond_liquidity(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    names: Option<Vec<String>>,
+) -> ContractResult {
+    let state = State::default();
+    let config = state.config.load(deps.storage)?;
+    let mut lsds = config.lsd_group_by_names(&env, names);
+
+    state.assert_not_nested(deps.storage)?;
+    state.assert_sender_whitelisted(deps.storage, &info.sender)?;
+
+    let (messages, attributes) = lsds.get_unbond_msgs(&deps)?;
+
+    if messages.is_empty() {
+        return Err(ContractError::NothingToUnbond {});
+    }
+
+    Ok(Response::new().add_messages(messages).add_attributes(attributes))
+}
+
+pub fn execute_deposit(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
@@ -142,10 +187,6 @@ pub fn execute_provide_liquidity(
 
     // removing the deposit amount for correct share calculation
     let vault_utoken = assets.vault_total.checked_sub(deposit_amount)?;
-
-    // print!("Total: {:?}", total_value);
-    // print!("Assets: {:?}", assets);
-
     let share = get_share_from_deposit(&deps.querier, &config, vault_utoken, deposit_amount)?;
 
     // Mint LP tokens for the sender or for the receiver (if set)
@@ -158,11 +199,12 @@ pub fn execute_provide_liquidity(
     messages.push(mint_liquidity_token_message(&deps, &config, env, recipient.clone(), share)?);
 
     Ok(Response::new().add_messages(messages).add_attributes(vec![
-        attr("action", "arb/provide_liquidity"),
+        attr("action", "arb/execute_deposit"),
         attr("sender", info.sender.to_string()),
         attr("recipient", recipient.to_string()),
-        attr("vault_utoken", vault_utoken),
+        attr("deposit_amount", deposit_amount),
         attr("share", share.to_string()),
+        attr("vault_utoken_new", assets.vault_total),
     ]))
 }
 
@@ -217,15 +259,14 @@ pub fn execute_unbond_user(
         let withdraw_protocol_fee = withdraw_amount * fee_config.protocol_withdraw_fee;
         let receive_amount = withdraw_amount.checked_sub(withdraw_protocol_fee)?;
 
-        let total_lp_supply_after = total_lp_supply.checked_sub(lp_amount)?;
         Response::new().add_attributes(vec![
             attr("action", "arb/execute_unbond"),
             attr("from", sender),
-            attr("tvl_utoken", assets.tvl_utoken),
             attr("withdraw_amount", withdraw_amount),
             attr("receive_amount", receive_amount),
             attr("protocol_fee", withdraw_protocol_fee),
-            attr("new_total_supply", total_lp_supply_after),
+            attr("vault_total", assets.vault_total),
+            attr("total_supply", total_lp_supply),
             attr("unbond_time_s", config.unbond_time_s.to_string()),
         ])
     };
@@ -282,15 +323,13 @@ pub fn execute_withdraw_unbonded(deps: DepsMut, env: Env, info: MessageInfo) -> 
         .unbond_history
         .prefix(info.sender.clone())
         .range(deps.storage, None, None, Order::Ascending)
+        .filter_ok(|element| element.1.release_time <= current_time)
         .take(30)
         .collect::<StdResult<Vec<(u64, UnbondHistory)>>>()?;
 
     // check that something can be withdrawn
-    let withdraw_amount: Uint128 = unbond_history
-        .iter()
-        .filter(|element| element.1.release_time <= current_time)
-        .map(|element| element.1.amount_asset)
-        .sum();
+    let withdraw_amount: Uint128 =
+        unbond_history.iter().map(|element| element.1.amount_asset).sum();
 
     let response = create_withdraw_msgs(
         &deps.querier,

@@ -3,7 +3,7 @@ use cosmwasm_std::{to_binary, Addr, Coin, CosmosMsg, Decimal, QuerierWrapper, St
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::compound_proxy::{ExecuteMsg, LpStateResponse, QueryMsg};
+use crate::compound_proxy::{ExecuteMsg, LpStateResponse, QueryMsg, SupportsSwapResponse};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Compounder(pub Addr);
@@ -20,6 +20,22 @@ impl Compounder {
                 lp_addr,
             },
         )
+    }
+
+    pub fn query_support_swap(
+        &self,
+        querier: &QuerierWrapper,
+        from: AssetInfo,
+        to: AssetInfo,
+    ) -> StdResult<bool> {
+        let res: SupportsSwapResponse = querier.query_wasm_smart(
+            self.0.to_string(),
+            &QueryMsg::SupportsSwap {
+                from,
+                to,
+            },
+        )?;
+        Ok(res.suppored)
     }
 
     pub fn compound_msg(

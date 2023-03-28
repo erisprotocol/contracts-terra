@@ -25,6 +25,7 @@ eris = { path = "../eris" }
 
 eris-staking-hub = { path = "../../contracts/hub" }
 eris-staking-token = { path = "../../contracts/token" }
+eris-arb-vault = { path = "../../contracts/arb-vault" }
 eris-gov-voting-escrow = { path = "../../contracts/amp-governance/voting_escrow" }
 eris-gov-emp-gauges = { path = "../../contracts/amp-governance/emp_gauges" }
 eris-gov-amp-gauges = { path = "../../contracts/amp-governance/amp_gauges" }

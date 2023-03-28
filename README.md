@@ -67,6 +67,8 @@ This contract never holds any funds after an execution. Do not send funds to the
 
 ## License
 
-Contents of this repository are open source under [GNU General Public License v3](./LICENSE) or later.
+Part of the contents of this repository are open source under [GNU General Public License v3](./LICENSE) or later.
 
 Part of the repository (amp-compounder) is a fork from <https://github.com/spectrumprotocol/spectrum-core> and is licensed under Apache v2.
+
+Part of the repository (arb-vault) is not licensed and not allowed to be used in other products or projects.

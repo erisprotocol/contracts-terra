@@ -105,6 +105,7 @@ impl Prism {
                 let all_history: AllHistoryResponse = self.query_single_history(deps, id)?;
 
                 let (released, exchange_rate) = if all_history.history.is_empty() {
+                    // if nothing returned, the request is not yet started, so we estimate exchange_rate * amount
                     let state = self.cached_state(deps)?;
                     (false, state.exchange_rate)
                 } else {
@@ -138,8 +139,8 @@ impl Prism {
 }
 
 impl LsdAdapter for Prism {
-    fn get_name(&self) -> &str {
-        "prism"
+    fn used_contracts(&self) -> Vec<Addr> {
+        vec![self.cw20.clone(), self.addr.clone()]
     }
 
     fn asset(&self) -> AssetInfo {
