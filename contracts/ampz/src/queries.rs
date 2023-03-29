@@ -20,6 +20,7 @@ pub fn config(deps: Deps) -> StdResult<ConfigResponse> {
         controller: state.controller.load(deps.storage)?.into(),
         new_owner: state.new_owner.may_load(deps.storage)?.map(|addr| addr.into()),
         hub: state.hub.load(deps.storage)?.0.into(),
+        arb_vault: state.arb_vault.load(deps.storage)?.0.into(),
         farms: state.farms.load(deps.storage)?.into_iter().map(|a| a.0.into()).collect_vec(),
         astroport: state.astroport.load(deps.storage).map(|a| AstroportConfig {
             generator: a.generator.0.into(),

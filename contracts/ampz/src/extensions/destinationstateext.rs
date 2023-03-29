@@ -13,6 +13,11 @@ impl DestinationStateExt for DestinationState {
             } => DestinationRuntime::DepositAmplifier {
                 receiver,
             },
+            DestinationState::DepositArbVault {
+                receiver,
+            } => DestinationRuntime::DepositArbVault {
+                receiver,
+            },
             DestinationState::DepositFarm {
                 farm,
                 receiver,

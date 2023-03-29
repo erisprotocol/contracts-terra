@@ -13,6 +13,8 @@ pub struct InstantiateMsg {
     pub controller: String,
     /// Hub contract address
     pub hub: String,
+    /// Arb vault contract address
+    pub arb_vault: String,
     /// Amp compounder farms
     pub farms: Vec<String>,
 
@@ -150,6 +152,7 @@ pub enum ExecuteMsg {
         controller: Option<String>,
         zapper: Option<String>,
         hub: Option<String>,
+        arb_vault: Option<String>,
         astroport: Option<AstroportConfig<String>>,
         capapult: Option<CapapultConfig<String>>,
         fee: Option<FeeConfig<String>>,
@@ -200,6 +203,9 @@ pub enum DestinationState {
         #[serde(default)]
         receiver: Option<Addr>,
     },
+    DepositArbVault {
+        receiver: Option<Addr>,
+    },
     DepositFarm {
         farm: String,
         #[serde(default)]
@@ -221,6 +227,9 @@ pub enum DestinationState {
 #[cw_serde]
 pub enum DestinationRuntime {
     DepositAmplifier {
+        receiver: Option<Addr>,
+    },
+    DepositArbVault {
         receiver: Option<Addr>,
     },
     DepositFarm {
@@ -334,6 +343,8 @@ pub enum QueryMsg {
 pub struct ConfigResponse {
     /// Hub contract
     pub hub: String,
+    /// Arb Vault contract
+    pub arb_vault: String,
     /// Farms
     pub farms: Vec<String>,
 

@@ -1,5 +1,6 @@
 use cosmwasm_std::testing::{mock_env, mock_info};
 use eris::adapters::ampz::Ampz;
+use eris::adapters::arb_vault::ArbVault;
 use eris::adapters::asset::AssetEx;
 use eris::adapters::compounder::Compounder;
 use eris::adapters::farm::Farm;
@@ -1013,4 +1014,133 @@ fn check_callback_lock_collateral_capa() {
     .unwrap();
 
     assert_eq!(res.messages[2].msg, msgs.to_authz_msg("user", &mock_env()).unwrap());
+}
+
+#[test]
+fn check_callback_deposit_arb_vault() {
+    let mut deps = setup_test();
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info("user", &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::DepositArbVault {
+                    receiver: None,
+                },
+                executor: Addr::unchecked("executor"),
+            },
+        }),
+    )
+    .unwrap_err();
+
+    assert_eq!(res, ContractError::CallbackOnlyCalledByContract {});
+
+    // any executor
+    deps.querier.bank_querier.update_balance(MOCK_CONTRACT_ADDR, coins(100, CONTRACT_DENOM));
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info(MOCK_CONTRACT_ADDR, &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::DepositArbVault {
+                    receiver: None,
+                },
+                executor: Addr::unchecked("executor"),
+            },
+        }),
+    )
+    .unwrap();
+    assert_eq!(res.messages.len(), 3);
+    assert_eq!(
+        res.messages[0].msg,
+        native_asset(CONTRACT_DENOM.into(), Uint128::new(1))
+            .transfer_msg(&Addr::unchecked("fee_receiver"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[1].msg,
+        native_asset(CONTRACT_DENOM.into(), Uint128::new(2))
+            .transfer_msg(&Addr::unchecked("executor"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[2].msg,
+        // very important that the user receives the bond result
+        ArbVault(Addr::unchecked("arb_vault"))
+            .deposit_msg(CONTRACT_DENOM, 97, Some("user".into()))
+            .unwrap(),
+    );
+
+    // user as executor "manual execution"
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info(MOCK_CONTRACT_ADDR, &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::DepositArbVault {
+                    receiver: None,
+                },
+                executor: Addr::unchecked("user"),
+            },
+        }),
+    )
+    .unwrap();
+
+    assert_eq!(res.messages.len(), 2);
+    assert_eq!(
+        res.messages[0].msg,
+        native_asset(CONTRACT_DENOM.into(), Uint128::new(1))
+            .transfer_msg(&Addr::unchecked("fee_receiver"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[1].msg,
+        // very important that the user receives the bond result
+        ArbVault(Addr::unchecked("arb_vault"))
+            .deposit_msg(CONTRACT_DENOM, 99, Some("user".into()))
+            .unwrap(),
+    );
+
+    // protocol controller as executor
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info(MOCK_CONTRACT_ADDR, &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::DepositArbVault {
+                    receiver: None,
+                },
+                executor: Addr::unchecked("controller"),
+            },
+        }),
+    )
+    .unwrap();
+
+    assert_eq!(res.messages.len(), 2);
+    assert_eq!(
+        res.messages[0].msg,
+        native_asset(CONTRACT_DENOM.into(), Uint128::new(3))
+            .transfer_msg(&Addr::unchecked("fee_receiver"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[1].msg,
+        // very important that the user receives the bond result
+        ArbVault(Addr::unchecked("arb_vault"))
+            .deposit_msg(CONTRACT_DENOM, 97, Some("user".into()))
+            .unwrap(),
+    );
 }

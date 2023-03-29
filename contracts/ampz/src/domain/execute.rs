@@ -186,6 +186,9 @@ fn get_swap_asset(
                 },
             }
         },
+        DestinationState::DepositArbVault {
+            ..
+        } => Some(native_asset_info(CONTRACT_DENOM.to_string())),
         DestinationState::DepositFarm {
             ..
         } => None,
