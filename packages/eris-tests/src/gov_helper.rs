@@ -7,7 +7,11 @@ use cosmwasm_std::{
 };
 use cw20::Cw20ExecuteMsg;
 use cw_multi_test::{App, AppResponse, Executor};
-use eris::{emp_gauges::AddEmpInfo, governance_helper::WEEK};
+use eris::{
+    arb_vault::{LsdConfig, LsdType},
+    emp_gauges::AddEmpInfo,
+    governance_helper::WEEK,
+};
 
 use crate::base::{BaseErisTestInitMessage, BaseErisTestPackage};
 
@@ -35,6 +39,10 @@ impl EscrowHelper {
 
     pub fn get_ustake_addr(&self) -> Addr {
         Addr::unchecked(self.base.ustake.clone().unwrap())
+    }
+
+    pub fn get_ustader_addr(&self) -> Addr {
+        Addr::unchecked(self.base.ustader.clone().unwrap())
     }
 
     pub fn emp_tune(&self, router_ref: &mut App) -> Result<AppResponse> {
@@ -666,6 +674,32 @@ impl EscrowHelper {
             .unwrap();
     }
 
+    pub fn arb_fake_fill_arb_contract_stader(&self, router_ref: &mut App) {
+        let amount = 11000_000000u128;
+        let result = self.stader_bond(router_ref, "fake", amount, "uluna").unwrap();
+
+        let minted_event = result.events.iter().find(|f| f.ty == "wasm").unwrap();
+        let minted_attribute = minted_event.attributes.iter().find(|a| a.key == "amount").unwrap();
+
+        let amount = Uint128::from_str(&minted_attribute.value).unwrap();
+
+        let ustake_addr = self.get_ustader_addr();
+        let fake_addr = self.base.arb_fake_contract.get_address_string();
+
+        // send minted ampTOKEN to the fake contract
+        router_ref
+            .execute_contract(
+                Addr::unchecked("fake"),
+                ustake_addr,
+                &Cw20ExecuteMsg::Transfer {
+                    recipient: fake_addr,
+                    amount: amount,
+                },
+                &vec![],
+            )
+            .unwrap();
+    }
+
     pub fn arb_deposit(
         &self,
         router_ref: &mut App,
@@ -691,6 +725,58 @@ impl EscrowHelper {
         )
     }
 
+    pub fn arb_remove_eris_lsd(&self, router_ref: &mut App) -> Result<AppResponse> {
+        self.arb_execute(
+            router_ref,
+            eris::arb_vault::ExecuteMsg::UpdateConfig {
+                utilization_method: None,
+                unbond_time_s: None,
+                insert_lsd: None,
+                disable_lsd: None,
+                remove_lsd: Some("eris".to_string()),
+                fee_config: None,
+                set_whitelist: None,
+                remove_whitelist: None,
+            },
+        )
+    }
+
+    pub fn arb_insert_stader(&self, router_ref: &mut App) -> Result<AppResponse> {
+        self.arb_insert_lsd(
+            router_ref,
+            "stader".to_string(),
+            LsdType::Stader {
+                addr: self.base.stader.get_address_string(),
+                cw20: self.get_ustader_addr().to_string(),
+            },
+        )
+    }
+
+    pub fn arb_insert_lsd(
+        &self,
+        router_ref: &mut App,
+        lsd: String,
+        t: LsdType<String>,
+    ) -> Result<AppResponse> {
+        self.arb_execute(
+            router_ref,
+            eris::arb_vault::ExecuteMsg::UpdateConfig {
+                utilization_method: None,
+                unbond_time_s: None,
+                insert_lsd: Some(LsdConfig {
+                    disabled: false,
+                    name: lsd,
+                    lsd_type: t,
+                }),
+                disable_lsd: None,
+                remove_lsd: None,
+                fee_config: None,
+                set_whitelist: None,
+                remove_whitelist: None,
+            },
+        )
+    }
+
     pub fn arb_unbond(
         &self,
         router_ref: &mut App,
@@ -711,5 +797,142 @@ impl EscrowHelper {
         };
 
         router_ref.execute_contract(Addr::unchecked(sender), lp, &cw20msg, &[])
+    }
+
+    pub fn stader_bond(
+        &self,
+        router_ref: &mut App,
+        sender: impl Into<String>,
+        amount: u128,
+        denom: impl Into<String>,
+    ) -> Result<AppResponse> {
+        router_ref.execute_contract(
+            Addr::unchecked(sender),
+            self.base.stader.get_address(),
+            &stader::msg::ExecuteMsg::Deposit {},
+            &[coin(amount, denom.into())],
+        )
+    }
+
+    pub fn stader_donate(
+        &self,
+        router_ref: &mut App,
+        sender: impl Into<String>,
+        amount: u128,
+        denom: impl Into<String>,
+    ) -> Result<AppResponse> {
+        router_ref
+            .send_tokens(
+                Addr::unchecked(sender),
+                self.base.stader_reward.get_address(),
+                &[coin(amount, denom.into())],
+            )
+            .unwrap();
+
+        router_ref.execute_contract(
+            self.owner.clone(),
+            self.base.stader.get_address(),
+            &stader::msg::ExecuteMsg::Reinvest {},
+            &[],
+        )
+    }
+
+    pub fn stader_redeem_and_reinvest(&self, router_ref: &mut App) -> Result<AppResponse> {
+        router_ref
+            .execute_contract(
+                self.owner.clone(),
+                self.base.stader.get_address(),
+                &stader::msg::ExecuteMsg::RedeemRewards {
+                    validators: None,
+                },
+                &[],
+            )
+            .unwrap_or_default();
+
+        router_ref.execute_contract(
+            self.owner.clone(),
+            self.base.stader.get_address(),
+            &stader::msg::ExecuteMsg::Reinvest {},
+            &[],
+        )
+    }
+
+    pub fn stader_undelegate(&self, router_ref: &mut App) -> Result<AppResponse> {
+        router_ref.execute_contract(
+            self.owner.clone(),
+            self.base.stader.get_address(),
+            &stader::msg::ExecuteMsg::Undelegate {},
+            &[],
+        )
+    }
+
+    pub fn stader_reconcile(&self, router_ref: &mut App, amount: u128) -> Result<AppResponse> {
+        router_ref
+            .sudo(cw_multi_test::SudoMsg::Bank(cw_multi_test::BankSudo::Mint {
+                to_address: self.base.stader.get_address_string(),
+                amount: vec![coin(amount, "uluna")],
+            }))
+            .unwrap();
+
+        router_ref.execute_contract(
+            self.owner.clone(),
+            self.base.stader.get_address(),
+            &stader::msg::ExecuteMsg::ReconcileFunds {},
+            &[],
+        )
+    }
+
+    pub fn stader_query_state(
+        &self,
+        router_ref: &mut App,
+    ) -> StdResult<stader::msg::QueryStateResponse> {
+        router_ref.wrap().query_wasm_smart(
+            self.base.stader.get_address_string(),
+            &stader::msg::QueryMsg::State {},
+        )
+    }
+
+    pub fn stader_query_undelegation_records(
+        &self,
+        router_ref: &mut App,
+        user_addr: String,
+    ) -> StdResult<Vec<stader::state::UndelegationInfo>> {
+        router_ref.wrap().query_wasm_smart(
+            self.base.stader.get_address_string(),
+            &stader::msg::QueryMsg::GetUserUndelegationRecords {
+                user_addr,
+                start_after: None,
+                limit: None,
+            },
+        )
+    }
+
+    pub fn stader_query_batch_undelegation(
+        &self,
+        router_ref: &mut App,
+        batch_id: u64,
+    ) -> StdResult<stader::msg::QueryBatchUndelegationResponse> {
+        router_ref.wrap().query_wasm_smart(
+            self.base.stader.get_address_string(),
+            &stader::msg::QueryMsg::BatchUndelegation {
+                batch_id,
+            },
+        )
+    }
+
+    pub fn stader_query_delegations(&self, router_ref: &mut App) {
+        let delegations =
+            router_ref.wrap().query_all_delegations(self.base.stader.get_address_string()).unwrap();
+        println!("delegations {:?}", delegations);
+
+        let delegations =
+            router_ref.wrap().query_all_balances(self.base.stader.get_address_string()).unwrap();
+        println!("balances 1 {:?}", delegations);
+
+        let delegations = router_ref
+            .wrap()
+            .query_all_balances(self.base.stader_reward.get_address_string())
+            .unwrap();
+        println!("balances 2 {:?}", delegations);
     }
 }

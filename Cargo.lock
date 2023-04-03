@@ -487,8 +487,7 @@ dependencies = [
 [[package]]
 name = "cw-multi-test"
 version = "0.16.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2eb84554bbfa6b66736abcd6a9bfdf237ee0ecb83910f746dff7f799093c80a"
+source = "git+https://github.com/erisprotocol/cw-multi-test.git?rev=5f2f7062187d762b71fd22b91157c4e88de87a64#5f2f7062187d762b71fd22b91157c4e88de87a64"
 dependencies = [
  "anyhow",
  "cosmwasm-std",
@@ -1163,6 +1162,8 @@ dependencies = [
  "eris-gov-voting-escrow",
  "eris-staking-hub",
  "eris-staking-token",
+ "reward",
+ "staking",
 ]
 
 [[package]]

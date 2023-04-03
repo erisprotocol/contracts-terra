@@ -110,7 +110,7 @@ fn update_configs() -> Result<()> {
 
 #[test]
 fn happy_case() -> Result<()> {
-    let mut router = mock_app_validators(Some(100));
+    let mut router = mock_app_validators(Some(100), None, Some(0));
     let router_ref = &mut router;
     let helper = EscrowHelper::init(router_ref, false);
 
@@ -202,7 +202,7 @@ fn happy_case() -> Result<()> {
 
 #[test]
 fn config_does_not_change_exchange_rate() -> Result<()> {
-    let mut router = mock_app_validators(Some(100));
+    let mut router = mock_app_validators(Some(100), None, Some(0));
     let router_ref = &mut router;
     let helper = EscrowHelper::init(router_ref, true);
 
@@ -335,7 +335,7 @@ fn config_does_not_change_exchange_rate() -> Result<()> {
 
 #[test]
 fn config_does_not_change_exchange_rate_emps() -> Result<()> {
-    let mut router = mock_app_validators(Some(100));
+    let mut router = mock_app_validators(Some(100), None, Some(0));
     let router_ref = &mut router;
     let helper = EscrowHelper::init(router_ref, true);
 

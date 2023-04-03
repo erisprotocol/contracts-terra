@@ -8,7 +8,10 @@ use cw20::{BalanceResponse, Cw20QueryMsg, MinterResponse};
 use cw_multi_test::{App, ContractWrapper, Executor};
 use eris::arb_vault::LsdConfig;
 
-use crate::arb_contract;
+use crate::{
+    arb_contract,
+    model::{StaderConfigUpdateRequest, StaderExecuteMsg},
+};
 
 pub const MULTIPLIER: u64 = 1_000_000;
 
@@ -45,7 +48,10 @@ pub struct BaseErisTestPackage {
     pub owner: Addr,
     pub token_id: Option<u64>,
     pub ustake: Option<String>,
+    pub ustader: Option<String>,
     pub hub: ContractInfoWrapper,
+    pub stader: ContractInfoWrapper,
+    pub stader_reward: ContractInfoWrapper,
     pub voting_escrow: ContractInfoWrapper,
     pub emp_gauges: ContractInfoWrapper,
     pub amp_gauges: ContractInfoWrapper,
@@ -78,10 +84,14 @@ impl BaseErisTestPackage {
             arb_vault: None.into(),
             arb_fake_contract: None.into(),
             ustake: None,
+            ustader: None,
+            stader: None.into(),
+            stader_reward: None.into(),
         };
 
         base_pack.init_token(router, msg.owner.clone());
         base_pack.init_hub(router, msg.owner.clone());
+        base_pack.init_stader(router, msg.owner.clone());
         base_pack.init_voting_escrow(router, msg.owner.clone());
         base_pack.init_emp_gauges(router, msg.owner.clone());
         base_pack.init_amp_gauges(router, msg.owner.clone());
@@ -350,6 +360,147 @@ impl BaseErisTestPackage {
             code_id,
         })
         .into()
+    }
+
+    fn init_stader(&mut self, router: &mut App, owner: Addr) {
+        self.init_stader_reward(router, owner.clone());
+
+        let contract = Box::new(ContractWrapper::new_with_empty(
+            stader::contract::execute,
+            stader::contract::instantiate,
+            stader::contract::query,
+        ));
+
+        let code_id = router.store_code(contract);
+
+        let msg = stader::msg::InstantiateMsg {
+            min_deposit: Uint128::new(1000),
+            max_deposit: Uint128::new(1000000000000),
+            airdrop_withdrawal_contract: "terra1gq5fgg5wtlcnhtf0w2swun8r7zdvydyeazda8u".to_string(),
+            airdrops_registry_contract:
+                "terra1fvw0rt94gl5eyeq36qdhj5x7lunv3xpuqcjxa0llhdssvqtcmrnqlzxdyr".to_string(),
+            protocol_deposit_fee: Decimal::percent(0),
+            protocol_fee_contract: "stader_fee".to_string(),
+            protocol_reward_fee: Decimal::percent(0),
+            protocol_withdraw_fee: Decimal::zero(),
+            reinvest_cooldown: 3600,
+            reward_contract: self.stader_reward.get_address_string(),
+            unbonding_period: 1815300,
+            undelegation_cooldown: 259000,
+        };
+
+        let instance = router
+            .instantiate_contract(
+                code_id,
+                owner.clone(),
+                &msg,
+                &[],
+                String::from("stader-hub"),
+                None,
+            )
+            .unwrap();
+
+        self.stader = Some(ContractInfo {
+            address: instance,
+            code_id,
+        })
+        .into();
+
+        // init token
+
+        let init_msg = cw20_base::msg::InstantiateMsg {
+            name: "LunaX".to_string(),
+            symbol: "LUNAX".to_string(),
+            decimals: 6,
+            initial_balances: vec![],
+            mint: Some(MinterResponse {
+                minter: self.stader.get_address_string(),
+                cap: None,
+            }),
+            marketing: None,
+        };
+        let stader_token_instance = router
+            .instantiate_contract(
+                self.token_id.unwrap(),
+                owner.clone(),
+                &init_msg,
+                &[],
+                String::from("stader-token"),
+                None,
+            )
+            .unwrap();
+        self.ustader = Some(stader_token_instance.to_string());
+
+        // update config reward
+        router
+            .execute_contract(
+                owner.clone(),
+                self.stader_reward.get_address(),
+                &stader_reward::msg::ExecuteMsg::UpdateConfig {
+                    staking_contract: Some(self.stader.get_address_string()),
+                },
+                &[],
+            )
+            .unwrap();
+
+        // update config hub
+        router
+            .execute_contract(
+                self.owner.clone(),
+                self.stader.get_address(),
+                &StaderExecuteMsg::UpdateConfig {
+                    config_request: StaderConfigUpdateRequest {
+                        min_deposit: None,
+                        max_deposit: None,
+                        cw20_token_contract: Some(stader_token_instance.to_string()),
+                        protocol_reward_fee: None,
+                        protocol_withdraw_fee: None,
+                        protocol_deposit_fee: None,
+                        airdrop_registry_contract: None,
+                        unbonding_period: None,
+                        undelegation_cooldown: None,
+                        reinvest_cooldown: None,
+                    },
+                },
+                &[],
+            )
+            .unwrap();
+
+        // add validators hub
+        router
+            .execute_contract(
+                self.owner.clone(),
+                self.stader.get_address(),
+                &stader::msg::ExecuteMsg::AddValidator {
+                    val_addr: Addr::unchecked("val1"),
+                },
+                &[],
+            )
+            .unwrap();
+    }
+
+    fn init_stader_reward(&mut self, router: &mut App, owner: Addr) {
+        let contract = Box::new(ContractWrapper::new_with_empty(
+            stader_reward::contract::execute,
+            stader_reward::contract::instantiate,
+            stader_reward::contract::query,
+        ));
+
+        let code_id = router.store_code(contract);
+
+        let msg = stader_reward::msg::InstantiateMsg {
+            staking_contract: "any".into(),
+        };
+
+        let instance = router
+            .instantiate_contract(code_id, owner, &msg, &[], String::from("stader-hub"), None)
+            .unwrap();
+
+        self.stader_reward = Some(ContractInfo {
+            address: instance,
+            code_id,
+        })
+        .into();
     }
 
     fn init_arb_fake_contract(&mut self, router: &mut App, owner: Addr) {

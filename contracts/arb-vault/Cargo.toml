@@ -28,7 +28,9 @@ stader = { git = "https://github.com/stader-labs/lunax.git", package="staking", 
 prism = { git = "https://github.com/prism-finance/prism-auto-compounding-casset.git", package="basset", default-features = false, rev = "88d833974a0f1c43cc0bf64d4919dd3229ae2b66"}
 
 [dev-dependencies]
-cw-multi-test = "0.16"
+# cw-multi-test = "0.16"
+# cw-multi-test = { git = "https://github.com/CosmWasm/cw-multi-test.git",  default-features = false, features = ["iterator"], rev = "9af32fd42efcf28e9a79987f2c2036f879cd5331"}
+cw-multi-test = { git = "https://github.com/erisprotocol/cw-multi-test.git",  default-features = false, features = ["iterator"], rev = "5f2f7062187d762b71fd22b91157c4e88de87a64"}
 anyhow = "1"
 eris-tests = { path = "../../packages/eris-tests" }
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
