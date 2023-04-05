@@ -37,6 +37,7 @@ fn update_config_utilization() -> StdResult<()> {
                 disable_lsd: None,
                 insert_lsd: None,
                 remove_lsd: None,
+                force_remove_lsd: None,
                 fee_config: None,
                 set_whitelist: None,
                 remove_whitelist: None,
@@ -58,6 +59,7 @@ fn update_config_utilization() -> StdResult<()> {
                 disable_lsd: None,
                 insert_lsd: None,
                 remove_lsd: None,
+                force_remove_lsd: None,
                 fee_config: None,
                 set_whitelist: None,
                 remove_whitelist: None,
@@ -75,6 +77,7 @@ fn update_config_utilization() -> StdResult<()> {
                 disable_lsd: None,
                 insert_lsd: None,
                 remove_lsd: None,
+                force_remove_lsd: None,
                 fee_config: None,
                 set_whitelist: None,
                 remove_whitelist: None,
@@ -114,6 +117,7 @@ fn update_config_disable() -> StdResult<()> {
                 disable_lsd: Some("unknown".to_string()),
                 insert_lsd: None,
                 remove_lsd: None,
+                force_remove_lsd: None,
                 fee_config: None,
                 set_whitelist: None,
                 remove_whitelist: None,
@@ -131,6 +135,7 @@ fn update_config_disable() -> StdResult<()> {
                 disable_lsd: Some("eris".to_string()),
                 insert_lsd: None,
                 remove_lsd: None,
+                force_remove_lsd: None,
                 fee_config: None,
                 set_whitelist: None,
                 remove_whitelist: None,
@@ -236,6 +241,7 @@ fn update_config_remove() -> StdResult<()> {
                 disable_lsd: None,
                 insert_lsd: None,
                 remove_lsd: Some("eris".to_string()),
+                force_remove_lsd: None,
                 fee_config: None,
                 set_whitelist: None,
                 remove_whitelist: None,
@@ -271,6 +277,7 @@ fn update_config_insert() -> StdResult<()> {
                     },
                 }),
                 remove_lsd: None,
+                force_remove_lsd: None,
                 fee_config: None,
                 set_whitelist: None,
                 remove_whitelist: None,
@@ -280,6 +287,7 @@ fn update_config_insert() -> StdResult<()> {
 
     assert_eq!(res.root_cause().to_string(), "Adapter duplicated: eris");
 
+    // cant supply not working contract
     helper
         .arb_execute(
             router_ref,
@@ -296,6 +304,31 @@ fn update_config_insert() -> StdResult<()> {
                     },
                 }),
                 remove_lsd: None,
+                force_remove_lsd: None,
+                fee_config: None,
+                set_whitelist: None,
+                remove_whitelist: None,
+            },
+        )
+        .unwrap_err();
+
+    helper
+        .arb_execute(
+            router_ref,
+            ExecuteMsg::UpdateConfig {
+                utilization_method: None,
+                unbond_time_s: None,
+                disable_lsd: None,
+                insert_lsd: Some(LsdConfig {
+                    disabled: false,
+                    name: "other".to_string(),
+                    lsd_type: eris::arb_vault::LsdType::Stader {
+                        addr: helper.base.stader.get_address_string(),
+                        cw20: helper.base.steak_token.get_address_string(),
+                    },
+                }),
+                remove_lsd: None,
+                force_remove_lsd: None,
                 fee_config: None,
                 set_whitelist: None,
                 remove_whitelist: None,
@@ -319,9 +352,9 @@ fn update_config_insert() -> StdResult<()> {
             LsdConfig {
                 disabled: false,
                 name: "other".to_string(),
-                lsd_type: eris::arb_vault::LsdType::Eris {
-                    addr: Addr::unchecked("xxx"),
-                    cw20: Addr::unchecked("yyy")
+                lsd_type: eris::arb_vault::LsdType::Stader {
+                    addr: helper.base.stader.get_address(),
+                    cw20: helper.base.steak_token.get_address()
                 }
             }
         ]
@@ -339,6 +372,7 @@ fn assert_cant_remove(helper: &EscrowHelper, router_ref: &mut cw_multi_test::App
                 disable_lsd: None,
                 insert_lsd: None,
                 remove_lsd: Some("eris".to_string()),
+                force_remove_lsd: None,
                 fee_config: None,
                 set_whitelist: None,
                 remove_whitelist: None,

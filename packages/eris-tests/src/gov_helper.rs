@@ -765,6 +765,7 @@ impl EscrowHelper {
                 insert_lsd: None,
                 disable_lsd: None,
                 remove_lsd: Some("eris".to_string()),
+                force_remove_lsd: None,
                 fee_config: None,
                 set_whitelist: None,
                 remove_whitelist: None,
@@ -812,6 +813,7 @@ impl EscrowHelper {
                 }),
                 disable_lsd: None,
                 remove_lsd: None,
+                force_remove_lsd: None,
                 fee_config: None,
                 set_whitelist: None,
                 remove_whitelist: None,
@@ -1048,6 +1050,7 @@ impl EscrowHelper {
             self.base.steak_hub.get_address(),
             &steak::hub::ExecuteMsg::Bond {
                 receiver: None,
+                exec_msg: None,
             },
             &[coin(amount, denom.into())],
         )

@@ -37,7 +37,7 @@ eris-gov-prop-gauges = { path = "../../contracts/amp-governance/prop_gauges" }
 
 stader = { git = "https://github.com/stader-labs/lunax.git", package="staking", default-features = false, rev = "20143548e2dea807b343fe6ad60375086af35ea9"}
 stader-reward = { git = "https://github.com/stader-labs/lunax.git", package="reward", default-features = false, rev = "20143548e2dea807b343fe6ad60375086af35ea9"}
-steak-hub = { git = "https://github.com/PFC-developer/steak-contracts.git", package="pfc-steak-hub", default-features = false, rev = "e899f80946b8ae9c95afe30def12cbf45bd50cc8"}
-steak = { git = "https://github.com/PFC-developer/steak-contracts.git", package="pfc-steak", default-features = false, rev = "e899f80946b8ae9c95afe30def12cbf45bd50cc8"}
+steak-hub = { git = "https://github.com/PFC-developer/steak-contracts.git", package="pfc-steak-hub", default-features = false, rev = "6fbc9f9190da6e179ba9f84494e3b7e929d38842"}
+steak = { git = "https://github.com/PFC-developer/steak-contracts.git", package="pfc-steak", default-features = false, rev = "6fbc9f9190da6e179ba9f84494e3b7e929d38842"}
 
 anyhow = "1"

@@ -22,6 +22,7 @@ pub fn execute_update_config(
             insert_lsd,
             disable_lsd,
             remove_lsd,
+            force_remove_lsd,
             fee_config,
             remove_whitelist,
             set_whitelist,
@@ -81,9 +82,21 @@ pub fn execute_update_config(
                     config.lsds.into_iter().filter(|lsd| lsd.name != remove_lsd).collect_vec();
 
                 config_changed = true;
+            } else if let Some(force_remove_lsd) = force_remove_lsd {
+                config.lsds = config
+                    .lsds
+                    .into_iter()
+                    .filter(|lsd| lsd.name != force_remove_lsd)
+                    .collect_vec();
+
+                config_changed = true;
             }
 
             if config_changed {
+                // after the config change, it still needs to be able to query all assets.
+                let mut lsds = config.lsd_group(&env);
+                lsds.get_total_assets_err(deps.as_ref(), &env, &state, &config)?;
+
                 state.config.save(deps.storage, &config)?;
             }
 

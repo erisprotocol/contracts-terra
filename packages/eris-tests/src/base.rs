@@ -560,7 +560,7 @@ impl BaseErisTestPackage {
             .with_reply(BaseErisTestPackage::fixed_steak_reply),
         );
 
-        let x = steak_hub::contract::reply;
+        // let x = steak_hub::contract::reply;
 
         let code_id = router.store_code(hub_contract);
 
@@ -580,6 +580,7 @@ impl BaseErisTestPackage {
             label: None,
             marketing: None,
             max_fee_amount: Decimal::from_ratio(10u128, 100u128),
+            dust_collector: None,
         };
 
         let instance = router
