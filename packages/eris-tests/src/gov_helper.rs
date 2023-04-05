@@ -38,11 +38,15 @@ impl EscrowHelper {
     }
 
     pub fn get_ustake_addr(&self) -> Addr {
-        Addr::unchecked(self.base.ustake.clone().unwrap())
+        self.base.amp_token.get_address()
     }
 
-    pub fn get_ustader_addr(&self) -> Addr {
-        Addr::unchecked(self.base.ustader.clone().unwrap())
+    pub fn get_stader_token_addr(&self) -> Addr {
+        self.base.stader_token.get_address()
+    }
+
+    pub fn get_steak_token_addr(&self) -> Addr {
+        self.base.steak_token.get_address()
     }
 
     pub fn emp_tune(&self, router_ref: &mut App) -> Result<AppResponse> {
@@ -674,7 +678,7 @@ impl EscrowHelper {
             .unwrap();
     }
 
-    pub fn arb_fake_fill_arb_contract_stader(&self, router_ref: &mut App) {
+    pub fn arb_stader_fake_fill_arb_contract(&self, router_ref: &mut App) {
         let amount = 11000_000000u128;
         let result = self.stader_bond(router_ref, "fake", amount, "uluna").unwrap();
 
@@ -683,7 +687,34 @@ impl EscrowHelper {
 
         let amount = Uint128::from_str(&minted_attribute.value).unwrap();
 
-        let ustake_addr = self.get_ustader_addr();
+        let ustake_addr = self.get_stader_token_addr();
+        let fake_addr = self.base.arb_fake_contract.get_address_string();
+
+        // send minted ampTOKEN to the fake contract
+        router_ref
+            .execute_contract(
+                Addr::unchecked("fake"),
+                ustake_addr,
+                &Cw20ExecuteMsg::Transfer {
+                    recipient: fake_addr,
+                    amount: amount,
+                },
+                &vec![],
+            )
+            .unwrap();
+    }
+
+    pub fn arb_steak_fake_fill_arb_contract(&self, router_ref: &mut App) {
+        let amount = 11000_000000u128;
+        let result = self.steak_bond(router_ref, "fake", amount, "uluna").unwrap();
+
+        let minted_event = result.events.iter().find(|f| f.ty == "wasm-steakhub/bonded").unwrap();
+        let minted_attribute =
+            minted_event.attributes.iter().find(|a| a.key == "usteak_minted").unwrap();
+
+        let amount = Uint128::from_str(&minted_attribute.value).unwrap();
+
+        let ustake_addr = self.get_steak_token_addr();
         let fake_addr = self.base.arb_fake_contract.get_address_string();
 
         // send minted ampTOKEN to the fake contract
@@ -741,13 +772,24 @@ impl EscrowHelper {
         )
     }
 
-    pub fn arb_insert_stader(&self, router_ref: &mut App) -> Result<AppResponse> {
+    pub fn arb_stader_insert(&self, router_ref: &mut App) -> Result<AppResponse> {
         self.arb_insert_lsd(
             router_ref,
             "stader".to_string(),
             LsdType::Stader {
                 addr: self.base.stader.get_address_string(),
-                cw20: self.get_ustader_addr().to_string(),
+                cw20: self.base.stader_token.get_address_string(),
+            },
+        )
+    }
+
+    pub fn arb_steak_insert(&self, router_ref: &mut App) -> Result<AppResponse> {
+        self.arb_insert_lsd(
+            router_ref,
+            "boneLUNA".to_string(),
+            LsdType::Backbone {
+                addr: self.base.steak_hub.get_address_string(),
+                cw20: self.base.steak_token.get_address_string(),
             },
         )
     }
@@ -837,7 +879,7 @@ impl EscrowHelper {
         )
     }
 
-    pub fn stader_redeem_and_reinvest(&self, router_ref: &mut App) -> Result<AppResponse> {
+    pub fn stader_harvest(&self, router_ref: &mut App) -> Result<AppResponse> {
         router_ref
             .execute_contract(
                 self.owner.clone(),
@@ -857,7 +899,7 @@ impl EscrowHelper {
         )
     }
 
-    pub fn stader_undelegate(&self, router_ref: &mut App) -> Result<AppResponse> {
+    pub fn stader_submit_batch(&self, router_ref: &mut App) -> Result<AppResponse> {
         router_ref.execute_contract(
             self.owner.clone(),
             self.base.stader.get_address(),
@@ -934,5 +976,105 @@ impl EscrowHelper {
             .query_all_balances(self.base.stader_reward.get_address_string())
             .unwrap();
         println!("balances 2 {:?}", delegations);
+    }
+
+    pub fn steak_execute(
+        &self,
+        router_ref: &mut App,
+        execute: steak::hub::ExecuteMsg,
+    ) -> Result<AppResponse> {
+        router_ref.execute_contract(
+            self.owner.clone(),
+            self.base.steak_hub.get_address(),
+            &execute,
+            &[],
+        )
+    }
+
+    pub fn steak_submit_batch(&self, router_ref: &mut App) -> Result<AppResponse> {
+        self.steak_execute(router_ref, steak::hub::ExecuteMsg::SubmitBatch {})
+    }
+
+    pub fn steak_reconcile(&self, router_ref: &mut App, amount: u128) -> Result<AppResponse> {
+        router_ref
+            .sudo(cw_multi_test::SudoMsg::Bank(cw_multi_test::BankSudo::Mint {
+                to_address: self.base.steak_hub.get_address_string(),
+                amount: vec![coin(amount, "uluna")],
+            }))
+            .unwrap();
+
+        self.steak_execute(router_ref, steak::hub::ExecuteMsg::Reconcile {})
+    }
+
+    pub fn steak_remove_validator(
+        &self,
+        router_ref: &mut App,
+        validator_addr: impl Into<String>,
+    ) -> Result<AppResponse> {
+        self.steak_execute(
+            router_ref,
+            steak::hub::ExecuteMsg::RemoveValidator {
+                validator: validator_addr.into(),
+            },
+        )
+    }
+
+    pub fn steak_harvest(&self, router_ref: &mut App) -> Result<AppResponse> {
+        self.steak_execute(router_ref, steak::hub::ExecuteMsg::Harvest {})
+    }
+
+    pub fn steak_add_validator(
+        &self,
+        router_ref: &mut App,
+        validator_addr: impl Into<String>,
+    ) -> Result<AppResponse> {
+        self.steak_execute(
+            router_ref,
+            steak::hub::ExecuteMsg::AddValidator {
+                validator: validator_addr.into(),
+            },
+        )
+    }
+
+    pub fn steak_bond(
+        &self,
+        router_ref: &mut App,
+        sender: impl Into<String>,
+        amount: u128,
+        denom: impl Into<String>,
+    ) -> Result<AppResponse> {
+        router_ref.execute_contract(
+            Addr::unchecked(sender),
+            self.base.steak_hub.get_address(),
+            &steak::hub::ExecuteMsg::Bond {
+                receiver: None,
+            },
+            &[coin(amount, denom.into())],
+        )
+    }
+
+    pub fn steak_donate(
+        &self,
+        router_ref: &mut App,
+        sender: impl Into<String>,
+        amount: u128,
+        denom: impl Into<String>,
+    ) -> Result<AppResponse> {
+        let sender_str: String = sender.into();
+        let bonded = self.steak_bond(router_ref, sender_str.clone(), amount, denom).unwrap();
+
+        let minted_event = bonded.events.iter().find(|f| f.ty == "wasm-steakhub/bonded").unwrap();
+        let minted_attribute =
+            minted_event.attributes.iter().find(|a| a.key == "usteak_minted").unwrap();
+        let amount = Uint128::from_str(&minted_attribute.value).unwrap();
+
+        router_ref.execute_contract(
+            Addr::unchecked(sender_str),
+            self.base.steak_token.get_address(),
+            &cw20_base::msg::ExecuteMsg::Burn {
+                amount,
+            },
+            &[],
+        )
     }
 }

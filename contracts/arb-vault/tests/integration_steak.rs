@@ -15,11 +15,11 @@ fn provide_liquidity_and_arb_fails() -> StdResult<()> {
     let router_ref = &mut router;
     let helper = EscrowHelper::init(router_ref, false);
     helper.arb_remove_eris_lsd(router_ref).unwrap();
-    helper.arb_stader_insert(router_ref).unwrap();
+    helper.arb_steak_insert(router_ref).unwrap();
 
     router_ref.next_block(100);
-    helper.stader_bond(router_ref, "user1", 100_000000, "uluna").unwrap();
-    helper.arb_stader_fake_fill_arb_contract(router_ref);
+    helper.steak_bond(router_ref, "user1", 100_000000, "uluna").unwrap();
+    helper.arb_steak_fake_fill_arb_contract(router_ref);
 
     helper.arb_deposit(router_ref, "user1", 100_000000).unwrap();
     helper.arb_deposit(router_ref, "user2", 50_000000).unwrap();
@@ -44,7 +44,7 @@ fn provide_liquidity_and_arb_fails() -> StdResult<()> {
             router_ref,
             ExecuteMsg::ExecuteArbitrage {
                 msg: return_msg(&helper, amount, amount * profit_percent),
-                result_token: token_asset_info(helper.get_stader_token_addr()),
+                result_token: token_asset_info(helper.get_steak_token_addr()),
                 wanted_profit: dec("0.01"),
             },
         )
@@ -56,7 +56,7 @@ fn provide_liquidity_and_arb_fails() -> StdResult<()> {
             router_ref,
             ExecuteMsg::ExecuteArbitrage {
                 msg: return_msg(&helper, amount, amount * no_profit_return),
-                result_token: token_asset_info(helper.get_stader_token_addr()),
+                result_token: token_asset_info(helper.get_steak_token_addr()),
                 wanted_profit: dec("0.01"),
             },
         )
@@ -72,11 +72,11 @@ fn provide_liquidity_and_arb() -> StdResult<()> {
     let router_ref = &mut router;
     let helper = EscrowHelper::init(router_ref, false);
     helper.arb_remove_eris_lsd(router_ref).unwrap();
-    helper.arb_stader_insert(router_ref).unwrap();
+    helper.arb_steak_insert(router_ref).unwrap();
 
     router_ref.next_block(100);
-    helper.stader_bond(router_ref, "user1", 100_000000, "uluna").unwrap();
-    helper.arb_stader_fake_fill_arb_contract(router_ref);
+    helper.steak_bond(router_ref, "user1", 100_000000, "uluna").unwrap();
+    helper.arb_steak_fake_fill_arb_contract(router_ref);
 
     helper.arb_deposit(router_ref, "user1", 100_000000).unwrap();
     helper.arb_deposit(router_ref, "user2", 50_000000).unwrap();
@@ -103,7 +103,7 @@ fn provide_liquidity_and_arb() -> StdResult<()> {
             router_ref,
             ExecuteMsg::ExecuteArbitrage {
                 msg: return_msg(&helper, amount, amount * profit_percent),
-                result_token: token_asset_info(helper.get_stader_token_addr()),
+                result_token: token_asset_info(helper.get_steak_token_addr()),
                 wanted_profit: dec("0.01"),
             },
         )
@@ -138,7 +138,7 @@ fn provide_liquidity_and_arb() -> StdResult<()> {
                 lsd_withdrawable: uint(0),
                 lsd_xvalue: amount * profit_percent,
                 details: Some(vec![ClaimBalance {
-                    name: "stader".to_string(),
+                    name: "boneLUNA".to_string(),
                     withdrawable: uint(0),
                     unbonding: uint(0),
                     xbalance: uint(10200000),
@@ -181,7 +181,7 @@ fn provide_liquidity_and_arb() -> StdResult<()> {
                 lsd_withdrawable: uint(0),
                 lsd_xvalue: uint(0),
                 details: Some(vec![ClaimBalance {
-                    name: "stader".to_string(),
+                    name: "boneLUNA".to_string(),
                     withdrawable: uint(0),
                     // moved to unbonding
                     unbonding: uint(10200000),
@@ -210,12 +210,12 @@ fn provide_liquidity_and_arb_submit() -> StdResult<()> {
     let helper = EscrowHelper::init(router_ref, false);
 
     helper.arb_remove_eris_lsd(router_ref).unwrap();
-    helper.arb_stader_insert(router_ref).unwrap();
+    helper.arb_steak_insert(router_ref).unwrap();
     router_ref.next_block(100);
-    helper.stader_bond(router_ref, "user1", 100_000000, "uluna").unwrap();
+    helper.steak_bond(router_ref, "user1", 100_000000, "uluna").unwrap();
     // increase exchange_rate
-    helper.stader_donate(router_ref, "user1", 10_000000, "uluna").unwrap();
-    helper.arb_stader_fake_fill_arb_contract(router_ref);
+    helper.steak_donate(router_ref, "user1", 10_000000, "uluna").unwrap();
+    helper.arb_steak_fake_fill_arb_contract(router_ref);
 
     helper.arb_deposit(router_ref, "user1", 100_000000).unwrap();
     helper.arb_deposit(router_ref, "user2", 50_000000).unwrap();
@@ -243,7 +243,7 @@ fn provide_liquidity_and_arb_submit() -> StdResult<()> {
             router_ref,
             ExecuteMsg::ExecuteArbitrage {
                 msg: return_msg(&helper, amount, amount * profit_percent.div(eris_exchange_rate)),
-                result_token: token_asset_info(helper.get_stader_token_addr()),
+                result_token: token_asset_info(helper.get_steak_token_addr()),
                 wanted_profit: dec("0.01"),
             },
         )
@@ -266,7 +266,7 @@ fn provide_liquidity_and_arb_submit() -> StdResult<()> {
                 lsd_withdrawable: uint(0),
                 lsd_xvalue: amount * profit_percent - uint(1),
                 details: Some(vec![ClaimBalance {
-                    name: "stader".to_string(),
+                    name: "boneLUNA".to_string(),
                     withdrawable: uint(0),
                     unbonding: uint(0),
                     xbalance: uint(9272727),
@@ -289,7 +289,7 @@ fn provide_liquidity_and_arb_submit() -> StdResult<()> {
         .arb_execute_whitelist(
             router_ref,
             ExecuteMsg::UnbondFromLiquidStaking {
-                names: Some(vec!["stader".to_string()]),
+                names: Some(vec!["boneLUNA".to_string()]),
             },
         )
         .unwrap();
@@ -312,7 +312,7 @@ fn provide_liquidity_and_arb_submit() -> StdResult<()> {
                 lsd_withdrawable: uint(0),
                 lsd_xvalue: uint(0),
                 details: Some(vec![ClaimBalance {
-                    name: "stader".to_string(),
+                    name: "boneLUNA".to_string(),
                     withdrawable: uint(0),
                     unbonding: uint(10199999),
                     xbalance: uint(0),
@@ -334,7 +334,7 @@ fn provide_liquidity_and_arb_submit() -> StdResult<()> {
     router_ref.next_block(DAY * 3);
 
     // SUBMIT BATCH
-    helper.stader_submit_batch(router_ref).unwrap();
+    helper.steak_submit_batch(router_ref).unwrap();
     router_ref.next_block(DAY * 3);
 
     // STATE IS STILL THE SAME AS in provide_liquidity_and_arb
@@ -343,24 +343,24 @@ fn provide_liquidity_and_arb_submit() -> StdResult<()> {
         state,
         StateResponse {
             // rounding when unbonding, some is kept in the amplifier
-            exchange_rate: dec("1.0006"),
+            exchange_rate: dec("1.000599996666666666"),
             total_lp_supply: uint(300_000000),
             balances: Balances {
-                tvl_utoken: uint(300_000000) + absolute_profit - fee,
-                vault_total: uint(300_000000) + absolute_profit - fee,
+                tvl_utoken: uint(300_000000) + absolute_profit - fee - uint(1),
+                vault_total: uint(300_000000) + absolute_profit - fee - uint(1),
                 vault_available: uint(300_000000) - amount - fee,
                 vault_takeable: uint(300_000000) - amount - fee,
                 locked_user_withdrawls: uint(0),
-                lsd_unbonding: amount * profit_percent - uint(1),
+                lsd_unbonding: amount * profit_percent - uint(2),
                 lsd_withdrawable: uint(0),
                 lsd_xvalue: uint(0),
                 details: Some(vec![ClaimBalance {
-                    name: "stader".to_string(),
+                    name: "boneLUNA".to_string(),
                     withdrawable: uint(0),
-                    unbonding: uint(10200000) - uint(1),
+                    unbonding: uint(10200000) - uint(2),
                     xbalance: uint(0),
                     // rounding increased exchange rate in the amplifier
-                    xfactor: dec("1.1")
+                    xfactor: dec("1.100000000069370619")
                 }])
             },
             details: Some(eris::arb_vault::StateDetails {
@@ -375,30 +375,30 @@ fn provide_liquidity_and_arb_submit() -> StdResult<()> {
     );
 
     router_ref.next_block(DAY * 19);
-    helper.stader_reconcile(router_ref, 10200000).unwrap();
+    helper.steak_reconcile(router_ref, 10200000).unwrap();
 
     // STATE IS STILL THE SAME AS in provide_liquidity_and_arb only withdrawable has changed
     let state = helper.arb_query_state(router_ref, Some(true)).unwrap();
     assert_eq!(
         state,
         StateResponse {
-            exchange_rate: dec("1.0006"),
+            exchange_rate: dec("1.000599996666666666"),
             total_lp_supply: uint(300_000000),
             balances: Balances {
-                tvl_utoken: uint(300_000000) + absolute_profit - fee,
-                vault_total: uint(300_000000) + absolute_profit - fee,
+                tvl_utoken: uint(300_000000) + absolute_profit - fee - uint(1),
+                vault_total: uint(300_000000) + absolute_profit - fee - uint(1),
                 vault_available: uint(300_000000) - amount - fee,
                 vault_takeable: uint(300_000000) - amount - fee,
                 locked_user_withdrawls: uint(0),
                 lsd_unbonding: uint(0),
-                lsd_withdrawable: amount * profit_percent - uint(1),
+                lsd_withdrawable: amount * profit_percent - uint(2),
                 lsd_xvalue: uint(0),
                 details: Some(vec![ClaimBalance {
-                    name: "stader".to_string(),
-                    withdrawable: uint(10200000) - uint(1),
+                    name: "boneLUNA".to_string(),
+                    withdrawable: uint(10200000) - uint(2),
                     unbonding: uint(0),
                     xbalance: uint(0),
-                    xfactor: dec("1.1")
+                    xfactor: dec("1.100000000069370619")
                 }])
             },
             details: Some(eris::arb_vault::StateDetails {
@@ -439,11 +439,11 @@ fn provide_liquidity_and_arb_submit() -> StdResult<()> {
                 lsd_withdrawable: uint(0),
                 lsd_xvalue: uint(0),
                 details: Some(vec![ClaimBalance {
-                    name: "stader".to_string(),
+                    name: "boneLUNA".to_string(),
                     withdrawable: uint(0),
                     unbonding: uint(0),
                     xbalance: uint(0),
-                    xfactor: dec("1.1")
+                    xfactor: dec("1.100000000069370619")
                 }])
             },
             details: Some(eris::arb_vault::StateDetails {
@@ -502,13 +502,12 @@ fn provide_liquidity_and_arb_submit_twice() -> StdResult<()> {
     let router_ref = &mut router;
     let helper = EscrowHelper::init(router_ref, false);
     helper.arb_remove_eris_lsd(router_ref).unwrap();
-    helper.arb_stader_insert(router_ref).unwrap();
+    helper.arb_steak_insert(router_ref).unwrap();
 
-    helper.stader_bond(router_ref, "user1", 100_000000, "uluna").unwrap();
-    helper.stader_donate(router_ref, "user1", 10_000000, "uluna").unwrap();
+    helper.steak_bond(router_ref, "user1", 100_000000, "uluna").unwrap();
+    helper.steak_donate(router_ref, "user1", 10_000000, "uluna").unwrap();
 
-    helper.arb_stader_fake_fill_arb_contract(router_ref);
-    helper.stader_harvest(router_ref).unwrap();
+    helper.arb_steak_fake_fill_arb_contract(router_ref);
 
     helper.arb_deposit(router_ref, "user1", 100_000000).unwrap();
     helper.arb_deposit(router_ref, "user2", 50_000000).unwrap();
@@ -536,7 +535,7 @@ fn provide_liquidity_and_arb_submit_twice() -> StdResult<()> {
             router_ref,
             ExecuteMsg::ExecuteArbitrage {
                 msg: return_msg(&helper, amount, amount * profit_percent.div(eris_exchange_rate)),
-                result_token: token_asset_info(helper.get_stader_token_addr()),
+                result_token: token_asset_info(helper.get_steak_token_addr()),
                 wanted_profit: dec("0.01"),
             },
         )
@@ -559,7 +558,7 @@ fn provide_liquidity_and_arb_submit_twice() -> StdResult<()> {
                 lsd_withdrawable: uint(0),
                 lsd_xvalue: amount * profit_percent - uint(1),
                 details: Some(vec![ClaimBalance {
-                    name: "stader".to_string(),
+                    name: "boneLUNA".to_string(),
                     withdrawable: uint(0),
                     unbonding: uint(0),
                     xbalance: uint(9272727),
@@ -582,7 +581,7 @@ fn provide_liquidity_and_arb_submit_twice() -> StdResult<()> {
         .arb_execute_whitelist(
             router_ref,
             ExecuteMsg::UnbondFromLiquidStaking {
-                names: Some(vec!["stader".to_string()]),
+                names: Some(vec!["boneLUNA".to_string()]),
             },
         )
         .unwrap();
@@ -605,7 +604,7 @@ fn provide_liquidity_and_arb_submit_twice() -> StdResult<()> {
                 lsd_withdrawable: uint(0),
                 lsd_xvalue: uint(0),
                 details: Some(vec![ClaimBalance {
-                    name: "stader".to_string(),
+                    name: "boneLUNA".to_string(),
                     withdrawable: uint(0),
                     unbonding: uint(10199999),
                     xbalance: uint(0),
@@ -627,7 +626,7 @@ fn provide_liquidity_and_arb_submit_twice() -> StdResult<()> {
     router_ref.next_block(DAY * 3);
 
     // SUBMIT BATCH
-    helper.stader_submit_batch(router_ref).unwrap();
+    helper.steak_submit_batch(router_ref).unwrap();
     router_ref.next_block(DAY * 3);
 
     // STATE IS STILL THE SAME AS in provide_liquidity_and_arb
@@ -636,24 +635,24 @@ fn provide_liquidity_and_arb_submit_twice() -> StdResult<()> {
         state,
         StateResponse {
             // rounding when unbonding, some is kept in the amplifier
-            exchange_rate: dec("1.0006"),
+            exchange_rate: dec("1.000599996666666666"),
             total_lp_supply: uint(300_000000),
             balances: Balances {
-                tvl_utoken: uint(300_000000) + absolute_profit - fee,
-                vault_total: uint(300_000000) + absolute_profit - fee,
+                tvl_utoken: uint(300_000000) + absolute_profit - fee - uint(1),
+                vault_total: uint(300_000000) + absolute_profit - fee - uint(1),
                 vault_available: uint(300_000000) - amount - fee,
                 vault_takeable: uint(300_000000) - amount - fee,
                 locked_user_withdrawls: uint(0),
-                lsd_unbonding: amount * profit_percent - uint(1),
+                lsd_unbonding: amount * profit_percent - uint(2),
                 lsd_withdrawable: uint(0),
                 lsd_xvalue: uint(0),
                 details: Some(vec![ClaimBalance {
-                    name: "stader".to_string(),
+                    name: "boneLUNA".to_string(),
                     withdrawable: uint(0),
-                    unbonding: uint(10200000) - uint(1),
+                    unbonding: uint(10200000) - uint(2),
                     xbalance: uint(0),
                     // rounding increased exchange rate in the amplifier
-                    xfactor: dec("1.1")
+                    xfactor: dec("1.100000000069370619")
                 }])
             },
             details: Some(eris::arb_vault::StateDetails {
@@ -673,7 +672,7 @@ fn provide_liquidity_and_arb_submit_twice() -> StdResult<()> {
             router_ref,
             ExecuteMsg::ExecuteArbitrage {
                 msg: return_msg(&helper, amount, amount * profit_percent.div(eris_exchange_rate)),
-                result_token: token_asset_info(helper.get_stader_token_addr()),
+                result_token: token_asset_info(helper.get_steak_token_addr()),
                 wanted_profit: dec("0.01"),
             },
         )
@@ -684,7 +683,7 @@ fn provide_liquidity_and_arb_submit_twice() -> StdResult<()> {
         .arb_execute_whitelist(
             router_ref,
             ExecuteMsg::UnbondFromLiquidStaking {
-                names: Some(vec!["stader".to_string()]),
+                names: Some(vec!["boneLUNA".to_string()]),
             },
         )
         .unwrap();
@@ -695,28 +694,28 @@ fn provide_liquidity_and_arb_submit_twice() -> StdResult<()> {
         state,
         StateResponse {
             // this does include staking rewards
-            exchange_rate: dec("1.0012"),
+            exchange_rate: dec("1.001199993333333333"),
             total_lp_supply: uint(300_000000),
             balances: Balances {
-                tvl_utoken: uint(300_000000) + (absolute_profit - fee) * uint(2),
-                vault_total: uint(300_000000) + (absolute_profit - fee) * uint(2),
+                tvl_utoken: uint(300_000000) + (absolute_profit - fee) * uint(2) - uint(2),
+                vault_total: uint(300_000000) + (absolute_profit - fee) * uint(2) - uint(2),
                 vault_available: uint(300_000000) - (amount + fee) * uint(2),
                 vault_takeable: uint(300_000000) - (amount + fee) * uint(2),
                 locked_user_withdrawls: uint(0),
-                lsd_unbonding: amount * profit_percent * uint(2) - uint(2),
+                lsd_unbonding: amount * profit_percent * uint(2) - uint(2) - uint(2),
                 lsd_withdrawable: uint(0),
                 lsd_xvalue: uint(0),
                 details: Some(vec![ClaimBalance {
-                    name: "stader".to_string(),
+                    name: "boneLUNA".to_string(),
                     withdrawable: uint(0),
-                    unbonding: uint(10199999) * uint(2),
+                    unbonding: uint(10199999) * uint(2) - uint(2),
                     xbalance: uint(0),
-                    xfactor: dec("1.100000000069370619")
+                    xfactor: dec("1.10000000013886885")
                 }])
             },
             details: Some(eris::arb_vault::StateDetails {
                 takeable_steps: vec![
-                    (dec("0.010"), uint(129780002)),
+                    (dec("0.010"), uint(129780003)),
                     (dec("0.015"), uint(189852002)),
                     (dec("0.020"), uint(249924002)),
                     (dec("0.025"), uint(279960002)),
@@ -727,35 +726,36 @@ fn provide_liquidity_and_arb_submit_twice() -> StdResult<()> {
     // WAIT SOME DAYS BEFORE START TO UNBONDING
     router_ref.next_block(DAY * 3);
     // SUBMIT BATCH
-    helper.stader_submit_batch(router_ref).unwrap();
+    // not needed, as steak hub will auto unbond when over the time
+    // helper.steak_submit_batch(router_ref).unwrap();
     router_ref.next_block(DAY * 3);
     let state = helper.arb_query_state(router_ref, Some(true)).unwrap();
     assert_eq!(
         state,
         StateResponse {
-            exchange_rate: dec("1.0012"),
+            exchange_rate: dec("1.001199993333333333"),
             total_lp_supply: uint(300_000000),
             balances: Balances {
-                tvl_utoken: uint(300_000000) + (absolute_profit - fee) * uint(2),
-                vault_total: uint(300_000000) + (absolute_profit - fee) * uint(2),
+                tvl_utoken: uint(300_000000) + (absolute_profit - fee) * uint(2) - uint(2),
+                vault_total: uint(300_000000) + (absolute_profit - fee) * uint(2) - uint(2),
                 vault_available: uint(300_000000) - (amount + fee) * uint(2),
                 vault_takeable: uint(300_000000) - (amount + fee) * uint(2),
                 locked_user_withdrawls: uint(0),
                 // moved to unbonding
-                lsd_unbonding: amount * profit_percent * uint(2) - uint(2),
+                lsd_unbonding: amount * profit_percent * uint(2) - uint(2) - uint(2),
                 lsd_withdrawable: uint(0),
                 lsd_xvalue: uint(0),
                 details: Some(vec![ClaimBalance {
-                    name: "stader".to_string(),
+                    name: "boneLUNA".to_string(),
                     withdrawable: uint(0),
-                    unbonding: uint(10199999) * uint(2),
+                    unbonding: uint(10199999) * uint(2) - uint(2),
                     xbalance: uint(0),
-                    xfactor: dec("1.100000000069370619")
+                    xfactor: dec("1.10000000013886885")
                 }])
             },
             details: Some(eris::arb_vault::StateDetails {
                 takeable_steps: vec![
-                    (dec("0.010"), uint(129780002)),
+                    (dec("0.010"), uint(129780003)),
                     (dec("0.015"), uint(189852002)),
                     (dec("0.020"), uint(249924002)),
                     (dec("0.025"), uint(279960002)),
@@ -765,35 +765,35 @@ fn provide_liquidity_and_arb_submit_twice() -> StdResult<()> {
     );
 
     router_ref.next_block(DAY * 13);
-    helper.stader_reconcile(router_ref, 10200000).unwrap();
+    helper.steak_reconcile(router_ref, 10200000).unwrap();
 
     // STATE IS STILL THE SAME AS in provide_liquidity_and_arb only withdrawable has changed
     let state = helper.arb_query_state(router_ref, Some(true)).unwrap();
     assert_eq!(
         state,
         StateResponse {
-            exchange_rate: dec("1.0012"),
+            exchange_rate: dec("1.001199993333333333"),
             total_lp_supply: uint(300_000000),
             balances: Balances {
-                tvl_utoken: uint(300_000000) + (absolute_profit - fee) * uint(2),
-                vault_total: uint(300_000000) + (absolute_profit - fee) * uint(2),
+                tvl_utoken: uint(300_000000) + (absolute_profit - fee) * uint(2) - uint(2),
+                vault_total: uint(300_000000) + (absolute_profit - fee) * uint(2) - uint(2),
                 vault_available: uint(300_000000) - (amount + fee) * uint(2),
                 vault_takeable: uint(300_000000) - (amount + fee) * uint(2),
                 locked_user_withdrawls: uint(0),
-                lsd_unbonding: amount * profit_percent - uint(1),
-                lsd_withdrawable: amount * profit_percent - uint(1),
+                lsd_unbonding: amount * profit_percent - uint(2),
+                lsd_withdrawable: amount * profit_percent - uint(2),
                 lsd_xvalue: uint(0),
                 details: Some(vec![ClaimBalance {
-                    name: "stader".to_string(),
-                    withdrawable: uint(10200000) - uint(1),
-                    unbonding: uint(10200000) - uint(1),
+                    name: "boneLUNA".to_string(),
+                    withdrawable: uint(10200000) - uint(2),
+                    unbonding: uint(10200000) - uint(2),
                     xbalance: uint(0),
-                    xfactor: dec("1.100000000069370619")
+                    xfactor: dec("1.10000000013886885")
                 }])
             },
             details: Some(eris::arb_vault::StateDetails {
                 takeable_steps: vec![
-                    (dec("0.010"), uint(129780002)),
+                    (dec("0.010"), uint(129780003)),
                     (dec("0.015"), uint(189852002)),
                     (dec("0.020"), uint(249924002)),
                     (dec("0.025"), uint(279960002)),
@@ -817,23 +817,23 @@ fn provide_liquidity_and_arb_submit_twice() -> StdResult<()> {
         state,
         StateResponse {
             // because reconcile received more uluna than expected -> rounding correct again
-            exchange_rate: dec("1.0012"),
+            exchange_rate: dec("1.001199996666666666"),
             total_lp_supply: uint(300_000000),
             balances: Balances {
-                tvl_utoken: uint(300_000000) + (absolute_profit - fee) * uint(2),
-                vault_total: uint(300_000000) + (absolute_profit - fee) * uint(2),
+                tvl_utoken: uint(300_000000) + (absolute_profit - fee) * uint(2) - uint(1),
+                vault_total: uint(300_000000) + (absolute_profit - fee) * uint(2) - uint(1),
                 vault_available: uint(300_000000) - amount - fee + absolute_profit - fee,
                 vault_takeable: uint(300_000000) - amount - fee + absolute_profit - fee,
                 locked_user_withdrawls: uint(0),
-                lsd_unbonding: amount * profit_percent - uint(1),
+                lsd_unbonding: amount * profit_percent - uint(2),
                 lsd_withdrawable: uint(0),
                 lsd_xvalue: uint(0),
                 details: Some(vec![ClaimBalance {
-                    name: "stader".to_string(),
+                    name: "boneLUNA".to_string(),
                     withdrawable: uint(0),
-                    unbonding: amount * profit_percent - uint(1),
+                    unbonding: amount * profit_percent - uint(2),
                     xbalance: uint(0),
-                    xfactor: dec("1.100000000069370619")
+                    xfactor: dec("1.10000000013886885")
                 }])
             },
             details: Some(eris::arb_vault::StateDetails {
@@ -859,9 +859,9 @@ fn check_normal_withdraw_2(router_ref: &mut cw_multi_test::App, helper: &EscrowH
     let balance2 = router_ref.wrap().query_balance("user2", "uluna").unwrap();
 
     res.assert_attribute("wasm", attr("burnt_amount", "50000000")).unwrap();
-    res.assert_attribute("wasm", attr("withdraw_amount", "50060000")).unwrap();
+    res.assert_attribute("wasm", attr("withdraw_amount", "50059999")).unwrap();
     res.assert_attribute("wasm", attr("receive_amount", "49559400")).unwrap();
-    res.assert_attribute("wasm", attr("protocol_fee", "500600")).unwrap();
+    res.assert_attribute("wasm", attr("protocol_fee", "500599")).unwrap();
     assert_eq!(balance.amount, balance2.amount);
 
     router_ref.next_block(DAY * 25);
@@ -894,7 +894,7 @@ fn return_msg(
     eris::arb_vault::ExecuteSubMsg {
         contract_addr: Some(helper.base.arb_fake_contract.get_address_string()),
         msg: to_binary(&eris_tests::arb_contract::ExecuteMsg::ReturnAsset {
-            asset: token_asset(helper.get_stader_token_addr(), return_amount),
+            asset: token_asset(helper.get_steak_token_addr(), return_amount),
             received: vec![coin(amount.u128(), "uluna")],
         })
         .unwrap(),

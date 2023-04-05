@@ -1,6 +1,6 @@
 [package]
 name = "eris-arb-vault"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["devs <devs@erisprotocol.com>"]
 edition = "2018"
 license = "GPL-3.0-or-later"
@@ -23,7 +23,7 @@ eris = { path = "../../packages/eris" }
 itertools = "0.10"
 thiserror = { version = "1.0" }
 astroport = { git = "https://github.com/astroport-fi/astroport-core.git", default-features = false, rev = "bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62" }
-steak = { git = "https://github.com/PFC-developer/steak-contracts.git", package="pfc-steak", default-features = false, rev = "34860bdd75a06c156537276fcfbb4b3a4820eef3"}
+steak = { git = "https://github.com/PFC-developer/steak-contracts.git", package="pfc-steak", default-features = false, rev = "e899f80946b8ae9c95afe30def12cbf45bd50cc8"}
 stader = { git = "https://github.com/stader-labs/lunax.git", package="staking", default-features = false, rev = "20143548e2dea807b343fe6ad60375086af35ea9"}
 prism = { git = "https://github.com/prism-finance/prism-auto-compounding-casset.git", package="basset", default-features = false, rev = "88d833974a0f1c43cc0bf64d4919dd3229ae2b66"}
 
