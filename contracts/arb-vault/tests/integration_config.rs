@@ -1,5 +1,5 @@
 use astroport::asset::{token_asset, token_asset_info};
-use cosmwasm_std::{coin, to_binary, Addr, Decimal, StdResult, Uint128};
+use cosmwasm_std::{coin, to_binary, Decimal, StdResult, Uint128};
 use eris_tests::mock_app;
 use eris_tests::{gov_helper::EscrowHelper, TerraAppExtension};
 use std::str::FromStr;
