@@ -23,6 +23,7 @@ use eris::arb_vault::{
 };
 
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
+use eris_tests::UTOKEN_DENOM;
 use itertools::Itertools;
 
 use super::custom_querier::CustomQuerier;
@@ -40,7 +41,7 @@ fn proper_initialization() {
         config,
         ConfigResponse {
             config: Config {
-                utoken: "utoken".into(),
+                utoken: UTOKEN_DENOM.into(),
                 utilization_method: eris::arb_vault::UtilizationMethod::Steps(vec![
                     (Decimal::from_ratio(10u128, 1000u128), Decimal::from_ratio(50u128, 100u128),),
                     (Decimal::from_ratio(15u128, 1000u128), Decimal::from_ratio(70u128, 100u128),),
@@ -94,7 +95,7 @@ fn update_config() {
         config,
         ConfigResponse {
             config: Config {
-                utoken: "utoken".into(),
+                utoken: UTOKEN_DENOM.into(),
                 utilization_method: UtilizationMethod::Steps(vec![
                     (Decimal::from_ratio(10u128, 1000u128), Decimal::from_ratio(50u128, 100u128),),
                     (Decimal::from_ratio(15u128, 1000u128), Decimal::from_ratio(70u128, 100u128),),
@@ -139,7 +140,7 @@ fn update_config() {
         config,
         ConfigResponse {
             config: Config {
-                utoken: "utoken".into(),
+                utoken: UTOKEN_DENOM.into(),
                 utilization_method: UtilizationMethod::Steps(vec![]),
                 unbond_time_s: 10,
                 lp_addr: Addr::unchecked("lptoken"),
@@ -184,14 +185,14 @@ fn provide_liquidity_wrong_amount() {
     let mut deps = setup_test();
 
     let provide_msg = ExecuteMsg::Deposit {
-        asset: native_asset("utoken".into(), Uint128::new(123_000000)),
+        asset: native_asset(UTOKEN_DENOM.into(), Uint128::new(123_000000)),
         receiver: None,
     };
 
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("user", &[coin(100_000000, "utoken")]),
+        mock_info("user", &[coin(100_000000, UTOKEN_DENOM)]),
         provide_msg,
     )
     .unwrap_err();
@@ -208,13 +209,17 @@ fn provide_liquidity_zero_throws() {
     let mut deps = setup_test();
 
     let provide_msg = ExecuteMsg::Deposit {
-        asset: native_asset("utoken".into(), Uint128::new(0)),
+        asset: native_asset(UTOKEN_DENOM.into(), Uint128::new(0)),
         receiver: None,
     };
 
-    let res =
-        execute(deps.as_mut(), mock_env(), mock_info("user", &[coin(0, "utoken")]), provide_msg)
-            .unwrap_err();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("user", &[coin(0, UTOKEN_DENOM)]),
+        provide_msg,
+    )
+    .unwrap_err();
 
     assert_eq!(res, ContractError::InvalidZeroAmount {})
 }
@@ -229,14 +234,14 @@ fn _provide_liquidity() -> (OwnedDeps<MockStorage, MockApi, CustomQuerier>, Resp
     deps.querier.set_cw20_balance("lptoken", "share_user", 50_000000u128);
 
     let provide_msg = ExecuteMsg::Deposit {
-        asset: native_asset("utoken".to_string(), Uint128::new(100_000000)),
+        asset: native_asset(UTOKEN_DENOM.to_string(), Uint128::new(100_000000)),
         receiver: None,
     };
 
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("user", &[coin(100_000000, "utoken")]),
+        mock_info("user", &[coin(100_000000, UTOKEN_DENOM)]),
         provide_msg,
     )
     .unwrap();
@@ -270,14 +275,14 @@ fn _provide_liquidity_again() -> (OwnedDeps<MockStorage, MockApi, CustomQuerier>
     deps.querier.set_bank_balance(100_000000 + 120_000000);
 
     let provide_msg = ExecuteMsg::Deposit {
-        asset: native_asset("utoken".to_string(), Uint128::new(120_000000)),
+        asset: native_asset(UTOKEN_DENOM.to_string(), Uint128::new(120_000000)),
         receiver: None,
     };
 
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("user", &[coin(120_000000, "utoken")]),
+        mock_info("user", &[coin(120_000000, UTOKEN_DENOM)]),
         provide_msg,
     )
     .unwrap();
@@ -319,7 +324,7 @@ fn query_user_info_check() {
     );
 
     // arbs executed and created 2 luna
-    deps.querier.set_bank_balances(&[coin(222_000000, "utoken")]);
+    deps.querier.set_bank_balances(&[coin(222_000000, UTOKEN_DENOM)]);
 
     let response = query_user_info(deps.as_ref(), mock_env(), "user".to_string()).unwrap();
     assert_eq!(
@@ -455,7 +460,7 @@ fn throws_if_not_whitelisted_executor() {
 //     assert_eq!(result, ContractError::NothingToWithdraw {});
 
 //     deps.querier.with_withdrawable(Uint128::new(10));
-//     deps.querier.set_bank_balances(&[coin(222_000000, "utoken")]);
+//     deps.querier.set_bank_balances(&[coin(222_000000, UTOKEN_DENOM)]);
 
 //     let execute_msg = ExecuteMsg::ExecuteArbitrage {
 //         msg: ExecuteSubMsg {
@@ -607,7 +612,7 @@ fn _unbonding_slow_120() -> (OwnedDeps<MockStorage, MockApi, CustomQuerier>, Res
 
     let res = execute(deps.as_mut(), mock_env(), lptoken_cw20, withdraw).unwrap();
 
-    deps.querier.set_bank_balances(&[coin(220_000000u128, "utoken")]);
+    deps.querier.set_bank_balances(&[coin(220_000000u128, UTOKEN_DENOM)]);
     deps.querier.set_cw20_total_supply("lptoken", 100_000000);
 
     // deps.querier.with_token_balances(&[(
@@ -936,7 +941,7 @@ fn withdraw_liquidity_immediate_success() {
             assert_eq!(
                 amount[0],
                 Coin {
-                    denom: "utoken".to_string(),
+                    denom: UTOKEN_DENOM.to_string(),
                     amount: withdraw_pool_amount - pool_fee - protocol_fee
                 }
             );
@@ -955,7 +960,7 @@ fn withdraw_liquidity_immediate_success() {
             assert_eq!(
                 amount[0],
                 Coin {
-                    denom: "utoken".to_string(),
+                    denom: UTOKEN_DENOM.to_string(),
                     amount: protocol_fee
                 }
             );
@@ -1100,7 +1105,7 @@ fn withdraw_liquidity_unbonding_query_requests_success() {
             assert_eq!(
                 amount[0],
                 Coin {
-                    denom: "utoken".to_string(),
+                    denom: UTOKEN_DENOM.to_string(),
                     amount: receive_amount
                 }
             );
@@ -1119,7 +1124,7 @@ fn withdraw_liquidity_unbonding_query_requests_success() {
             assert_eq!(
                 amount[0],
                 Coin {
-                    denom: "utoken".to_string(),
+                    denom: UTOKEN_DENOM.to_string(),
                     amount: protocol_fee
                 }
             );
@@ -1212,7 +1217,7 @@ fn withdraw_liquidity_unbonding_query_requests_success() {
             assert_eq!(
                 amount[0],
                 Coin {
-                    denom: "utoken".to_string(),
+                    denom: UTOKEN_DENOM.to_string(),
                     amount: receive_amount2
                 }
             );
@@ -1231,7 +1236,7 @@ fn withdraw_liquidity_unbonding_query_requests_success() {
             assert_eq!(
                 amount[0],
                 Coin {
-                    denom: "utoken".to_string(),
+                    denom: UTOKEN_DENOM.to_string(),
                     amount: protocol_fee2
                 }
             );
@@ -1370,7 +1375,7 @@ fn withdraw_liquidity_unbonded_all_success() {
             assert_eq!(
                 amount[0],
                 Coin {
-                    denom: "utoken".to_string(),
+                    denom: UTOKEN_DENOM.to_string(),
                     amount: receive_amount
                 }
             );
@@ -1389,7 +1394,7 @@ fn withdraw_liquidity_unbonded_all_success() {
             assert_eq!(
                 amount[0],
                 Coin {
-                    denom: "utoken".to_string(),
+                    denom: UTOKEN_DENOM.to_string(),
                     amount: protocol_fee
                 }
             );
@@ -1524,7 +1529,7 @@ fn withdraw_liquidity_unbonded_half_success() {
             assert_eq!(
                 amount[0],
                 Coin {
-                    denom: "utoken".to_string(),
+                    denom: UTOKEN_DENOM.to_string(),
                     amount: receive_amount
                 }
             );
@@ -1543,7 +1548,7 @@ fn withdraw_liquidity_unbonded_half_success() {
             assert_eq!(
                 amount[0],
                 Coin {
-                    denom: "utoken".to_string(),
+                    denom: UTOKEN_DENOM.to_string(),
                     amount: protocol_fee
                 }
             );
@@ -1922,7 +1927,7 @@ fn execute_arb() {
             assert_eq!(
                 funds,
                 vec![Coin {
-                    denom: "utoken".to_string(),
+                    denom: UTOKEN_DENOM.to_string(),
                     amount: takeable
                 }]
             );
@@ -1964,7 +1969,7 @@ fn execute_arb() {
         mock_env(),
         user_info,
         ExecuteMsg::Deposit {
-            asset: native_asset("utoken".to_string(), Uint128::new(100)),
+            asset: native_asset(UTOKEN_DENOM.to_string(), Uint128::new(100)),
             receiver: None,
         },
     )
@@ -2053,7 +2058,7 @@ fn execute_arb() {
     assert_eq!(res.messages.len(), 1);
     assert_eq!(
         res.messages[0].msg,
-        native_asset("utoken".to_string(), Uint128::new(6050))
+        native_asset(UTOKEN_DENOM.to_string(), Uint128::new(6050))
             .into_msg(&deps.as_ref().querier, "fee")
             .unwrap()
     );

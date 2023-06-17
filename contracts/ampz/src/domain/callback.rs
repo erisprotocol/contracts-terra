@@ -9,13 +9,13 @@ use cosmwasm_std::{
 use eris::ampz::{CallbackMsg, CallbackWrapper, DepositMarket, DestinationRuntime, RepayMarket};
 
 use crate::adapters::capapult::{CapapultLocker, CapapultMarket};
-use crate::constants::CONTRACT_DENOM;
 use crate::error::{ContractError, ContractResult};
 use crate::protos::msgex::{CosmosMsgEx, CosmosMsgsEx};
 use crate::state::State;
 use eris::adapters::ampz::Ampz;
 use eris::adapters::asset::{AssetEx, AssetInfosEx, AssetsEx};
 use eris::adapters::farm::Farm;
+use eris::constants::CONTRACT_DENOM;
 use eris::helper::funds_or_allowance;
 use eris::helpers::bps::BasicPoints;
 use itertools::Itertools;

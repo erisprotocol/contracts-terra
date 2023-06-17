@@ -92,6 +92,7 @@ impl ScalingUint128 for Uint128 {
 #[cfg(test)]
 mod tests {
     use astroport::asset::{native_asset, token_asset};
+    use eris_tests::UTOKEN_DENOM;
 
     use super::*;
 
@@ -110,7 +111,7 @@ mod tests {
     fn assets_uniq_test() {
         // no duplicate
         assert_uniq_assets(&[
-            native_asset("uluna".to_string(), Uint128::new(100)),
+            native_asset(UTOKEN_DENOM.to_string(), Uint128::new(100)),
             token_asset(Addr::unchecked("token1"), Uint128::new(100)),
         ])
         .unwrap();
@@ -119,15 +120,15 @@ mod tests {
         assert_uniq_assets(&[
             token_asset(Addr::unchecked("token1"), Uint128::new(100)),
             token_asset(Addr::unchecked("token2"), Uint128::new(100)),
-            native_asset("uluna".to_string(), Uint128::new(100)),
+            native_asset(UTOKEN_DENOM.to_string(), Uint128::new(100)),
             native_asset("uusd".to_string(), Uint128::new(100)),
         ])
         .unwrap();
 
         // duplicated native
         assert_uniq_assets(&[
-            native_asset("uluna".to_string(), Uint128::new(100)),
-            native_asset("uluna".to_string(), Uint128::new(100)),
+            native_asset(UTOKEN_DENOM.to_string(), Uint128::new(100)),
+            native_asset(UTOKEN_DENOM.to_string(), Uint128::new(100)),
             token_asset(Addr::unchecked("token1"), Uint128::new(100)),
         ])
         .unwrap_err();
@@ -137,7 +138,7 @@ mod tests {
             token_asset(Addr::unchecked("token1"), Uint128::new(100)),
             token_asset(Addr::unchecked("token1"), Uint128::new(100)),
             token_asset(Addr::unchecked("token2"), Uint128::new(100)),
-            native_asset("uluna".to_string(), Uint128::new(100)),
+            native_asset(UTOKEN_DENOM.to_string(), Uint128::new(100)),
         ])
         .unwrap_err();
     }

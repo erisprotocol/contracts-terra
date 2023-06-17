@@ -88,13 +88,13 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     /// Implements the Cw20 receiver interface
     Receive(Cw20ReceiveMsg),
-    /// Bond specified amount of Luna
+    /// Bond specified amount of [Token]
     Bond {
         receiver: Option<String>,
     },
-    /// Donates specified amount of Luna to pool
+    /// Donates specified amount of [Token] to pool
     Donate {},
-    /// Withdraw Luna that have finished unbonding in previous batches
+    /// Withdraw [Token] that have finished unbonding in previous batches
     WithdrawUnbonded {
         receiver: Option<String>,
     },
@@ -114,16 +114,16 @@ pub enum ExecuteMsg {
     DropOwnershipProposal {},
     /// Accept an ownership transfer
     AcceptOwnership {},
-    /// Claim staking rewards, swap all for Luna, and restake
+    /// Claim staking rewards, swap all for [Token], and restake
     Harvest {},
 
     TuneDelegations {},
-    /// Use redelegations to balance the amounts of Luna delegated to validators
+    /// Use redelegations to balance the amounts of [Token] delegated to validators
     Rebalance {
         min_redelegation: Option<Uint128>,
     },
 
-    /// Update Luna amounts in unbonding batches to reflect any slashing or rounding errors
+    /// Update [Token] amounts in unbonding batches to reflect any slashing or rounding errors
     Reconcile {},
     /// Submit the current pending batch of unbonding requests to be unbonded
     SubmitBatch {},
@@ -184,9 +184,9 @@ pub enum ReceiveMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum CallbackMsg {
-    /// Swap Terra stablecoins held by the contract to Luna
+    /// Swap Terra stablecoins held by the contract to [Token]
     // Swap {},
-    /// Following the swaps, stake the Luna acquired to the whitelisted validators
+    /// Following the swaps, stake the [Token] acquired to the whitelisted validators
     Reinvest {},
 
     CheckReceivedCoin {
@@ -282,18 +282,18 @@ pub struct ConfigResponse {
 pub struct StateResponse {
     /// Total supply to the Stake token
     pub total_ustake: Uint128,
-    /// Total amount of uluna staked (bonded)
-    pub total_uluna: Uint128,
-    /// The exchange rate between ustake and uluna, in terms of uluna per ustake
+    /// Total amount of utoken staked (bonded)
+    pub total_utoken: Uint128,
+    /// The exchange rate between ustake and utoken, in terms of utoken per ustake
     pub exchange_rate: Decimal,
     /// Staking rewards currently held by the contract that are ready to be reinvested
     pub unlocked_coins: Vec<Coin>,
-    // Amount of uluna currently unbonding
+    // Amount of utoken currently unbonding
     pub unbonding: Uint128,
-    // Amount of uluna currently available as balance of the contract
+    // Amount of utoken currently available as balance of the contract
     pub available: Uint128,
-    // Total amount of uluna within the contract (bonded + unbonding + available)
-    pub tvl_uluna: Uint128,
+    // Total amount of utoken within the contract (bonded + unbonding + available)
+    pub tvl_utoken: Uint128,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
@@ -313,9 +313,9 @@ pub struct WantedDelegationsShare {
 pub struct SteakStateResponse {
     /// Total supply to the Stake token
     pub total_ustake: Uint128,
-    /// Total amount of uluna staked (bonded)
-    pub total_uluna: Uint128,
-    /// The exchange rate between ustake and uluna, in terms of uluna per ustake
+    /// Total amount of utoken staked (bonded)
+    pub total_utoken: Uint128,
+    /// The exchange rate between ustake and utoken, in terms of utoken per ustake
     pub exchange_rate: Decimal,
     /// Staking rewards currently held by the contract that are ready to be reinvested
     pub unlocked_coins: Vec<Coin>,
@@ -365,8 +365,8 @@ pub struct Batch {
     pub reconciled: bool,
     /// Total amount of shares remaining this batch. Each `ustake` burned = 1 share
     pub total_shares: Uint128,
-    /// Amount of `uluna` in this batch that have not been claimed
-    pub uluna_unclaimed: Uint128,
+    /// Amount of `utoken` in this batch that have not been claimed
+    pub utoken_unclaimed: Uint128,
     /// Estimated time when this batch will finish unbonding
     pub est_unbond_end_time: u64,
 }

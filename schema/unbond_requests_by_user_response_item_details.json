@@ -2,11 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "UnbondRequestsByUserResponseItemDetails",
   "type": "object",
-  "required": [
-    "id",
-    "shares",
-    "state"
-  ],
+  "required": ["id", "shares", "state"],
   "properties": {
     "batch": {
       "anyOf": [
@@ -54,7 +50,7 @@
         "id",
         "reconciled",
         "total_shares",
-        "uluna_unclaimed"
+        "utoken_unclaimed"
       ],
       "properties": {
         "est_unbond_end_time": {
@@ -81,8 +77,8 @@
             }
           ]
         },
-        "uluna_unclaimed": {
-          "description": "Amount of `uluna` in this batch that have not been claimed",
+        "utoken_unclaimed": {
+          "description": "Amount of `utoken` in this batch that have not been claimed",
           "allOf": [
             {
               "$ref": "#/definitions/Uint128"
@@ -93,11 +89,7 @@
     },
     "PendingBatch": {
       "type": "object",
-      "required": [
-        "est_unbond_start_time",
-        "id",
-        "ustake_to_burn"
-      ],
+      "required": ["est_unbond_start_time", "id", "ustake_to_burn"],
       "properties": {
         "est_unbond_start_time": {
           "description": "Estimated time when this batch will be submitted for unbonding",

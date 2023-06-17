@@ -6,8 +6,8 @@ use eris::adapters::hub::Hub;
 use eris::ampz::ExecuteMsg;
 use eris::constants::DAY;
 
-use crate::constants::CONTRACT_DENOM;
 use crate::contract::execute;
+use eris::constants::CONTRACT_DENOM;
 
 use crate::testing::helpers::{
     add_default_execution, finish_amplifier, mock_env_at_timestamp, setup_test,

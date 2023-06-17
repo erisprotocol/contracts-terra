@@ -108,7 +108,7 @@
 //         helper.hub_add_validator(router_ref, format!("val{0}", i))?;
 //     }
 
-//     helper.hub_bond(router_ref, "user1", 100_000000, "uluna")?;
+//     helper.hub_bond(router_ref, "user1", 100_000000, UTOKEN_DENOM)?;
 
 //     helper.ve_lock_lp(router_ref, "user1", 1_000000, WEEK * 3)?;
 //     helper.ve_lock_lp(router_ref, "user2", 1_000000, WEEK * 104)?;
@@ -165,7 +165,7 @@
 //     );
 
 //     let results = helper.hub_rebalance(router_ref)?;
-//     results.assert_attribute("wasm-erishub/rebalanced", attr("uluna_moved", "83198238")).unwrap();
+//     results.assert_attribute("wasm-erishub/rebalanced", attr("utoken_moved", "83198238")).unwrap();
 
 //     let delegations = helper.hub_query_all_delegations(router_ref)?;
 

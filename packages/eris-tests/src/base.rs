@@ -14,6 +14,7 @@ use eris::arb_vault::LsdConfig;
 use crate::{
     arb_contract,
     model::{StaderConfigUpdateRequest, StaderExecuteMsg},
+    UTOKEN_DENOM,
 };
 
 pub const MULTIPLIER: u64 = 1_000_000;
@@ -353,7 +354,7 @@ impl BaseErisTestPackage {
                 (Decimal::from_ratio(20u128, 1000u128), Decimal::from_ratio(90u128, 100u128)),
                 (Decimal::from_ratio(25u128, 1000u128), Decimal::from_ratio(100u128, 100u128)),
             ]),
-            utoken: "uluna".to_string(),
+            utoken: UTOKEN_DENOM.to_string(),
             whitelist: vec!["executor".to_string()],
             lsds: vec![LsdConfig {
                 name: "eris".into(),
@@ -423,7 +424,7 @@ impl BaseErisTestPackage {
         // init token
 
         let init_msg = cw20_base::msg::InstantiateMsg {
-            name: "LunaX".to_string(),
+            name: "[Token]X".to_string(),
             symbol: "LUNAX".to_string(),
             decimals: 6,
             initial_balances: vec![],
@@ -573,7 +574,7 @@ impl BaseErisTestPackage {
             epoch_period: 259200,   // 3 * 24 * 60 * 60 = 3 days
             unbond_period: 1814400, // 21 * 24 * 60 * 60 = 21 days
             validators: vec!["val1".to_string(), "val2".to_string(), "val3".to_string()],
-            denom: "uluna".to_string(),
+            denom: UTOKEN_DENOM.to_string(),
             fee_account: "fee".to_string(),
             fee_account_type: "Wallet".to_string(),
             fee_amount: Decimal::from_ratio(1u128, 100u128),

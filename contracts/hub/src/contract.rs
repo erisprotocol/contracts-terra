@@ -9,11 +9,12 @@ use eris::helper::unwrap_reply;
 use eris::hub::{CallbackMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, ReceiveMsg};
 
 use crate::claim::exec_claim;
-use crate::constants::{CONTRACT_DENOM, CONTRACT_NAME, CONTRACT_VERSION};
+use crate::constants::{CONTRACT_NAME, CONTRACT_VERSION};
 use crate::error::{ContractError, ContractResult};
 use crate::helpers::parse_received_fund;
 use crate::state::State;
 use crate::{execute, gov, queries};
+use eris::constants::CONTRACT_DENOM;
 
 #[entry_point]
 pub fn instantiate(

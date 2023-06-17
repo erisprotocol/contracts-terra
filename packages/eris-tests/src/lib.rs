@@ -10,6 +10,8 @@ use cosmwasm_std::{coin, Addr, Attribute, BlockInfo, Decimal, Timestamp, Validat
 use cw_multi_test::{App, AppResponse, BankKeeper, BasicAppBuilder, StakeKeeper, StakingInfo};
 use eris::governance_helper::{get_period, EPOCH_START, WEEK};
 
+pub const UTOKEN_DENOM: &str = "aconst";
+
 #[allow(clippy::all)]
 #[allow(dead_code)]
 pub mod gov_helper;
@@ -48,22 +50,38 @@ pub fn mock_app_validators(
         .build(|router, api, storage| {
             router
                 .bank
-                .init_balance(storage, &Addr::unchecked("user1"), vec![coin(1000_000000, "uluna")])
+                .init_balance(
+                    storage,
+                    &Addr::unchecked("user1"),
+                    vec![coin(1000_000000, UTOKEN_DENOM)],
+                )
                 .unwrap();
 
             router
                 .bank
-                .init_balance(storage, &Addr::unchecked("user2"), vec![coin(1000_000000, "uluna")])
+                .init_balance(
+                    storage,
+                    &Addr::unchecked("user2"),
+                    vec![coin(1000_000000, UTOKEN_DENOM)],
+                )
                 .unwrap();
 
             router
                 .bank
-                .init_balance(storage, &Addr::unchecked("user3"), vec![coin(1000_000000, "uluna")])
+                .init_balance(
+                    storage,
+                    &Addr::unchecked("user3"),
+                    vec![coin(1000_000000, UTOKEN_DENOM)],
+                )
                 .unwrap();
 
             router
                 .bank
-                .init_balance(storage, &Addr::unchecked("fake"), vec![coin(100000_000000, "uluna")])
+                .init_balance(
+                    storage,
+                    &Addr::unchecked("fake"),
+                    vec![coin(100000_000000, UTOKEN_DENOM)],
+                )
                 .unwrap();
 
             router
@@ -71,7 +89,7 @@ pub fn mock_app_validators(
                 .setup(
                     storage,
                     StakingInfo {
-                        bonded_denom: "uluna".to_string(),
+                        bonded_denom: UTOKEN_DENOM.to_string(),
                         apr: Decimal::percent(10),
                         unbonding_time: 1814400,
                     },
@@ -97,13 +115,13 @@ pub fn mock_app_validators(
         })
 }
 
-pub trait TerraAppExtension {
+pub trait AppExtension {
     fn next_block(&mut self, time: u64);
     fn next_period(&mut self, periods: u64);
     fn block_period(&self) -> u64;
 }
 
-impl TerraAppExtension for App {
+impl AppExtension for App {
     fn next_block(&mut self, seconds: u64) {
         self.update_block(|block| {
             block.time = block.time.plus_seconds(seconds);

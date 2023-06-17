@@ -227,7 +227,7 @@ fn swap(
     amount_in: Uint128,
 ) -> Result<SwapTarget, ContractError> {
     let stablecoin = config.stablecoin.clone();
-    let uluna = native_asset_info(ULUNA_DENOM.to_string());
+    let utoken = native_asset_info(ULUNA_DENOM.to_string());
 
     // Check if bridge tokens exist
     let bridge_token = BRIDGES.load(deps.storage, from_token.to_string());
@@ -247,12 +247,17 @@ fn swap(
     }
 
     // Check for a pair with LUNA
-    if from_token.ne(&uluna) {
-        let swap_to_uluna =
-            try_build_swap_msg(&deps.querier, config, from_token.clone(), uluna.clone(), amount_in);
-        if let Ok(msg) = swap_to_uluna {
+    if from_token.ne(&utoken) {
+        let swap_to_utoken = try_build_swap_msg(
+            &deps.querier,
+            config,
+            from_token.clone(),
+            utoken.clone(),
+            amount_in,
+        );
+        if let Ok(msg) = swap_to_utoken {
             return Ok(SwapTarget::Bridge {
-                asset: uluna,
+                asset: utoken,
                 msg,
             });
         }

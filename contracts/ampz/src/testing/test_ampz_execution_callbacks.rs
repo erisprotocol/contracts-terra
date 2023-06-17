@@ -20,7 +20,7 @@ use cosmwasm_std::{coin, coins, Addr, Uint128};
 
 use eris::ampz::{CallbackMsg, CallbackWrapper, ExecuteMsg};
 
-use crate::constants::CONTRACT_DENOM;
+use eris::constants::CONTRACT_DENOM;
 
 fn astro() -> Addr {
     Addr::unchecked("astro")

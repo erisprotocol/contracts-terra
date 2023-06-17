@@ -133,13 +133,13 @@ fn proper_instantiation() {
     assert_eq!(
         res,
         StateResponse {
-            tvl_uluna: Uint128::zero(),
+            tvl_utoken: Uint128::zero(),
             total_lp: Uint128::zero(),
             stake_balance: Uint128::zero(),
             stake_extracted: Uint128::zero(),
             stake_harvested: Uint128::zero(),
             exchange_rate_lp_stake: Decimal::from_str("0").unwrap(),
-            exchange_rate_stake_uluna: Decimal::from_str("1").unwrap(),
+            exchange_rate_stake_utoken: Decimal::from_str("1").unwrap(),
             stake_available: Uint128::zero(),
             user_received_asset: None,
             user_share: None
@@ -497,7 +497,7 @@ fn deposit_extract_withdraw() {
         // 50 withdraw
         * Uint128::new(50_000000);
 
-    // 49,767857 ampLuna = 49,75 LUNA
+    // 49,767857 amp[Token] = 49,75 LUNA
     let received = Uint128::new(50_000000).sub(extracted);
 
     match res.messages[1].msg.clone() {
@@ -558,14 +558,14 @@ fn deposit_extract_withdraw() {
     assert_eq!(
         state,
         StateResponse {
-            tvl_uluna: Decimal::from_str("1.05").unwrap() * Uint128::new(stake_balance),
+            tvl_utoken: Decimal::from_str("1.05").unwrap() * Uint128::new(stake_balance),
             total_lp: Uint128::new(total_lp),
             stake_balance: Uint128::new(stake_balance),
             stake_extracted: total_extracted,
             stake_available: Uint128::new(stake_available),
             stake_harvested: Uint128::zero(),
             exchange_rate_lp_stake: Decimal::from_ratio(stake_available, total_lp),
-            exchange_rate_stake_uluna: Decimal::from_str("1.05").unwrap(),
+            exchange_rate_stake_utoken: Decimal::from_str("1.05").unwrap(),
 
             user_received_asset: None,
             user_share: None
@@ -645,7 +645,7 @@ fn deposit_extract_withdraw() {
     assert_eq!(
         state,
         StateResponse {
-            tvl_uluna: Decimal::from_str("1.05").unwrap()
+            tvl_utoken: Decimal::from_str("1.05").unwrap()
                 * Uint128::new(stake_balance - total_extracted.u128()),
             total_lp: Uint128::new(total_lp),
             stake_balance: Uint128::new(stake_balance - total_extracted.u128()),
@@ -653,7 +653,7 @@ fn deposit_extract_withdraw() {
             stake_available: Uint128::new(stake_available),
             stake_harvested: total_extracted,
             exchange_rate_lp_stake: Decimal::from_ratio(stake_available, total_lp),
-            exchange_rate_stake_uluna: Decimal::from_str("1.05").unwrap(),
+            exchange_rate_stake_utoken: Decimal::from_str("1.05").unwrap(),
 
             user_received_asset: None,
             user_share: None
@@ -670,7 +670,7 @@ fn deposit_extract_withdraw() {
     assert_eq!(
         state,
         StateResponse {
-            tvl_uluna: Decimal::from_str("1.05").unwrap()
+            tvl_utoken: Decimal::from_str("1.05").unwrap()
                 * Uint128::new(stake_balance - total_extracted.u128()),
             total_lp: Uint128::new(total_lp),
             stake_balance: Uint128::new(stake_balance - total_extracted.u128()),
@@ -678,7 +678,7 @@ fn deposit_extract_withdraw() {
             stake_available: Uint128::new(stake_available),
             stake_harvested: total_extracted,
             exchange_rate_lp_stake: Decimal::from_ratio(stake_available, total_lp),
-            exchange_rate_stake_uluna: Decimal::from_str("1.05").unwrap(),
+            exchange_rate_stake_utoken: Decimal::from_str("1.05").unwrap(),
 
             user_received_asset: Some(received),
             user_share: Some(Uint128::new(50_000000))
@@ -731,13 +731,13 @@ fn test_query_state() {
         res,
         StateResponse {
             exchange_rate_lp_stake: Decimal::one(),
-            exchange_rate_stake_uluna: Decimal::from_ratio(10u128, 1u128),
+            exchange_rate_stake_utoken: Decimal::from_ratio(10u128, 1u128),
             stake_available: Uint128::from(100_000000u128),
             stake_balance: Uint128::from(100_000000u128),
             stake_extracted: Uint128::zero(),
             stake_harvested: Uint128::zero(),
             total_lp: Uint128::from(100_000000u128),
-            tvl_uluna: Uint128::from(1000_000000u128),
+            tvl_utoken: Uint128::from(1000_000000u128),
             user_received_asset: Some(Uint128::from(100_000000u128)),
             user_share: Some(Uint128::from(100_000000u128))
         }
@@ -760,13 +760,13 @@ fn test_query_state() {
         res,
         StateResponse {
             exchange_rate_lp_stake: Decimal::from_ratio(95u128, 100u128),
-            exchange_rate_stake_uluna: Decimal::from_ratio(20u128, 1u128),
+            exchange_rate_stake_utoken: Decimal::from_ratio(20u128, 1u128),
             stake_available: Uint128::from(95_000000u128),
             stake_balance: Uint128::from(100_000000u128),
             stake_extracted: Uint128::from(5_000000u128),
             stake_harvested: Uint128::zero(),
             total_lp: Uint128::from(100_000000u128),
-            tvl_uluna: Uint128::from(2000_000000u128),
+            tvl_utoken: Uint128::from(2000_000000u128),
             user_received_asset: Some(Uint128::from(95_000000u128)),
             user_share: Some(Uint128::from(100_000000u128))
         }
@@ -789,13 +789,13 @@ fn test_query_state() {
         res,
         StateResponse {
             exchange_rate_lp_stake: Decimal::from_ratio(94u128, 100u128),
-            exchange_rate_stake_uluna: Decimal::from_ratio(25u128, 1u128),
+            exchange_rate_stake_utoken: Decimal::from_ratio(25u128, 1u128),
             stake_available: Uint128::from(94_000000u128),
             stake_balance: Uint128::from(100_000000u128),
             stake_extracted: Uint128::from(6_000000u128),
             stake_harvested: Uint128::zero(),
             total_lp: Uint128::from(100_000000u128),
-            tvl_uluna: Uint128::from(2500_000000u128),
+            tvl_utoken: Uint128::from(2500_000000u128),
             user_received_asset: Some(Uint128::from(94_000000u128)),
             user_share: Some(Uint128::from(100_000000u128))
         }
@@ -847,13 +847,13 @@ fn deposit_test_real() {
         res,
         StateResponse {
             exchange_rate_lp_stake: Decimal::one(),
-            exchange_rate_stake_uluna: Decimal::from_ratio(10u128, 1u128),
+            exchange_rate_stake_utoken: Decimal::from_ratio(10u128, 1u128),
             stake_available: Uint128::from(100_000000u128),
             stake_balance: Uint128::from(100_000000u128),
             stake_extracted: Uint128::zero(),
             stake_harvested: Uint128::zero(),
             total_lp: Uint128::from(100_000000u128),
-            tvl_uluna: Uint128::from(1000_000000u128),
+            tvl_utoken: Uint128::from(1000_000000u128),
             user_received_asset: Some(Uint128::from(100_000000u128)),
             user_share: Some(Uint128::from(100_000000u128))
         }
@@ -877,13 +877,13 @@ fn deposit_test_real() {
         res,
         StateResponse {
             exchange_rate_lp_stake: Decimal::from_ratio(95u128, 100u128),
-            exchange_rate_stake_uluna: Decimal::from_ratio(20u128, 1u128),
+            exchange_rate_stake_utoken: Decimal::from_ratio(20u128, 1u128),
             stake_available: Uint128::from(95_000000u128),
             stake_balance: Uint128::from(100_000000u128),
             stake_extracted: Uint128::from(5_000000u128),
             stake_harvested: Uint128::zero(),
             total_lp: Uint128::from(100_000000u128),
-            tvl_uluna: Uint128::from(2000_000000u128),
+            tvl_utoken: Uint128::from(2000_000000u128),
             user_received_asset: Some(Uint128::from(95_000000u128)),
             user_share: Some(Uint128::from(100_000000u128))
         }
@@ -923,13 +923,13 @@ fn deposit_test_real() {
                 950000004141025659u128,
                 1000000000000000000u128
             ),
-            exchange_rate_stake_uluna: Decimal::from_ratio(20u128, 1u128),
+            exchange_rate_stake_utoken: Decimal::from_ratio(20u128, 1u128),
             stake_available: Uint128::from(195_000000u128),
             stake_balance: Uint128::from(200_000000u128),
             stake_extracted: Uint128::from(5_000000u128),
             stake_harvested: Uint128::zero(),
             total_lp,
-            tvl_uluna: Uint128::from(4000_000000u128),
+            tvl_utoken: Uint128::from(4000_000000u128),
             user_received_asset: Some(Uint128::from(99999999u128)),
             user_share: Some(added)
         }
@@ -954,13 +954,13 @@ fn deposit_test_real() {
                 950000004141025659u128,
                 1000000000000000000u128
             ),
-            exchange_rate_stake_uluna: Decimal::from_ratio(20u128, 1u128),
+            exchange_rate_stake_utoken: Decimal::from_ratio(20u128, 1u128),
             stake_available: Uint128::from(195_000000u128),
             stake_balance: Uint128::from(200_000000u128),
             stake_extracted: Uint128::from(5_000000u128),
             stake_harvested: Uint128::zero(),
             total_lp,
-            tvl_uluna: Uint128::from(4000_000000u128),
+            tvl_utoken: Uint128::from(4000_000000u128),
             user_received_asset: Some(Uint128::from(95_000000u128)),
             user_share: Some(Uint128::from(100_000000u128))
         }
@@ -996,13 +996,13 @@ fn deposit_test_real() {
                 931000004058205145u128,
                 1000000000000000000u128
             ),
-            exchange_rate_stake_uluna: Decimal::from_ratio(25u128, 1u128),
+            exchange_rate_stake_utoken: Decimal::from_ratio(25u128, 1u128),
             stake_available: Uint128::from(191_100000u128),
             stake_balance: Uint128::from(200_000000u128),
             stake_extracted: Uint128::from(8_900000u128),
             stake_harvested: Uint128::zero(),
             total_lp,
-            tvl_uluna: Uint128::from(5000_000000u128),
+            tvl_utoken: Uint128::from(5000_000000u128),
             user_received_asset: Some(Uint128::from(93_100000u128)),
             user_share: Some(Uint128::from(100_000000u128))
         }

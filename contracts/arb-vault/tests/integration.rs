@@ -2,7 +2,7 @@ use astroport::asset::{token_asset, token_asset_info};
 use cosmwasm_std::{attr, coin, to_binary, Decimal, StdResult, Uint128};
 use eris::constants::DAY;
 use eris_tests::gov_helper::EscrowHelper;
-use eris_tests::{mock_app, EventChecker, TerraAppExtension};
+use eris_tests::{mock_app, AppExtension, EventChecker, UTOKEN_DENOM};
 use std::ops::Div;
 use std::str::FromStr;
 use std::vec;
@@ -16,7 +16,7 @@ fn provide_liquidity_and_arb_fails() -> StdResult<()> {
     let helper = EscrowHelper::init(router_ref, false);
 
     router_ref.next_block(100);
-    helper.hub_bond(router_ref, "user1", 100_000000, "uluna").unwrap();
+    helper.hub_bond(router_ref, "user1", 100_000000, UTOKEN_DENOM).unwrap();
     helper.arb_fake_fill_arb_contract(router_ref);
 
     helper.arb_deposit(router_ref, "user1", 100_000000).unwrap();
@@ -71,7 +71,7 @@ fn provide_liquidity_and_arb() -> StdResult<()> {
     let helper = EscrowHelper::init(router_ref, false);
 
     router_ref.next_block(100);
-    helper.hub_bond(router_ref, "user1", 100_000000, "uluna").unwrap();
+    helper.hub_bond(router_ref, "user1", 100_000000, UTOKEN_DENOM).unwrap();
     helper.arb_fake_fill_arb_contract(router_ref);
 
     helper.arb_deposit(router_ref, "user1", 100_000000).unwrap();
@@ -207,10 +207,10 @@ fn provide_liquidity_and_arb_submit() -> StdResult<()> {
     let helper = EscrowHelper::init(router_ref, false);
 
     router_ref.next_block(100);
-    helper.hub_bond(router_ref, "user1", 100_000000, "uluna").unwrap();
+    helper.hub_bond(router_ref, "user1", 100_000000, UTOKEN_DENOM).unwrap();
     // increase exchange_rate
     helper.hub_allow_donate(router_ref).unwrap();
-    helper.hub_donate(router_ref, "user1", 10_000000, "uluna").unwrap();
+    helper.hub_donate(router_ref, "user1", 10_000000, UTOKEN_DENOM).unwrap();
     helper.arb_fake_fill_arb_contract(router_ref);
 
     helper.arb_deposit(router_ref, "user1", 100_000000).unwrap();
@@ -422,7 +422,7 @@ fn provide_liquidity_and_arb_submit() -> StdResult<()> {
     assert_eq!(
         state,
         StateResponse {
-            // because reconcile received more uluna than expected -> rounding correct again
+            // because reconcile received more utoken than expected -> rounding correct again
             exchange_rate: dec("1.0006"),
             total_lp_supply: uint(300_000000),
             balances: Balances {
@@ -460,9 +460,9 @@ fn provide_liquidity_and_arb_submit() -> StdResult<()> {
 }
 
 fn check_normal_withdraw(router_ref: &mut cw_multi_test::App, helper: &EscrowHelper) {
-    let balance = router_ref.wrap().query_balance("user2", "uluna").unwrap();
+    let balance = router_ref.wrap().query_balance("user2", UTOKEN_DENOM).unwrap();
     let res = helper.arb_unbond(router_ref, "user2", 50_000000, None).unwrap();
-    let balance2 = router_ref.wrap().query_balance("user2", "uluna").unwrap();
+    let balance2 = router_ref.wrap().query_balance("user2", UTOKEN_DENOM).unwrap();
 
     res.assert_attribute("wasm", attr("burnt_amount", "50000000")).unwrap();
     res.assert_attribute("wasm", attr("withdraw_amount", "50030000")).unwrap();
@@ -472,17 +472,17 @@ fn check_normal_withdraw(router_ref: &mut cw_multi_test::App, helper: &EscrowHel
 
     router_ref.next_block(DAY * 25);
 
-    let balance3 = router_ref.wrap().query_balance("user2", "uluna").unwrap();
+    let balance3 = router_ref.wrap().query_balance("user2", UTOKEN_DENOM).unwrap();
     assert_eq!(balance3.amount, balance2.amount);
     helper.arb_withdraw(router_ref, "user2").unwrap();
-    let balance4 = router_ref.wrap().query_balance("user2", "uluna").unwrap();
+    let balance4 = router_ref.wrap().query_balance("user2", UTOKEN_DENOM).unwrap();
     assert_eq!(balance3.amount + uint(49529700), balance4.amount);
 }
 
 fn check_immediate_withdraw(router_ref: &mut cw_multi_test::App, helper: EscrowHelper) {
-    let balance = router_ref.wrap().query_balance("user3", "uluna").unwrap();
+    let balance = router_ref.wrap().query_balance("user3", UTOKEN_DENOM).unwrap();
     let res = helper.arb_unbond(router_ref, "user3", 50_000000, Some(true)).unwrap();
-    let new_balance = router_ref.wrap().query_balance("user3", "uluna").unwrap();
+    let new_balance = router_ref.wrap().query_balance("user3", UTOKEN_DENOM).unwrap();
 
     res.assert_attribute("wasm", attr("burnt_amount", "50000000")).unwrap();
     res.assert_attribute("wasm", attr("withdraw_amount", "50030000")).unwrap();
@@ -501,7 +501,7 @@ fn return_msg(
         contract_addr: Some(helper.base.arb_fake_contract.get_address_string()),
         msg: to_binary(&eris_tests::arb_contract::ExecuteMsg::ReturnAsset {
             asset: token_asset(helper.get_ustake_addr(), return_amount),
-            received: vec![coin(amount.u128(), "uluna")],
+            received: vec![coin(amount.u128(), UTOKEN_DENOM)],
         })
         .unwrap(),
         funds_amount: amount,

@@ -10,14 +10,6 @@ use cw20::{Cw20ExecuteMsg, MinterResponse};
 use cw20_base::msg::InstantiateMsg as Cw20InstantiateMsg;
 use eris::DecimalCheckedOps;
 
-use eris::hub::{
-    Batch, CallbackMsg, ConfigResponse, ExecuteMsg, FeeConfig, InstantiateMsg, PendingBatch,
-    QueryMsg, ReceiveMsg, StateResponse, UnbondRequest, UnbondRequestsByBatchResponseItem,
-    UnbondRequestsByUserResponseItem, UnbondRequestsByUserResponseItemDetails,
-};
-use itertools::Itertools;
-
-use crate::constants::CONTRACT_DENOM;
 use crate::contract::{execute, instantiate, reply};
 use crate::error::ContractError;
 use crate::helpers::{dedupe, parse_received_fund};
@@ -27,6 +19,13 @@ use crate::math::{
 use crate::state::State;
 use crate::testing::helpers::{query_helper_env, STAKE_DENOM};
 use crate::types::{Coins, Delegation, Redelegation, SendFee, Undelegation};
+use eris::constants::CONTRACT_DENOM;
+use eris::hub::{
+    Batch, CallbackMsg, ConfigResponse, ExecuteMsg, FeeConfig, InstantiateMsg, PendingBatch,
+    QueryMsg, ReceiveMsg, StateResponse, UnbondRequest, UnbondRequestsByBatchResponseItem,
+    UnbondRequestsByUserResponseItem, UnbondRequestsByUserResponseItemDetails,
+};
+use itertools::Itertools;
 
 use super::custom_querier::CustomQuerier;
 use super::helpers::{mock_dependencies, mock_env_at_timestamp, query_helper};
@@ -155,12 +154,12 @@ fn proper_instantiation() {
         res,
         StateResponse {
             total_ustake: Uint128::zero(),
-            total_uluna: Uint128::zero(),
+            total_utoken: Uint128::zero(),
             exchange_rate: Decimal::one(),
             unlocked_coins: vec![],
             unbonding: Uint128::zero(),
             available: Uint128::zero(),
-            tvl_uluna: Uint128::zero(),
+            tvl_utoken: Uint128::zero(),
         },
     );
 
@@ -262,12 +261,12 @@ fn bonding() {
         res,
         StateResponse {
             total_ustake: Uint128::new(1012043),
-            total_uluna: Uint128::new(1037345),
+            total_utoken: Uint128::new(1037345),
             exchange_rate: Decimal::from_ratio(1037345u128, 1012043u128),
             unlocked_coins: vec![],
             unbonding: Uint128::zero(),
             available: Uint128::new(12567),
-            tvl_uluna: Uint128::new(1037345 + 12567),
+            tvl_utoken: Uint128::new(1037345 + 12567),
         }
     );
 }
@@ -320,12 +319,12 @@ fn donating() {
         res,
         StateResponse {
             total_ustake: Uint128::new(1000000),
-            total_uluna: Uint128::new(1025000),
+            total_utoken: Uint128::new(1025000),
             exchange_rate: Decimal::from_ratio(1025000u128, 1000000u128),
             unlocked_coins: vec![],
             unbonding: Uint128::zero(),
             available: Uint128::new(100),
-            tvl_uluna: Uint128::new(1025100),
+            tvl_utoken: Uint128::new(1025100),
         }
     );
 
@@ -383,12 +382,12 @@ fn donating() {
         res,
         StateResponse {
             total_ustake: Uint128::new(1000000),
-            total_uluna: Uint128::new(1037345),
+            total_utoken: Uint128::new(1037345),
             exchange_rate: Decimal::from_ratio(1037345u128, 1000000u128),
             unlocked_coins: vec![],
             unbonding: Uint128::zero(),
             available: Uint128::new(100),
-            tvl_uluna: Uint128::new(1037345 + 100),
+            tvl_utoken: Uint128::new(1037345 + 100),
         }
     );
 }
@@ -750,7 +749,7 @@ fn submitting_batch() {
             id: 1,
             reconciled: false,
             total_shares: Uint128::new(92876),
-            uluna_unclaimed: Uint128::new(95197),
+            utoken_unclaimed: Uint128::new(95197),
             est_unbond_end_time: 2083601 // 269,201 + 1,814,400
         }
     );
@@ -760,12 +759,12 @@ fn submitting_batch() {
         res,
         StateResponse {
             total_ustake: Uint128::from(1012043u128),
-            total_uluna: Uint128::from(1037345u128),
+            total_utoken: Uint128::from(1037345u128),
             exchange_rate: Decimal::from_ratio(1037345u128, 1012043u128),
             unlocked_coins: vec![],
             unbonding: Uint128::from(95197u128),
             available: Uint128::zero(),
-            tvl_uluna: Uint128::from(95197u128 + 1037345u128),
+            tvl_utoken: Uint128::from(95197u128 + 1037345u128),
         },
     );
 }
@@ -780,29 +779,29 @@ fn reconciling() {
             id: 1,
             reconciled: true,
             total_shares: Uint128::new(92876),
-            uluna_unclaimed: Uint128::new(95197), // 1.025 Token per Stake
+            utoken_unclaimed: Uint128::new(95197), // 1.025 Token per Stake
             est_unbond_end_time: 10000,
         },
         Batch {
             id: 2,
             reconciled: false,
             total_shares: Uint128::new(1345),
-            uluna_unclaimed: Uint128::new(1385), // 1.030 Token per Stake
+            utoken_unclaimed: Uint128::new(1385), // 1.030 Token per Stake
             est_unbond_end_time: 20000,
         },
         Batch {
             id: 3,
             reconciled: false,
             total_shares: Uint128::new(1456),
-            uluna_unclaimed: Uint128::new(1506), // 1.035 Token per Stake
+            utoken_unclaimed: Uint128::new(1506), // 1.035 Token per Stake
             est_unbond_end_time: 30000,
         },
         Batch {
             id: 4,
             reconciled: false,
             total_shares: Uint128::new(1567),
-            uluna_unclaimed: Uint128::new(1629), // 1.040 Token per Stake
-            est_unbond_end_time: 40000,          // not yet finished unbonding, ignored
+            utoken_unclaimed: Uint128::new(1629), // 1.040 Token per Stake
+            est_unbond_end_time: 40000,           // not yet finished unbonding, ignored
         },
     ];
 
@@ -861,7 +860,7 @@ fn reconciling() {
             id: 2,
             reconciled: true,
             total_shares: Uint128::new(1345),
-            uluna_unclaimed: Uint128::new(1112), // 1385 - 273
+            utoken_unclaimed: Uint128::new(1112), // 1385 - 273
             est_unbond_end_time: 20000,
         }
     );
@@ -873,7 +872,7 @@ fn reconciling() {
             id: 3,
             reconciled: true,
             total_shares: Uint128::new(1456),
-            uluna_unclaimed: Uint128::new(1233), // 1506 - 273
+            utoken_unclaimed: Uint128::new(1233), // 1506 - 273
             est_unbond_end_time: 30000,
         }
     );
@@ -896,28 +895,28 @@ fn reconciling_even_when_everything_ok() {
             id: 1,
             reconciled: true,
             total_shares: Uint128::new(100000),
-            uluna_unclaimed: Uint128::new(100000),
+            utoken_unclaimed: Uint128::new(100000),
             est_unbond_end_time: 10000,
         },
         Batch {
             id: 2,
             reconciled: false,
             total_shares: Uint128::new(1000),
-            uluna_unclaimed: Uint128::new(1000),
+            utoken_unclaimed: Uint128::new(1000),
             est_unbond_end_time: 20000,
         },
         Batch {
             id: 3,
             reconciled: false,
             total_shares: Uint128::new(1500),
-            uluna_unclaimed: Uint128::new(1500),
+            utoken_unclaimed: Uint128::new(1500),
             est_unbond_end_time: 30000,
         },
         Batch {
             id: 4,
             reconciled: false,
             total_shares: Uint128::new(1500),
-            uluna_unclaimed: Uint128::new(1500),
+            utoken_unclaimed: Uint128::new(1500),
             est_unbond_end_time: 40000, // not yet finished unbonding, ignored
         },
     ];
@@ -951,7 +950,7 @@ fn reconciling_even_when_everything_ok() {
             id: 2,
             reconciled: true,
             total_shares: Uint128::new(1000),
-            uluna_unclaimed: Uint128::new(1000),
+            utoken_unclaimed: Uint128::new(1000),
             est_unbond_end_time: 20000,
         }
     );
@@ -963,7 +962,7 @@ fn reconciling_even_when_everything_ok() {
             id: 3,
             reconciled: true,
             total_shares: Uint128::new(1500),
-            uluna_unclaimed: Uint128::new(1500),
+            utoken_unclaimed: Uint128::new(1500),
             est_unbond_end_time: 30000,
         }
     );
@@ -1029,28 +1028,28 @@ fn withdrawing_unbonded() {
             id: 1,
             reconciled: true,
             total_shares: Uint128::new(92876),
-            uluna_unclaimed: Uint128::new(95197), // 1.025 Token per Stake
+            utoken_unclaimed: Uint128::new(95197), // 1.025 Token per Stake
             est_unbond_end_time: 10000,
         },
         Batch {
             id: 2,
             reconciled: true,
             total_shares: Uint128::new(34567),
-            uluna_unclaimed: Uint128::new(35604), // 1.030 Token per Stake
+            utoken_unclaimed: Uint128::new(35604), // 1.030 Token per Stake
             est_unbond_end_time: 20000,
         },
         Batch {
             id: 3,
             reconciled: false, // finished unbonding, but not reconciled; ignored
             total_shares: Uint128::new(45678),
-            uluna_unclaimed: Uint128::new(47276), // 1.035 Token per Stake
+            utoken_unclaimed: Uint128::new(47276), // 1.035 Token per Stake
             est_unbond_end_time: 20000,
         },
         Batch {
             id: 4,
             reconciled: true,
             total_shares: Uint128::new(56789),
-            uluna_unclaimed: Uint128::new(59060), // 1.040 Token per Stake
+            utoken_unclaimed: Uint128::new(59060), // 1.040 Token per Stake
             est_unbond_end_time: 30000, // reconciled, but not yet finished unbonding; ignored
         },
     ];
@@ -1125,7 +1124,7 @@ fn withdrawing_unbonded() {
             id: 1,
             reconciled: true,
             total_shares: Uint128::new(69420),
-            uluna_unclaimed: Uint128::new(71155),
+            utoken_unclaimed: Uint128::new(71155),
             est_unbond_end_time: 10000,
         }
     );
@@ -1500,28 +1499,28 @@ fn querying_previous_batches() {
             id: 1,
             reconciled: false,
             total_shares: Uint128::new(123),
-            uluna_unclaimed: Uint128::new(678),
+            utoken_unclaimed: Uint128::new(678),
             est_unbond_end_time: 10000,
         },
         Batch {
             id: 2,
             reconciled: true,
             total_shares: Uint128::new(234),
-            uluna_unclaimed: Uint128::new(789),
+            utoken_unclaimed: Uint128::new(789),
             est_unbond_end_time: 15000,
         },
         Batch {
             id: 3,
             reconciled: false,
             total_shares: Uint128::new(345),
-            uluna_unclaimed: Uint128::new(890),
+            utoken_unclaimed: Uint128::new(890),
             est_unbond_end_time: 20000,
         },
         Batch {
             id: 4,
             reconciled: true,
             total_shares: Uint128::new(456),
-            uluna_unclaimed: Uint128::new(999),
+            utoken_unclaimed: Uint128::new(999),
             est_unbond_end_time: 25000,
         },
     ];
@@ -1729,14 +1728,14 @@ fn querying_unbond_requests_details() {
             id: 1,
             reconciled: false,
             total_shares: Uint128::new(123),
-            uluna_unclaimed: Uint128::new(678),
+            utoken_unclaimed: Uint128::new(678),
             est_unbond_end_time: 10000,
         },
         Batch {
             id: 2,
             reconciled: false,
             total_shares: Uint128::new(234),
-            uluna_unclaimed: Uint128::new(789),
+            utoken_unclaimed: Uint128::new(789),
             est_unbond_end_time: 15000,
         },
     ];
@@ -1838,7 +1837,7 @@ fn computing_redelegations_for_removal() -> StdResult<()> {
         Delegation::new("dave", 10000),
     ];
     // Suppose Dave will be removed
-    // uluna_per_validator = (13000 + 12000 + 11000 + 10000) / 3 = 15333
+    // utoken_per_validator = (13000 + 12000 + 11000 + 10000) / 3 = 15333
     // remainder = 1
     // to Alice:   15333 + 1 - 13000 = 2334
     // to Bob:     15333 + 0 - 12000 = 3333
@@ -1872,7 +1871,7 @@ fn computing_redelegations_for_rebalancing() -> StdResult<()> {
         Delegation::new("dave", 40471),
         Delegation::new("evan", 2345),
     ];
-    // uluna_per_validator = (69420 + 88888 + 1234 + 40471 + 2345) / 4 = 40471
+    // utoken_per_validator = (69420 + 88888 + 1234 + 40471 + 2345) / 4 = 40471
     // remainer = 3
     // src_delegations:
     //  - alice:   69420 - (40471 + 3) = 28946

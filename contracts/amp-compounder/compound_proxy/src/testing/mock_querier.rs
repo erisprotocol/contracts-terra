@@ -8,6 +8,7 @@ use cosmwasm_std::{
     QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery,
 };
 use cw20::{BalanceResponse, Cw20QueryMsg, TokenInfoResponse};
+use eris_tests::UTOKEN_DENOM;
 use std::collections::HashMap;
 
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
@@ -141,7 +142,7 @@ impl WasmMockQuerier {
                                     },
                                     {
                                         AssetInfo::NativeToken {
-                                            denom: "uluna".to_string(),
+                                            denom: UTOKEN_DENOM.to_string(),
                                         }
                                     },
                                 ],
@@ -167,7 +168,7 @@ impl WasmMockQuerier {
                                     },
                                     {
                                         AssetInfo::NativeToken {
-                                            denom: "uluna".to_string(),
+                                            denom: UTOKEN_DENOM.to_string(),
                                         }
                                     },
                                 ],
@@ -188,7 +189,7 @@ impl WasmMockQuerier {
                                 asset_infos: vec![
                                     {
                                         AssetInfo::NativeToken {
-                                            denom: "uluna".to_string(),
+                                            denom: UTOKEN_DENOM.to_string(),
                                         }
                                     },
                                     {
@@ -214,7 +215,7 @@ impl WasmMockQuerier {
                                 asset_infos: vec![
                                     {
                                         AssetInfo::NativeToken {
-                                            denom: "uluna".to_string(),
+                                            denom: UTOKEN_DENOM.to_string(),
                                         }
                                     },
                                     {

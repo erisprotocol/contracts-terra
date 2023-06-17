@@ -7,6 +7,7 @@ use cosmwasm_std::{
     QueryRequest, SystemError, SystemResult, Timestamp, Uint128, WasmQuery,
 };
 use cw20::Cw20QueryMsg;
+use eris_tests::UTOKEN_DENOM;
 use stader::state::UndelegationInfo;
 
 use crate::lsds::stader::{BatchUndelegationRecord, QueryBatchUndelegationResponse};
@@ -81,13 +82,13 @@ impl CustomQuerier {
     //         .map(|d| FullDelegation {
     //             delegator: Addr::unchecked(MOCK_CONTRACT_ADDR),
     //             validator: d.validator.clone(),
-    //             amount: Coin::new(d.amount, "uluna"),
-    //             can_redelegate: Coin::new(0, "uluna"),
+    //             amount: Coin::new(d.amount, UTOKEN_DENOM),
+    //             can_redelegate: Coin::new(0, UTOKEN_DENOM),
     //             accumulated_rewards: vec![],
     //         })
     //         .collect::<Vec<_>>();
 
-    //     self.staking_querier = StakingQuerier::new("uluna", &[], &fds);
+    //     self.staking_querier = StakingQuerier::new(UTOKEN_DENOM, &[], &fds);
     // }
 
     pub fn handle_query(&self, request: &QueryRequest<Empty>) -> QuerierResult {
@@ -181,7 +182,7 @@ impl CustomQuerier {
                                 id,
                                 reconciled: id < 2,
                                 total_shares: Uint128::from(1000u128),
-                                uluna_unclaimed: Uint128::from(1100u128),
+                                utoken_unclaimed: Uint128::from(1100u128),
                                 est_unbond_end_time: 100,
                             })
                             .into(),
@@ -212,12 +213,12 @@ impl CustomQuerier {
                         eris::hub::QueryMsg::State {} => SystemResult::Ok(
                             to_binary(&eris::hub::StateResponse {
                                 total_ustake: Uint128::from(1000u128),
-                                total_uluna: Uint128::from(1100u128),
+                                total_utoken: Uint128::from(1100u128),
                                 exchange_rate: Decimal::from_str("1.1").unwrap(),
                                 unlocked_coins: vec![],
                                 unbonding: Uint128::new(0),
                                 available: Uint128::new(0),
-                                tvl_uluna: Uint128::new(1100),
+                                tvl_utoken: Uint128::new(1100),
                             })
                             .into(),
                         ),
@@ -333,6 +334,6 @@ impl CustomQuerier {
     }
 
     pub(crate) fn set_bank_balance(&mut self, amount: u128) {
-        self.set_bank_balances(&[coin(amount, "utoken")]);
+        self.set_bank_balances(&[coin(amount, UTOKEN_DENOM)]);
     }
 }

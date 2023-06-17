@@ -1,6 +1,5 @@
 use cosmwasm_std::{Addr, BankMsg, Coin, CosmosMsg, StakingMsg};
-
-use crate::constants::CONTRACT_DENOM;
+use eris::constants::CONTRACT_DENOM;
 
 #[derive(Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
