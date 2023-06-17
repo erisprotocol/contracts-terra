@@ -738,3 +738,180 @@ fn check_execution_source_wallet_deposit_collateral_same_asset() {
 
     assert_eq!(res.messages[2].msg, msgs.to_authz_msg(user(), &mock_env()).unwrap());
 }
+
+#[test]
+fn check_execution_source_claim_deposit_arbvault() {
+    let mut deps = setup_test();
+
+    let interval_s = 6 * HOUR;
+    let execution = Execution {
+        destination: eris::ampz::DestinationState::DepositArbVault {
+            receiver: None,
+        },
+        schedule: Schedule {
+            interval_s,
+            start: None,
+        },
+        user: "user".into(),
+        source: eris::ampz::Source::Claim,
+    };
+
+    let finish_execution = CallbackMsg::FinishExecution {
+        destination: eris::ampz::DestinationRuntime::DepositArbVault {
+            receiver: None,
+        },
+        executor: Addr::unchecked("controller"),
+    };
+
+    execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(DAY),
+        mock_info("user", &[]),
+        ExecuteMsg::AddExecution {
+            overwrite: false,
+            execution,
+        },
+    )
+    .unwrap();
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(DAY),
+        mock_info("controller", &[]),
+        ExecuteMsg::Execute {
+            id: Uint128::new(1),
+        },
+    )
+    .unwrap();
+
+    // claim + deposit + finish
+    assert_eq!(res.messages.len(), 3);
+    assert_eq!(
+        res.messages[0].msg,
+        MsgExec {
+            grantee: MOCK_CONTRACT_ADDR.to_string(),
+            msgs: vec![MsgWithdrawDelegatorReward {
+                delegator_address: "user".to_string(),
+                validator_address: "val1".to_string(),
+                special_fields: SpecialFields::default()
+            }
+            .to_any()
+            .unwrap()],
+            special_fields: SpecialFields::default()
+        }
+        .to_authz_cosmos_msg()
+    );
+
+    assert_eq!(
+        res.messages[1].msg,
+        CallbackMsg::AuthzDeposit {
+            user_balance_start: vec![native_asset(CONTRACT_DENOM.to_string(), Uint128::new(0))],
+            max_amount: None
+        }
+        .into_cosmos_msg(&Addr::unchecked(MOCK_CONTRACT_ADDR), 1, &user())
+        .unwrap()
+    );
+
+    assert_eq!(
+        res.messages[2].msg,
+        finish_execution.into_cosmos_msg(&Addr::unchecked(MOCK_CONTRACT_ADDR), 1, &user()).unwrap()
+    );
+}
+
+#[test]
+fn check_execution_source_wallet_cw20_deposit_arbvault() {
+    let mut deps = setup_test();
+    deps.querier.set_cw20_balance("user", "astro", 50);
+
+    let interval_s = 6 * HOUR;
+    let execution = Execution {
+        destination: eris::ampz::DestinationState::DepositArbVault {
+            receiver: None,
+        },
+        schedule: Schedule {
+            interval_s,
+            start: None,
+        },
+        user: "user".into(),
+        source: eris::ampz::Source::Wallet {
+            over: token_asset(astro(), Uint128::new(100)),
+            max_amount: Some(Uint128::new(10)),
+        },
+    };
+
+    execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(DAY),
+        mock_info("user", &[]),
+        ExecuteMsg::AddExecution {
+            overwrite: false,
+            execution,
+        },
+    )
+    .unwrap();
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(DAY),
+        mock_info("controller", &[]),
+        ExecuteMsg::Execute {
+            id: Uint128::new(1),
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(res, ContractError::BalanceLessThanThreshold {});
+
+    deps.querier.set_cw20_balance("user", "astro", 105);
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(DAY),
+        mock_info("controller", &[]),
+        ExecuteMsg::Execute {
+            id: Uint128::new(1),
+        },
+    )
+    .unwrap();
+
+    // deposit + swap + finish
+    assert_eq!(
+        res.messages[0].msg,
+        CallbackMsg::AuthzDeposit {
+            user_balance_start: vec![token_asset(astro(), Uint128::new(100))],
+            max_amount: Some(vec![token_asset(astro(), Uint128::new(10))])
+        }
+        .into_cosmos_msg(&Addr::unchecked(MOCK_CONTRACT_ADDR), 1, &user())
+        .unwrap()
+    );
+
+    deps.querier.set_cw20_balance("user", "astro", 100);
+    deps.querier.set_cw20_balance(MOCK_CONTRACT_ADDR, "astro", 5);
+
+    assert_eq!(
+        res.messages[1].msg,
+        CallbackMsg::Swap {
+            asset_infos: vec![token_asset_info(astro())],
+            into: native_asset_info(CONTRACT_DENOM.into())
+        }
+        .into_cosmos_msg(&Addr::unchecked(MOCK_CONTRACT_ADDR), 1, &user())
+        .unwrap()
+    );
+
+    deps.querier.set_cw20_balance(MOCK_CONTRACT_ADDR, "astro", 0);
+    deps.querier.bank_querier.update_balance(MOCK_CONTRACT_ADDR, coins(5, CONTRACT_DENOM));
+
+    assert_eq!(
+        res.messages[2].msg,
+        CallbackMsg::FinishExecution {
+            destination: eris::ampz::DestinationRuntime::DepositArbVault {
+                receiver: None,
+            },
+            executor: Addr::unchecked("controller"),
+        }
+        .into_cosmos_msg(&Addr::unchecked(MOCK_CONTRACT_ADDR), 1, &user())
+        .unwrap()
+    );
+
+    finish_amplifier(&mut deps, "controller");
+}

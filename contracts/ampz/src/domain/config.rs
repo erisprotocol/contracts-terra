@@ -1,6 +1,6 @@
 use cosmwasm_std::{DepsMut, Env, MessageInfo, Response, StdError, StdResult};
 use eris::{
-    adapters::{compounder::Compounder, farm::Farm, hub::Hub},
+    adapters::{arb_vault::ArbVault, compounder::Compounder, farm::Farm, hub::Hub},
     ampz::ExecuteMsg,
 };
 use itertools::Itertools;
@@ -26,6 +26,7 @@ pub fn update_config(
 
             fee,
             hub,
+            arb_vault,
             capapult,
         } => {
             let state = State::default();
@@ -81,8 +82,15 @@ pub fn update_config(
             if let Some(zapper) = zapper {
                 state.zapper.save(deps.storage, &Compounder(deps.api.addr_validate(&zapper)?))?;
             }
+
             if let Some(hub) = hub {
                 state.hub.save(deps.storage, &Hub(deps.api.addr_validate(&hub)?))?;
+            }
+
+            if let Some(arb_vault) = arb_vault {
+                state
+                    .arb_vault
+                    .save(deps.storage, &ArbVault(deps.api.addr_validate(&arb_vault)?))?;
             }
 
             if let Some(fee) = fee {

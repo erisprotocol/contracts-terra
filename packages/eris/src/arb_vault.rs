@@ -179,6 +179,8 @@ pub enum ExecuteMsg {
         disable_lsd: Option<String>,
         // removes a LSD (only when nothing is unbonding and withdrawable)
         remove_lsd: Option<String>,
+        // force removes a LSD (DANGER can be executed even when funds are unbonding / withdrawable)
+        force_remove_lsd: Option<String>,
 
         fee_config: Option<FeeConfig<String>>,
         set_whitelist: Option<Vec<String>>,

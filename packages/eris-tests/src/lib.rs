@@ -1,6 +1,7 @@
 pub mod arb_contract;
 pub mod base;
 mod custom_gov;
+pub mod model;
 use std::str::FromStr;
 
 use anyhow::{Error, Ok, Result};
@@ -14,19 +15,23 @@ use eris::governance_helper::{get_period, EPOCH_START, WEEK};
 pub mod gov_helper;
 
 pub fn mock_app() -> App {
-    mock_app_validators(None)
+    mock_app_validators(None, None, None)
 }
 
-pub fn mock_app_validators(validators: Option<u64>) -> App {
+pub fn mock_app_validators(
+    validators: Option<u64>,
+    current_block: Option<u64>,
+    val_start: Option<u64>,
+) -> App {
     let mut env = mock_env();
-    env.block.time = Timestamp::from_seconds(EPOCH_START);
+    env.block.time = Timestamp::from_seconds(current_block.unwrap_or(EPOCH_START));
     let api = MockApi::default();
     let bank = BankKeeper::new();
     let storage = MockStorage::new();
     let staking = StakeKeeper::new();
 
     let block = BlockInfo {
-        time: Timestamp::from_seconds(0),
+        time: Timestamp::from_seconds(val_start.unwrap_or(EPOCH_START)),
         height: 0,
         chain_id: "".to_string(),
     };

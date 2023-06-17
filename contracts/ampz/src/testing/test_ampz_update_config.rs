@@ -45,7 +45,8 @@ fn check_default_config() {
                 overseer: "capapult_overseer".into(),
                 custody: "capapult_custody".into(),
                 stable_cw: "solid".into(),
-            }
+            },
+            arb_vault: "arb_vault".into(),
         }
     );
 }
@@ -75,6 +76,7 @@ fn check_update_config() {
             }),
             capapult: None,
             hub: Some("new_hub".into()),
+            arb_vault: Some("new_arb_vault".into()),
         },
     )
     .unwrap_err();
@@ -102,6 +104,7 @@ fn check_update_config() {
             }),
             capapult: None,
             hub: Some("new_hub".into()),
+            arb_vault: Some("new_arb_vault".into()),
         },
     )
     .unwrap();
@@ -130,7 +133,8 @@ fn check_update_config() {
                 overseer: "capapult_overseer".into(),
                 custody: "capapult_custody".into(),
                 stable_cw: "solid".into(),
-            }
+            },
+            arb_vault: "new_arb_vault".into(),
         }
     );
 
@@ -155,6 +159,7 @@ fn check_update_config() {
             }),
             capapult: None,
             hub: Some("new_hub".into()),
+            arb_vault: Some("new_arb_vault".into()),
         },
     )
     .unwrap();
@@ -183,7 +188,8 @@ fn check_update_config() {
                 overseer: "capapult_overseer".into(),
                 custody: "capapult_custody".into(),
                 stable_cw: "solid".into(),
-            }
+            },
+            arb_vault: "new_arb_vault".into(),
         }
     );
 }
@@ -205,6 +211,7 @@ fn update_config_unauthorized() {
             astroport: None,
             fee: None,
             hub: None,
+            arb_vault: None,
             capapult: None,
         },
     )

@@ -4,6 +4,7 @@ use astroport::asset::{native_asset, AssetInfo, AssetInfoExt};
 use cosmwasm_std::{attr, Decimal, DepsMut, Env, MessageInfo, Response};
 use eris::arb_vault::{CallbackMsg, ExchangeHistory};
 use eris::constants::DAY;
+use eris::CustomResponse;
 
 use crate::error::{ContractError, ContractResult};
 use crate::extensions::{BalancesEx, ConfigEx};
@@ -96,12 +97,14 @@ pub fn execute_assert_result(
     let fee_percent = fee_config.protocol_performance_fee;
     let fee_amount = profit * fee_percent;
 
-    let (fee_msg, fee_attributes) = if new_balances.vault_takeable >= fee_amount {
+    let (fee_msg, fee_attributes) = if fee_amount.is_zero() {
+        (None, vec![])
+    } else if new_balances.vault_takeable >= fee_amount {
         // send fees in utoken if takeable allows it.
         let utoken = native_asset(config.utoken, fee_amount);
         let fee_msg = utoken.into_msg(&deps.querier, fee_config.protocol_fee_contract)?;
 
-        (fee_msg, vec![])
+        (Some(fee_msg), vec![])
     } else {
         // send fees in xtoken otherwise
         let fee_xamount = fee_amount * Decimal::one().div(active_lsd_balance.xfactor);
@@ -113,7 +116,7 @@ pub fn execute_assert_result(
             .into_msg(&deps.querier, fee_config.protocol_fee_contract)?;
 
         (
-            fee_msg,
+            Some(fee_msg),
             vec![
                 attr("fee_xamount", fee_xamount),
                 attr("fee_xfactor", active_lsd_balance.xfactor.to_string()),
@@ -137,7 +140,7 @@ pub fn execute_assert_result(
     )?;
 
     Ok(Response::new()
-        .add_message(fee_msg)
+        .add_optional_message(fee_msg)
         .add_attributes(vec![
             attr("action", "arb/assert_result"),
             attr("type", active_lsd_adapter.name.clone()),

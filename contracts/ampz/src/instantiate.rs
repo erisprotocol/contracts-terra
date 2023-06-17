@@ -1,7 +1,7 @@
 use cosmwasm_std::{DepsMut, Env, Response, StdResult};
 use cw2::set_contract_version;
 use eris::{
-    adapters::{compounder::Compounder, farm::Farm, hub::Hub},
+    adapters::{arb_vault::ArbVault, compounder::Compounder, farm::Farm, hub::Hub},
     ampz::InstantiateMsg,
     helper::dedupe,
 };
@@ -23,6 +23,9 @@ pub fn exec_instantiate(deps: DepsMut, _env: Env, msg: InstantiateMsg) -> StdRes
 
     state.owner.save(deps.storage, &deps.api.addr_validate(&msg.owner)?)?;
     state.hub.save(deps.storage, &Hub(deps.api.addr_validate(msg.hub.as_str())?))?;
+    state
+        .arb_vault
+        .save(deps.storage, &ArbVault(deps.api.addr_validate(msg.arb_vault.as_str())?))?;
 
     let mut farms = msg.farms;
     dedupe(&mut farms);

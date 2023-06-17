@@ -8,6 +8,7 @@ use cosmwasm_std::{
     SystemError, Uint128, WasmQuery,
 };
 use cw20::Cw20QueryMsg;
+use eris::governance_helper::get_s_from_period;
 use eris::voting_escrow::{LockInfoResponse, VotingPowerResponse};
 
 use super::cw20_querier::Cw20Querier;
@@ -71,6 +72,7 @@ impl CustomQuerier {
                 coefficient: Decimal::zero(),
                 start: 0,
                 end: 10,
+                end_s: get_s_from_period(10),
                 slope: Uint128::new(1),
                 fixed_amount: Uint128::new(fixed),
                 voting_power: Uint128::new(dynamic),

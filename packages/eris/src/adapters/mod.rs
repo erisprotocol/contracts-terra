@@ -1,4 +1,5 @@
 pub mod ampz;
+pub mod arb_vault;
 pub mod asset;
 pub mod compounder;
 pub mod factory;

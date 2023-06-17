@@ -1,7 +1,9 @@
 use cosmwasm_std::{Addr, Order, StdResult, Storage};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 use eris::{
-    adapters::{compounder::Compounder, farm::Farm, generator::Generator, hub::Hub},
+    adapters::{
+        arb_vault::ArbVault, compounder::Compounder, farm::Farm, generator::Generator, hub::Hub,
+    },
     ampz::{AstroportConfig, CapapultConfig, Execution, FeeConfig},
 };
 
@@ -24,6 +26,8 @@ pub(crate) struct State<'a> {
 
     // address of the amplifier hub
     pub hub: Item<'a, Hub>,
+    // address of the arb vault
+    pub arb_vault: Item<'a, ArbVault>,
     // allowed farms to deposit
     pub farms: Item<'a, Vec<Farm>>,
 
@@ -57,6 +61,7 @@ impl Default for State<'static> {
             new_owner: Item::new("new_owner"),
             farms: Item::new("farms"),
             hub: Item::new("hub"),
+            arb_vault: Item::new("arb_vault"),
             astroport: Item::new("astro_generator"),
             capapult: Item::new("capapult"),
 

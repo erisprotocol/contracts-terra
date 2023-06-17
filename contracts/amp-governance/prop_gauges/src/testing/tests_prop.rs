@@ -5,7 +5,7 @@ use cosmwasm_std::{
     to_binary, Addr, CosmosMsg, Decimal, OwnedDeps, SubMsg, Uint128, VoteOption, WasmMsg,
 };
 
-use eris::governance_helper::{get_period, EPOCH_START, WEEK};
+use eris::governance_helper::{get_period, get_s_from_period, EPOCH_START, WEEK};
 use eris::prop_gauges::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, PropDetailResponse, PropInfo, PropUserInfo,
     PropVotersResponse, PropsResponse, QueryMsg, UserPropResponseItem, UserVotesResponse,
@@ -911,6 +911,7 @@ fn update_vote() {
                 coefficient: Decimal::zero(),
                 start: 0,
                 end: 10,
+                end_s: get_s_from_period(10),
                 slope: Uint128::new(1),
                 fixed_amount: Uint128::new(10000),
                 voting_power: Uint128::new(10),
@@ -932,6 +933,7 @@ fn update_vote() {
                 coefficient: Decimal::zero(),
                 start: 0,
                 end: 10,
+                end_s: get_s_from_period(10),
                 slope: Uint128::new(1),
                 fixed_amount: Uint128::new(10000),
                 voting_power: Uint128::new(10),

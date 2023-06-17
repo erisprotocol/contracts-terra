@@ -20,7 +20,9 @@ use cw20_base::contract::{
 };
 use cw20_base::state::{MinterData, TokenInfo, LOGO, MARKETING_INFO, TOKEN_INFO};
 
-use eris::governance_helper::{get_period, get_periods_count, EPOCH_START, MIN_LOCK_PERIODS, WEEK};
+use eris::governance_helper::{
+    get_period, get_periods_count, get_s_from_period, EPOCH_START, MIN_LOCK_PERIODS, WEEK,
+};
 use eris::helpers::slope::{adjust_vp_and_slope, calc_coefficient};
 use eris::voting_escrow::{
     BlacklistedVotersResponse, ConfigResponse, Cw20HookMsg, ExecuteMsg, InstantiateMsg,
@@ -1032,6 +1034,7 @@ fn get_user_lock_info(
             coefficient,
             start: lock.start,
             end: lock.end,
+            end_s: get_s_from_period(lock.end),
             voting_power,
             fixed_amount,
             slope,

@@ -33,6 +33,11 @@ impl ExecutionExt for Execution {
             } => {
                 validate_receiver(deps.api, receiver)?;
             },
+            DestinationState::DepositArbVault {
+                receiver,
+            } => {
+                validate_receiver(deps.api, receiver)?;
+            },
             DestinationState::DepositFarm {
                 farm,
                 receiver,

@@ -236,6 +236,9 @@ pub struct LockInfoResponse {
     pub start: u64,
     /// End time for the vAMP position decay
     pub end: u64,
+
+    /// End time for the vAMP position decay in unix seconds
+    pub end_s: u64,
     /// Slope at which a staker's vAMP balance decreases over time
     pub slope: Uint128,
 

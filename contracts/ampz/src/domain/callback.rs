@@ -136,6 +136,34 @@ pub fn callback(
                     msgs.push(bond_msg);
                 },
 
+                DestinationRuntime::DepositArbVault {
+                    receiver,
+                } => {
+                    attrs.push(attr("type", "deposit_arb_vault"));
+                    let main_token = native_asset_info(CONTRACT_DENOM.to_string());
+                    let amount = main_token.query_pool(&deps.querier, env.contract.address)?;
+                    let balances = vec![main_token.with_balance(amount)];
+
+                    if amount.is_zero() {
+                        return Err(ContractError::NothingToDeposit {});
+                    }
+
+                    let balances =
+                        pay_fees(&state, &deps, &mut msgs, &mut attrs, balances, executor, &user)?;
+
+                    // always 1 result if it inputs a non-zero token
+                    let balance = balances.first().unwrap();
+
+                    let receiver: String = receiver.unwrap_or(user).into();
+                    let arb_vault = state.arb_vault.load(deps.storage)?;
+                    let deposit_msg = arb_vault.deposit_msg(
+                        CONTRACT_DENOM,
+                        balance.amount.u128(),
+                        Some(receiver),
+                    )?;
+                    msgs.push(deposit_msg);
+                },
+
                 DestinationRuntime::DepositFarm {
                     asset_infos,
                     farm,

@@ -133,6 +133,7 @@ pub(super) fn setup_test() -> OwnedDeps<MockStorage, MockApi, CustomQuerier> {
                 custody: "capapult_custody".into(),
                 stable_cw: "solid".into(),
             },
+            arb_vault: "arb_vault".to_string(),
         },
     )
     .unwrap();
