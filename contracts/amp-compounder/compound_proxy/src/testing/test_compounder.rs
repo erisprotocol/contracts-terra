@@ -1,5 +1,5 @@
 use astroport::asset::{
-    native_asset, native_asset_info, token_asset, token_asset_info, Asset, AssetInfo, PairInfo,
+    native_asset, native_asset_info, token_asset, token_asset_info, Asset, AssetInfo,
 };
 use astroport::pair::{
     Cw20HookMsg as AstroportPairCw20HookMsg, ExecuteMsg as AstroportPairExecuteMsg,
@@ -14,7 +14,7 @@ use eris::adapters::asset::AssetEx;
 use eris::adapters::pair::Pair;
 use eris::compound_proxy::{
     CallbackMsg, CompoundSimulationResponse, ExecuteMsg, InstantiateMsg, LpConfig, LpInit,
-    QueryMsg, RouteDelete, RouteInit, RouteResponseItem, RouteTypeResponseItem,
+    PairInfo, PairType, QueryMsg, RouteDelete, RouteInit, RouteResponseItem, RouteTypeResponseItem,
 };
 use proptest::std_facade::vec;
 
@@ -44,12 +44,14 @@ fn init_contract(
                 pair_contract: pair_contract.unwrap_or_else(|| "pair_contract".to_string()),
                 commission_bps: 30,
                 wanted_token: wanted_token.unwrap_or_else(uluna),
+                lp_type: None,
             },
             LpInit {
                 slippage_tolerance: Decimal::percent(1),
                 pair_contract: "pair_astro_token".to_string(),
                 commission_bps: 30,
                 wanted_token: astro(),
+                lp_type: None,
             },
         ],
         routes: vec![
@@ -113,7 +115,7 @@ fn proper_initialization() -> StdResult<()> {
             asset_infos: vec![token(), uluna()],
             contract_addr: Addr::unchecked("pair_contract"),
             liquidity_token: Addr::unchecked("liquidity_token"),
-            pair_type: astroport::factory::PairType::Xyk {}
+            pair_type: Some(PairType::Xyk {})
         }
     );
 
@@ -131,7 +133,7 @@ fn proper_initialization() -> StdResult<()> {
                     asset_infos: vec![astro(), token()],
                     contract_addr: Addr::unchecked("pair_astro_token"),
                     liquidity_token: Addr::unchecked("astro_token_lp"),
-                    pair_type: astroport::factory::PairType::Xyk {}
+                    pair_type: Some(PairType::Xyk {})
                 },
                 commission_bps: 30,
                 slippage_tolerance: Decimal::percent(1),
@@ -142,7 +144,7 @@ fn proper_initialization() -> StdResult<()> {
                     asset_infos: vec![token(), uluna()],
                     contract_addr: Addr::unchecked("pair_contract"),
                     liquidity_token: Addr::unchecked("liquidity_token"),
-                    pair_type: astroport::factory::PairType::Xyk {}
+                    pair_type: Some(PairType::Xyk {})
                 },
                 commission_bps: 30,
                 slippage_tolerance: Decimal::percent(1),
@@ -255,6 +257,7 @@ fn add_remove_lps() -> StdResult<()> {
                 pair_contract: "pair_astro_token".to_string(),
                 commission_bps: 50,
                 wanted_token: astro(),
+                lp_type: None,
             }]),
             delete_lps: None,
             insert_routes: None,
@@ -278,7 +281,7 @@ fn add_remove_lps() -> StdResult<()> {
                     asset_infos: vec![astro(), token()],
                     contract_addr: Addr::unchecked("pair_astro_token"),
                     liquidity_token: Addr::unchecked("astro_token_lp"),
-                    pair_type: astroport::factory::PairType::Xyk {}
+                    pair_type: Some(PairType::Xyk {})
                 },
                 commission_bps: 50,
                 slippage_tolerance: Decimal::percent(1),
@@ -289,7 +292,7 @@ fn add_remove_lps() -> StdResult<()> {
                     asset_infos: vec![token(), uluna()],
                     contract_addr: Addr::unchecked("pair_contract"),
                     liquidity_token: Addr::unchecked("liquidity_token"),
-                    pair_type: astroport::factory::PairType::Xyk {}
+                    pair_type: Some(PairType::Xyk {})
                 },
                 commission_bps: 30,
                 slippage_tolerance: Decimal::percent(1),
@@ -343,7 +346,7 @@ fn add_remove_lps() -> StdResult<()> {
                 asset_infos: vec![token(), uluna()],
                 contract_addr: Addr::unchecked("pair_contract"),
                 liquidity_token: Addr::unchecked("liquidity_token"),
-                pair_type: astroport::factory::PairType::Xyk {}
+                pair_type: Some(PairType::Xyk {})
             },
             commission_bps: 30,
             slippage_tolerance: Decimal::percent(1),
@@ -510,6 +513,65 @@ fn add_remove_routes() -> StdResult<()> {
                 }
             }
         ]
+    );
+
+    Ok(())
+}
+
+#[allow(clippy::redundant_clone)]
+#[test]
+fn add_tfm_route() -> StdResult<()> {
+    let mut deps = init_contract(None, None);
+    let env = mock_env();
+
+    let owner = mock_info("owner", &[]);
+
+    execute(
+        deps.as_mut(),
+        env.clone(),
+        owner.clone(),
+        ExecuteMsg::UpdateConfig {
+            factory: None,
+            remove_factory: None,
+            upsert_lps: None,
+            delete_lps: None,
+            delete_routes: None,
+            insert_routes: Some(vec![RouteInit::Path {
+                router: "router_tfm".to_string(),
+                router_type: RouterType::TFM {
+                    route: vec![
+                        ("whitewhale".to_string(), Addr::unchecked("pair_ww")),
+                        ("astroport".to_string(), Addr::unchecked("pair_astro")),
+                    ],
+                },
+                route: vec![whale(), usdc(), astro()],
+            }]),
+            default_max_spread: None,
+        },
+    )
+    .unwrap();
+
+    let msg = QueryMsg::GetRoute {
+        from: astro(),
+        to: whale(),
+    };
+    let route: RouteResponseItem = from_binary(&query(deps.as_ref(), env.clone(), msg)?)?;
+
+    assert_eq!(
+        route,
+        RouteResponseItem {
+            key: ("astro".to_string(), "whale".to_string()),
+            route_type: RouteTypeResponseItem::Path {
+                router: "router_tfm".to_string(),
+                router_type: RouterType::TFM {
+                    route: vec![
+                        ("astroport".to_string(), Addr::unchecked("pair_astro")),
+                        ("whitewhale".to_string(), Addr::unchecked("pair_ww")),
+                    ]
+                },
+                route: vec!["astro".to_string(), "ibc/usdc".to_string(), "whale".to_string()]
+            }
+        }
     );
 
     Ok(())
@@ -839,6 +901,9 @@ fn compound_failed() -> Result<(), ContractError> {
 fn astro() -> AssetInfo {
     token_asset_info(Addr::unchecked("astro"))
 }
+fn whale() -> AssetInfo {
+    token_asset_info(Addr::unchecked("whale"))
+}
 fn astro_amount(amount: u128) -> Asset {
     token_asset(Addr::unchecked("astro"), Uint128::new(amount))
 }
@@ -860,6 +925,9 @@ fn uluna() -> AssetInfo {
 }
 fn uluna_amount(amount: u128) -> Asset {
     native_asset("uluna".to_string(), Uint128::new(amount))
+}
+fn usdc() -> AssetInfo {
+    native_asset_info("ibc/usdc".to_string())
 }
 fn ibc() -> AssetInfo {
     native_asset_info("ibc/token".to_string())

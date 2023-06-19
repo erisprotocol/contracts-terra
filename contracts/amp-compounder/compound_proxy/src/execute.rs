@@ -4,14 +4,13 @@ use crate::state::{validate_slippage, State};
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 
-use astroport::factory::PairType;
 use cosmwasm_std::{
     Addr, Coin, CosmosMsg, Decimal, Decimal256, DepsMut, Env, Isqrt, MessageInfo, QuerierWrapper,
     Response, StdError, StdResult, Uint128, Uint256,
 };
 use cw20::Expiration;
 use eris::adapters::factory::Factory;
-use eris::compound_proxy::{CallbackMsg, ExecuteMsg, LpConfig};
+use eris::compound_proxy::{CallbackMsg, ExecuteMsg, LpConfig, PairType};
 
 use astroport::asset::{Asset, AssetInfo, AssetInfoExt};
 use eris::adapters::asset::AssetEx;
@@ -230,7 +229,7 @@ fn optimal_swap(
     let mut messages: Vec<CosmosMsg> = vec![];
 
     match lp_config.pair_info.pair_type {
-        PairType::Stable {} => {
+        Some(PairType::Stable {}) => {
             //Do nothing for stable pair
         },
         _ => {

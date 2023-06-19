@@ -1,7 +1,9 @@
-use astroport::asset::{Asset, AssetInfo, PairInfo};
+use astroport::asset::{Asset, AssetInfo};
 use cosmwasm_std::{Addr, CosmosMsg, Decimal, QuerierWrapper, StdResult};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+
+use crate::compound_proxy::PairInfo;
 
 use super::pair::Pair;
 
@@ -17,7 +19,8 @@ impl Factory {
         max_spread: Decimal,
         to: Option<String>,
     ) -> StdResult<CosmosMsg> {
-        let pair_info = self.get_pair(querier, offer_asset.info.clone(), wanted.clone())?;
+        let pair_info: PairInfo =
+            self.get_pair(querier, offer_asset.info.clone(), wanted.clone())?;
         Pair(pair_info.contract_addr).swap_msg(offer_asset, None, Some(max_spread), to)
     }
 

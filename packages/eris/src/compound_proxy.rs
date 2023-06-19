@@ -1,6 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 
-use astroport::asset::{Asset, AssetInfo, PairInfo};
+use astroport::asset::{Asset, AssetInfo};
 
 use cosmwasm_std::{to_binary, Addr, CosmosMsg, Decimal, StdResult, Uint128, WasmMsg};
 
@@ -29,6 +29,66 @@ pub struct LpInit {
     pub slippage_tolerance: Decimal,
     /// Token used for providing liquidity
     pub wanted_token: AssetInfo,
+
+    // default: astroport
+    pub lp_type: Option<LpType>,
+}
+
+/// This structure stores the main parameters for an Astroport pair
+#[cw_serde]
+pub struct PairInfo {
+    /// Asset information for the assets in the pool
+    pub asset_infos: Vec<AssetInfo>,
+    /// Pair contract address
+    pub contract_addr: Addr,
+    /// Pair LP token address
+    pub liquidity_token: Addr,
+    /// The pool type (xyk, stableswap etc) available in [`PairType`]
+    pub pair_type: Option<PairType>,
+}
+impl PairInfo {
+    /// Returns the balance for each asset in the pool.
+    /// ## Params
+    /// * **self** is the type of the caller object
+    ///
+    /// * **querier** is an object of type [`QuerierWrapper`]
+    ///
+    /// * **contract_addr** is pair's pool address.
+    pub fn query_pools(
+        &self,
+        querier: &cosmwasm_std::QuerierWrapper,
+        contract_addr: impl Into<String>,
+    ) -> StdResult<Vec<Asset>> {
+        let contract_addr = contract_addr.into();
+        self.asset_infos
+            .iter()
+            .map(|asset_info| {
+                Ok(Asset {
+                    info: asset_info.clone(),
+                    amount: asset_info.query_pool(querier, &contract_addr)?,
+                })
+            })
+            .collect()
+    }
+}
+
+#[cw_serde]
+pub enum PairType {
+    /// XYK pair type
+    Xyk {},
+    /// Stable pair type
+    Stable {},
+    /// Custom pair type
+    Custom(String),
+
+    /// XYK pair type
+    XykWhiteWhale {},
+}
+
+#[cw_serde]
+pub enum LpType {
+    Astroport,
+    WhiteWhale,
 }
 
 #[cw_serde]
@@ -189,6 +249,12 @@ pub enum QueryMsg {
     GetRoutes {
         start_after: Option<(AssetInfo, AssetInfo)>,
         limit: Option<u32>,
+    },
+    // return a single route
+    #[returns(RouteResponseItem)]
+    GetRoute {
+        from: AssetInfo,
+        to: AssetInfo,
     },
 
     #[returns(SupportsSwapResponse)]

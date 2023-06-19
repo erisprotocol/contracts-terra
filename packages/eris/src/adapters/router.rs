@@ -13,6 +13,27 @@ pub enum RouterType {
     AstroSwap,
     TerraSwap,
     TokenSwap,
+    TFM {
+        route: Vec<(String, Addr)>,
+    },
+}
+
+impl RouterType {
+    pub fn reverse(self) -> RouterType {
+        match self {
+            RouterType::AstroSwap => self,
+            RouterType::TerraSwap => self,
+            RouterType::TokenSwap => self,
+            RouterType::TFM {
+                mut route,
+            } => {
+                route.reverse();
+                RouterType::TFM {
+                    route,
+                }
+            },
+        }
+    }
 }
 
 impl RouterType {
@@ -23,7 +44,7 @@ impl RouterType {
         if let Some((first, tails)) = asset_infos.split_first() {
             let mut swap_operations: Vec<SwapOperation> = vec![];
             let mut previous = first.clone();
-            for asset_info in tails {
+            for (index, asset_info) in tails.iter().enumerate() {
                 let offer_asset_info = previous;
                 let ask_asset_info = asset_info.clone();
                 let op = match self {
@@ -38,6 +59,17 @@ impl RouterType {
                     RouterType::TokenSwap => SwapOperation::TokenSwap {
                         offer_asset_info,
                         ask_asset_info,
+                    },
+                    RouterType::TFM {
+                        route,
+                    } => {
+                        let relevant = &route[index];
+                        SwapOperation::TFMSwap {
+                            offer_asset_info,
+                            ask_asset_info,
+                            factory_name: relevant.0.clone(),
+                            pair_contract: relevant.1.clone(),
+                        }
                     },
                 };
                 swap_operations.push(op);
@@ -65,25 +97,12 @@ pub enum SwapOperation {
         offer_asset_info: AssetInfo,
         ask_asset_info: AssetInfo,
     },
-}
-
-impl SwapOperation {
-    pub fn get_offer_asset_info(&self) -> AssetInfo {
-        match self {
-            SwapOperation::AstroSwap {
-                offer_asset_info,
-                ..
-            } => offer_asset_info.clone(),
-            SwapOperation::TerraSwap {
-                offer_asset_info,
-                ..
-            } => offer_asset_info.clone(),
-            SwapOperation::TokenSwap {
-                offer_asset_info,
-                ..
-            } => offer_asset_info.clone(),
-        }
-    }
+    TFMSwap {
+        offer_asset_info: AssetInfo,
+        ask_asset_info: AssetInfo,
+        factory_name: String,
+        pair_contract: Addr,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]

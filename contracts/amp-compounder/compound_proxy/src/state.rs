@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use astroport::{
-    asset::{Asset, AssetInfo, AssetInfoExt, PairInfo},
+    asset::{Asset, AssetInfo, AssetInfoExt},
     common::OwnershipProposal,
 };
 use cosmwasm_std::{
@@ -14,7 +14,7 @@ use eris::{
         pair::Pair,
         router::{Router, RouterType},
     },
-    compound_proxy::{LpConfig, LpInit, RouteInit},
+    compound_proxy::{LpConfig, LpInit, PairInfo, PairType, RouteInit},
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -162,20 +162,23 @@ impl<'a> State<'a> {
 
     pub fn add_lp(&self, deps: &mut DepsMut, lp_init: LpInit) -> Result<(), ContractError> {
         let pair_contract = deps.api.addr_validate(lp_init.pair_contract.as_str())?;
-        let pair_info = Pair(pair_contract).query_pair_info(&deps.querier)?;
+        let mut pair_info: PairInfo = Pair(pair_contract).query_pair_info(&deps.querier)?;
 
         if !pair_info.asset_infos.contains(&lp_init.wanted_token) {
             return Err(ContractError::WantedTokenNotInPair(lp_init.wanted_token.to_string()));
         }
 
+        if lp_init.lp_type == Some(eris::compound_proxy::LpType::WhiteWhale) {
+            pair_info.pair_type = Some(eris::compound_proxy::PairType::XykWhiteWhale {})
+        }
+
         validate_slippage(lp_init.slippage_tolerance)?;
 
         match pair_info.pair_type {
-            astroport::factory::PairType::Xyk {} => (),
-            astroport::factory::PairType::Stable {} => (),
-            astroport::factory::PairType::Custom(_) => {
-                Err(StdError::generic_err("Custom pair type not supported"))?
-            },
+            Some(PairType::Xyk {}) => (),
+            Some(PairType::Stable {}) => (),
+            Some(PairType::XykWhiteWhale {}) => (),
+            _ => Err(StdError::generic_err("Custom pair type not supported"))?,
         }
 
         self.lps.save(
@@ -246,7 +249,7 @@ impl<'a> State<'a> {
                 let reverse_config = RouteType::Path {
                     route: route.clone().into_iter().rev().collect(),
                     router: Router(deps.api.addr_validate(&router)?),
-                    router_type,
+                    router_type: router_type.reverse(),
                 };
 
                 self.checked_save_route(deps.storage, (end, start), &reverse_config)?;

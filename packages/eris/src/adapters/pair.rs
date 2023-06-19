@@ -1,4 +1,4 @@
-use astroport::asset::{Asset, AssetInfo, AssetInfoExt, PairInfo};
+use astroport::asset::{Asset, AssetInfo, AssetInfoExt};
 use astroport::pair::{
     ConfigResponse, Cw20HookMsg, ExecuteMsg, PoolResponse, QueryMsg, SimulationResponse,
 };
@@ -6,6 +6,8 @@ use cosmwasm_std::{to_binary, Addr, Coin, CosmosMsg, Decimal, QuerierWrapper, St
 use cw20::Cw20ExecuteMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+
+use crate::compound_proxy::PairInfo;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Pair(pub Addr);
