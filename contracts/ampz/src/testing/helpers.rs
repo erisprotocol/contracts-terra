@@ -14,7 +14,7 @@ use serde::de::DeserializeOwned;
 
 use eris::ampz::{
     AstroportConfig, CallbackMsg, CapapultConfig, ExecuteMsg, Execution, FeeConfig, InstantiateMsg,
-    QueryMsg, Schedule,
+    QueryMsg, Schedule, WhiteWhaleConfig,
 };
 
 use crate::constants::CONTRACT_DENOM;
@@ -121,6 +121,12 @@ pub(super) fn setup_test() -> OwnedDeps<MockStorage, MockApi, CustomQuerier> {
                     native_asset_info("uluna".into()),
                     token_asset_info(Addr::unchecked("astro")),
                 ],
+            },
+            whitewhale: WhiteWhaleConfig {
+                fee_distributor: "ww_fee_distributor".to_string(),
+                coins: vec![token_asset_info(Addr::unchecked("whale"))],
+                incentive_factory_addr: "ww_incentive_factory_addr".to_string(),
+                lp_tokens: vec!["ww_lp1".to_string()],
             },
             fee: FeeConfig {
                 fee_bps: 100u16.try_into().unwrap(),

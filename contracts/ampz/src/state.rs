@@ -4,7 +4,7 @@ use eris::{
     adapters::{
         arb_vault::ArbVault, compounder::Compounder, farm::Farm, generator::Generator, hub::Hub,
     },
-    ampz::{AstroportConfig, CapapultConfig, Execution, FeeConfig},
+    ampz::{AstroportConfig, CapapultConfig, Execution, FeeConfig, WhiteWhaleConfig},
 };
 
 use crate::error::ContractError;
@@ -16,6 +16,8 @@ pub(crate) struct State<'a> {
     pub zapper: Item<'a, Compounder>,
     // config regarding supported astroport tokens and generator address
     pub astroport: Item<'a, AstroportConfig<Generator>>,
+    // config regarding supported whitewhale
+    pub whitewhale: Item<'a, WhiteWhaleConfig<Addr>>,
 
     pub capapult: Item<'a, CapapultConfig<Addr>>,
 
@@ -63,6 +65,7 @@ impl Default for State<'static> {
             hub: Item::new("hub"),
             arb_vault: Item::new("arb_vault"),
             astroport: Item::new("astro_generator"),
+            whitewhale: Item::new("whitewhale"),
             capapult: Item::new("capapult"),
 
             id: Item::new("id"),

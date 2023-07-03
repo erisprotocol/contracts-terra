@@ -51,6 +51,12 @@ pub enum ContractError {
     #[error("The farm {0} is not supported")]
     FarmNotSupported(String),
 
+    #[error("The LP {0} is not supported")]
+    LpTokenNotSupported(String),
+
+    #[error("The locktime needs to be at least 1 day")]
+    LockTimeTooShort {},
+
     #[error("The swap from {0} to {1} is not supported")]
     SwapNotSupported(AssetInfo, AssetInfo),
 

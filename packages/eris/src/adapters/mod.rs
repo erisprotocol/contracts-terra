@@ -9,3 +9,4 @@ pub mod hub;
 pub mod pair;
 pub mod router;
 pub mod token;
+pub mod whitewhale;

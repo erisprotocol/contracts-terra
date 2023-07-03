@@ -1,20 +1,71 @@
 use astroport::asset::{Asset, AssetInfo, AssetInfoExt};
-use astroport::pair::{
-    ConfigResponse, Cw20HookMsg, ExecuteMsg, PoolResponse, QueryMsg, SimulationResponse,
+use astroport::pair::{ConfigResponse, PoolResponse, QueryMsg, SimulationResponse};
+use cosmwasm_schema::cw_serde;
+use cosmwasm_std::{
+    to_binary, Addr, Coin, CosmosMsg, Decimal, QuerierWrapper, StdError, StdResult, WasmMsg,
 };
-use cosmwasm_std::{to_binary, Addr, Coin, CosmosMsg, Decimal, QuerierWrapper, StdResult, WasmMsg};
 use cw20::Cw20ExecuteMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::compound_proxy::PairInfo;
+use crate::compound_proxy::{PairInfo, PairInfoWw, PairType};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Pair(pub Addr);
 
+#[cw_serde]
+pub enum CustomExecuteMsg {
+    /// Swap performs a swap in the pool
+    Swap {
+        offer_asset: Asset,
+        belief_price: Option<Decimal>,
+        max_spread: Option<Decimal>,
+        to: Option<String>,
+    },
+    ProvideLiquidity {
+        /// The assets available in the pool
+        assets: Vec<Asset>,
+        /// The slippage tolerance that allows liquidity provision only if the price in the pool doesn't move too much
+        slippage_tolerance: Option<Decimal>,
+        /// The receiver of LP tokens
+        receiver: Option<String>,
+    },
+}
+
+#[cw_serde]
+pub enum CustomCw20HookMsg {
+    /// Swap a given amount of asset
+    Swap {
+        belief_price: Option<Decimal>,
+        max_spread: Option<Decimal>,
+        to: Option<String>,
+    },
+}
+
 impl Pair {
     pub fn query_pair_info(&self, querier: &QuerierWrapper) -> StdResult<PairInfo> {
         querier.query_wasm_smart(self.0.to_string(), &QueryMsg::Pair {})
+    }
+    pub fn query_ww_pair_info(&self, querier: &QuerierWrapper) -> StdResult<PairInfo> {
+        let pair: PairInfoWw = querier.query_wasm_smart(self.0.to_string(), &QueryMsg::Pair {})?;
+        Ok(PairInfo {
+            asset_infos: pair.asset_infos.to_vec(),
+            contract_addr: Addr::unchecked(pair.contract_addr),
+            liquidity_token: match pair.liquidity_token {
+                AssetInfo::Token {
+                    contract_addr,
+                } => contract_addr,
+                AssetInfo::NativeToken {
+                    ..
+                } => return Err(StdError::generic_err("Only supports cw20 LP token pairs.")),
+            },
+            pair_type: match pair.pair_type {
+                crate::compound_proxy::PairTypeWw::StableSwap {
+                    ..
+                } => PairType::StableWhiteWhale {},
+                crate::compound_proxy::PairTypeWw::ConstantProduct => PairType::XykWhiteWhale {},
+            },
+        })
     }
 
     pub fn query_pool_info(&self, querier: &QuerierWrapper) -> StdResult<PoolResponse> {
@@ -73,8 +124,7 @@ impl Pair {
                 msg: to_binary(&Cw20ExecuteMsg::Send {
                     contract: self.0.to_string(),
                     amount: asset.amount,
-                    msg: to_binary(&Cw20HookMsg::Swap {
-                        ask_asset_info: None,
+                    msg: to_binary(&CustomCw20HookMsg::Swap {
                         belief_price,
                         max_spread,
                         to,
@@ -87,9 +137,8 @@ impl Pair {
                 denom,
             } => WasmMsg::Execute {
                 contract_addr: self.0.to_string(),
-                msg: to_binary(&ExecuteMsg::Swap {
+                msg: to_binary(&CustomExecuteMsg::Swap {
                     offer_asset: asset.clone(),
-                    ask_asset_info: None,
                     belief_price,
                     max_spread,
                     to,
@@ -114,11 +163,10 @@ impl Pair {
         funds.sort_by(|a, b| a.denom.cmp(&b.denom));
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: self.0.to_string(),
-            msg: to_binary(&ExecuteMsg::ProvideLiquidity {
+            msg: to_binary(&CustomExecuteMsg::ProvideLiquidity {
                 assets,
                 slippage_tolerance,
                 receiver,
-                auto_stake: None,
             })?,
             funds,
         }))

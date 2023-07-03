@@ -229,7 +229,7 @@ fn optimal_swap(
     let mut messages: Vec<CosmosMsg> = vec![];
 
     match lp_config.pair_info.pair_type {
-        Some(PairType::Stable {}) => {
+        PairType::Stable {} => {
             //Do nothing for stable pair
         },
         _ => {

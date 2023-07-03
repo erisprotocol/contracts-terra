@@ -115,7 +115,7 @@ fn proper_initialization() -> StdResult<()> {
             asset_infos: vec![token(), uluna()],
             contract_addr: Addr::unchecked("pair_contract"),
             liquidity_token: Addr::unchecked("liquidity_token"),
-            pair_type: Some(PairType::Xyk {})
+            pair_type: PairType::Xyk {}
         }
     );
 
@@ -133,7 +133,7 @@ fn proper_initialization() -> StdResult<()> {
                     asset_infos: vec![astro(), token()],
                     contract_addr: Addr::unchecked("pair_astro_token"),
                     liquidity_token: Addr::unchecked("astro_token_lp"),
-                    pair_type: Some(PairType::Xyk {})
+                    pair_type: PairType::Xyk {}
                 },
                 commission_bps: 30,
                 slippage_tolerance: Decimal::percent(1),
@@ -144,7 +144,7 @@ fn proper_initialization() -> StdResult<()> {
                     asset_infos: vec![token(), uluna()],
                     contract_addr: Addr::unchecked("pair_contract"),
                     liquidity_token: Addr::unchecked("liquidity_token"),
-                    pair_type: Some(PairType::Xyk {})
+                    pair_type: PairType::Xyk {}
                 },
                 commission_bps: 30,
                 slippage_tolerance: Decimal::percent(1),
@@ -281,7 +281,7 @@ fn add_remove_lps() -> StdResult<()> {
                     asset_infos: vec![astro(), token()],
                     contract_addr: Addr::unchecked("pair_astro_token"),
                     liquidity_token: Addr::unchecked("astro_token_lp"),
-                    pair_type: Some(PairType::Xyk {})
+                    pair_type: PairType::Xyk {}
                 },
                 commission_bps: 50,
                 slippage_tolerance: Decimal::percent(1),
@@ -292,7 +292,7 @@ fn add_remove_lps() -> StdResult<()> {
                     asset_infos: vec![token(), uluna()],
                     contract_addr: Addr::unchecked("pair_contract"),
                     liquidity_token: Addr::unchecked("liquidity_token"),
-                    pair_type: Some(PairType::Xyk {})
+                    pair_type: PairType::Xyk {}
                 },
                 commission_bps: 30,
                 slippage_tolerance: Decimal::percent(1),
@@ -346,7 +346,7 @@ fn add_remove_lps() -> StdResult<()> {
                 asset_infos: vec![token(), uluna()],
                 contract_addr: Addr::unchecked("pair_contract"),
                 liquidity_token: Addr::unchecked("liquidity_token"),
-                pair_type: Some(PairType::Xyk {})
+                pair_type: PairType::Xyk {}
             },
             commission_bps: 30,
             slippage_tolerance: Decimal::percent(1),

@@ -162,22 +162,24 @@ impl<'a> State<'a> {
 
     pub fn add_lp(&self, deps: &mut DepsMut, lp_init: LpInit) -> Result<(), ContractError> {
         let pair_contract = deps.api.addr_validate(lp_init.pair_contract.as_str())?;
-        let mut pair_info: PairInfo = Pair(pair_contract).query_pair_info(&deps.querier)?;
+
+        let pair_info: PairInfo = match lp_init.lp_type {
+            Some(eris::compound_proxy::LpType::WhiteWhale) => {
+                Pair(pair_contract).query_ww_pair_info(&deps.querier)?
+            },
+            _ => Pair(pair_contract).query_pair_info(&deps.querier)?,
+        };
 
         if !pair_info.asset_infos.contains(&lp_init.wanted_token) {
             return Err(ContractError::WantedTokenNotInPair(lp_init.wanted_token.to_string()));
         }
 
-        if lp_init.lp_type == Some(eris::compound_proxy::LpType::WhiteWhale) {
-            pair_info.pair_type = Some(eris::compound_proxy::PairType::XykWhiteWhale {})
-        }
-
         validate_slippage(lp_init.slippage_tolerance)?;
 
         match pair_info.pair_type {
-            Some(PairType::Xyk {}) => (),
-            Some(PairType::Stable {}) => (),
-            Some(PairType::XykWhiteWhale {}) => (),
+            PairType::Xyk {} => (),
+            PairType::Stable {} => (),
+            PairType::XykWhiteWhale {} => (),
             _ => Err(StdError::generic_err("Custom pair type not supported"))?,
         }
 

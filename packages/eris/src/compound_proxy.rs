@@ -44,8 +44,27 @@ pub struct PairInfo {
     /// Pair LP token address
     pub liquidity_token: Addr,
     /// The pool type (xyk, stableswap etc) available in [`PairType`]
-    pub pair_type: Option<PairType>,
+    pub pair_type: PairType,
 }
+
+#[cw_serde]
+pub struct PairInfoWw {
+    pub asset_infos: [AssetInfo; 2],
+    pub contract_addr: String,
+    pub liquidity_token: AssetInfo,
+    pub asset_decimals: [u8; 2],
+    pub pair_type: PairTypeWw,
+}
+
+#[cw_serde]
+pub enum PairTypeWw {
+    StableSwap {
+        /// The amount of amplification to perform on the constant product part of the swap formula.
+        amp: u64,
+    },
+    ConstantProduct,
+}
+
 impl PairInfo {
     /// Returns the balance for each asset in the pool.
     /// ## Params
@@ -81,6 +100,8 @@ pub enum PairType {
     /// Custom pair type
     Custom(String),
 
+    /// Stable pair type
+    StableWhiteWhale {},
     /// XYK pair type
     XykWhiteWhale {},
 }

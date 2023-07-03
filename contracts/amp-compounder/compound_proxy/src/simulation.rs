@@ -76,7 +76,7 @@ pub fn query_compound_simulation(
 
     let (lp_amount, swap_asset_a_amount, swap_asset_b_amount, return_a_amount, return_b_amount) =
         match lp_config.pair_info.pair_type {
-            Some(PairType::Xyk {}) | Some(PairType::XykWhiteWhale {}) => {
+            PairType::Xyk {} | PairType::XykWhiteWhale {} => {
                 let asset_a = Asset {
                     info: asset_a_info,
                     amount: asset_a_amount,
@@ -132,7 +132,7 @@ pub fn query_compound_simulation(
                     return_b_amount,
                 )
             },
-            Some(PairType::Stable {}) => {
+            PairType::Stable {} => {
                 let token_precision_0 = query_token_precision(&deps.querier, &asset_a_info)?;
                 let token_precision_1 = query_token_precision(&deps.querier, &asset_b_info)?;
 

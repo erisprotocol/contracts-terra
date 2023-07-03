@@ -106,6 +106,7 @@ pub fn compound(
             None,
             slippage_tolerance,
             &staking_token,
+            None,
         )?;
         messages.push(compound);
 

@@ -6,6 +6,7 @@ use eris::{
     ampz::{DestinationState, Source},
 };
 
+use crate::constants::WW_MIN_LOCK_TIME;
 use crate::{
     constants::CONTRACT_DENOM,
     error::{ContractError, CustomResult},
@@ -48,6 +49,26 @@ impl ExecutionExt for Execution {
                 if !allowed_farms.contains(&farm) {
                     return Err(ContractError::FarmNotSupported(farm.0.to_string()));
                 }
+            },
+            DestinationState::DepositLiquidity {
+                lp_token,
+                dex,
+            } => match dex {
+                eris::ampz::DepositLiquidity::WhiteWhale {
+                    lock_up,
+                } => {
+                    let whitewhale = state.whitewhale.load(deps.storage)?;
+                    let lp_token = deps.api.addr_validate(lp_token)?;
+                    if !whitewhale.lp_tokens.contains(&lp_token) {
+                        return Err(ContractError::LpTokenNotSupported(lp_token.to_string()));
+                    }
+
+                    if let Some(lock_up) = lock_up {
+                        if *lock_up < WW_MIN_LOCK_TIME {
+                            return Err(ContractError::LockTimeTooShort {});
+                        }
+                    }
+                },
             },
             DestinationState::SwapTo {
                 asset_info,
@@ -140,6 +161,16 @@ impl ExecutionExt for Execution {
                 }
                 vec![over.info.clone()]
             },
+            Source::ClaimContract {
+                claim_type,
+            } => match claim_type {
+                eris::ampz::ClaimType::WhiteWhaleRewards => {
+                    state.whitewhale.load(deps.storage)?.coins
+                },
+            },
+            Source::WhiteWhaleRewards {
+                ..
+            } => state.whitewhale.load(deps.storage)?.coins,
         };
         Ok(from_assets)
     }

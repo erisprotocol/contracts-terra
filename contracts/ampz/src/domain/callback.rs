@@ -6,6 +6,7 @@ use cosmwasm_std::{
     attr, Addr, Attribute, CosmosMsg, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
     Uint128,
 };
+use eris::adapters::compounder::Compounder;
 use eris::ampz::{CallbackMsg, CallbackWrapper, DepositMarket, DestinationRuntime, RepayMarket};
 
 use crate::adapters::capapult::{CapapultLocker, CapapultMarket};
@@ -19,6 +20,8 @@ use eris::adapters::farm::Farm;
 use eris::helper::funds_or_allowance;
 use eris::helpers::bps::BasicPoints;
 use itertools::Itertools;
+
+use super::callback_whitewhale::{get_incentive_contract, get_open_or_extend_lock};
 
 pub fn callback(
     deps: DepsMut,
@@ -68,6 +71,51 @@ pub fn callback(
                     .deposit(balances, funds)?
                     .to_authz_msg(user, &env)?,
             );
+        },
+        CallbackMsg::AuthzLockWwLp {
+            lp_balance,
+            unbonding_duration,
+        } => {
+            attrs.push(attr("type", "authz_lock_ww_lp"));
+
+            let whitewhale = state.whitewhale.load(deps.storage)?;
+            let incentive_address = get_incentive_contract(
+                &deps,
+                whitewhale.incentive_factory_addr.to_string(),
+                &lp_balance.info,
+            )?;
+
+            // the snapshot of the user balance is in the callback message
+            // the contract queries the same assets again and takes a diff of what has been added
+            let balances = vec![lp_balance].query_balance_diff(&deps.querier, &user, None)?;
+
+            if balances.is_empty() {
+                return Err(ContractError::NothingToDeposit {});
+            }
+
+            let amount = balances.first().unwrap().amount;
+
+            // rest is used to create allowance or deposit messages into the ampz contract
+            let (funds, allowances) =
+                funds_or_allowance(&env, &incentive_address, &balances, None)?;
+            for allowance in allowances {
+                msgs.push(allowance.to_authz_msg(user.clone(), &env)?);
+            }
+            for asset in balances.iter() {
+                attrs.push(attr("amount", asset.to_string()));
+            }
+
+            msgs.push(
+                get_open_or_extend_lock(
+                    &deps,
+                    incentive_address,
+                    unbonding_duration,
+                    amount,
+                    &user,
+                    funds,
+                )?
+                .to_authz_msg(user, &env)?,
+            )
         },
 
         CallbackMsg::Swap {
@@ -177,6 +225,53 @@ pub fn callback(
 
                     let receiver: String = receiver.unwrap_or(user).into();
                     deposit_in_farm(&deps, farm, &env, receiver, balances, &mut msgs)?;
+                },
+                DestinationRuntime::DepositLiquidity {
+                    asset_infos,
+                    lp_token,
+                    dex,
+                } => {
+                    attrs.push(attr("type", "deposit_liquidity"));
+                    let zapper = state.zapper.load(deps.storage)?;
+                    let balances =
+                        asset_infos.query_balances(&deps.querier, &env.contract.address)?;
+                    let balances =
+                        pay_fees(&state, &deps, &mut msgs, &mut attrs, balances, executor, &user)?;
+
+                    deposit_in_dex(
+                        &deps,
+                        zapper,
+                        &env,
+                        lp_token.clone(),
+                        user.clone(),
+                        balances,
+                        &mut msgs,
+                    )?;
+
+                    match dex {
+                        eris::ampz::DepositLiquidity::WhiteWhale {
+                            lock_up,
+                        } => {
+                            if let Some(lock_up) = lock_up {
+                                let lp_asset = token_asset_info(deps.api.addr_validate(&lp_token)?);
+                                let current_lp_balance =
+                                    lp_asset.query_pool(&deps.querier, user.clone())?;
+                                let lp_balance = lp_asset.with_balance(current_lp_balance);
+
+                                msgs.push(
+                                    CallbackMsg::AuthzLockWwLp {
+                                        lp_balance,
+                                        unbonding_duration: lock_up,
+                                    }
+                                    .into_cosmos_msg(
+                                        &env.contract.address,
+                                        callback_wrapper.id,
+                                        &user,
+                                    )?,
+                                )
+                            }
+                        },
+                    }
                 },
                 DestinationRuntime::SendSwapResultToUser {
                     asset_info,
@@ -391,5 +486,28 @@ fn deposit_in_farm(
     let (funds, mut allowances) = funds_or_allowance(env, &farm, &balances, None)?;
     msgs.append(&mut allowances);
     msgs.push(Farm(farm).bond_assets_msg(balances, funds, Some(receiver))?);
+    Ok(())
+}
+
+fn deposit_in_dex(
+    deps: &DepsMut,
+    zapper: Compounder,
+    env: &Env,
+    lp_token: String,
+    receiver: Addr,
+    balances: Vec<Asset>,
+    msgs: &mut Vec<CosmosMsg>,
+) -> Result<(), StdError> {
+    let lp_token = deps.api.addr_validate(&lp_token)?;
+    let (funds, mut allowances) = funds_or_allowance(env, &zapper.0, &balances, None)?;
+    msgs.append(&mut allowances);
+    msgs.push(zapper.compound_msg(
+        balances,
+        funds,
+        None,
+        None,
+        &lp_token,
+        Some(receiver.to_string()),
+    )?);
     Ok(())
 }
