@@ -10,7 +10,7 @@ use cosmwasm_std::{coin, Addr, Attribute, BlockInfo, Decimal, Timestamp, Validat
 use cw_multi_test::{App, AppResponse, BankKeeper, BasicAppBuilder, StakeKeeper, StakingInfo};
 use eris::governance_helper::{get_period, EPOCH_START, WEEK};
 
-pub const UTOKEN_DENOM: &str = "aconst";
+pub const UTOKEN_DENOM: &str = "aarch";
 
 #[allow(clippy::all)]
 #[allow(dead_code)]
