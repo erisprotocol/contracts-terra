@@ -112,12 +112,14 @@ pub fn get_open_or_extend_lock(
             address: user.to_string(),
         },
     )?;
-    let has_existing_position = positions.positions.into_iter().any(|position| {
-        let QueryPosition::OpenPosition { unbonding_duration: position_unbonding_duration, .. } = position else {
-			return false;
-		};
-
-		unbonding_duration == position_unbonding_duration
+    let has_existing_position = positions.positions.into_iter().any(|position| match position {
+        QueryPosition::OpenPosition {
+            unbonding_duration: position_unbonding_duration,
+            ..
+        } => unbonding_duration == position_unbonding_duration,
+        QueryPosition::ClosedPosition {
+            ..
+        } => false,
     });
 
     let execute = match has_existing_position {
