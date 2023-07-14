@@ -1,12 +1,12 @@
 use astroport::asset::{native_asset_info, AssetInfo, PairInfo};
 use astroport::factory::PairType;
-use astroport::pair::Cw20HookMsg as AstroportPairCw20HookMsg;
 use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     from_binary, to_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, OwnedDeps, Response, StdError,
     Timestamp, Uint128, WasmMsg,
 };
 use cw20::Cw20ExecuteMsg;
+use eris::adapters::pair::CustomCw20HookMsg;
 use eris::fees_collector::{AssetWithLimit, ExecuteMsg, InstantiateMsg, QueryMsg, TargetConfig};
 use eris::hub::ExecuteMsg as HubExecuteMsg;
 
@@ -593,8 +593,7 @@ fn collect(
                 msg: to_binary(&Cw20ExecuteMsg::Send {
                     contract: "token1token2".to_string(),
                     amount: Uint128::new(1000000u128),
-                    msg: to_binary(&AstroportPairCw20HookMsg::Swap {
-                        ask_asset_info: None,
+                    msg: to_binary(&CustomCw20HookMsg::Swap {
                         belief_price: None,
                         max_spread: Some(Decimal::percent(1)),
                         to: None,
@@ -646,8 +645,7 @@ fn collect(
                 msg: to_binary(&Cw20ExecuteMsg::Send {
                     contract: "token2ibc".to_string(),
                     amount: Uint128::new(1500000u128),
-                    msg: to_binary(&AstroportPairCw20HookMsg::Swap {
-                        ask_asset_info: None,
+                    msg: to_binary(&CustomCw20HookMsg::Swap {
                         belief_price: None,
                         max_spread: Some(Decimal::percent(1)),
                         to: None,

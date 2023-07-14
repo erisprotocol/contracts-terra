@@ -1,9 +1,7 @@
 use astroport::asset::{
     native_asset, native_asset_info, token_asset, token_asset_info, Asset, AssetInfo,
 };
-use astroport::pair::{
-    Cw20HookMsg as AstroportPairCw20HookMsg, ExecuteMsg as AstroportPairExecuteMsg,
-};
+use astroport::pair::ExecuteMsg as AstroportPairExecuteMsg;
 use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     coin, from_binary, to_binary, Addr, Coin, CosmosMsg, Decimal, StdError, StdResult, Uint128,
@@ -11,7 +9,7 @@ use cosmwasm_std::{
 };
 use cw20::Cw20ExecuteMsg;
 use eris::adapters::asset::AssetEx;
-use eris::adapters::pair::Pair;
+use eris::adapters::pair::{CustomCw20HookMsg, CustomExecuteMsg, Pair};
 use eris::compound_proxy::{
     CallbackMsg, CompoundSimulationResponse, ExecuteMsg, InstantiateMsg, LpConfig, LpInit,
     PairInfo, PairType, QueryMsg, RouteDelete, RouteInit, RouteResponseItem, RouteTypeResponseItem,
@@ -977,8 +975,7 @@ fn optimal_swap() -> Result<(), ContractError> {
             msg: to_binary(&Cw20ExecuteMsg::Send {
                 contract: "pair_contract".to_string(),
                 amount: Uint128::new(500626),
-                msg: to_binary(&AstroportPairCw20HookMsg::Swap {
-                    ask_asset_info: None,
+                msg: to_binary(&CustomCw20HookMsg::Swap {
                     belief_price: None,
                     max_spread: Some(Decimal::percent(10)),
                     to: None,
@@ -1045,10 +1042,9 @@ fn provide_liquidity() -> Result<(), ContractError> {
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "pair_contract_2".to_string(),
             funds: vec![coin(1000000, "uluna"),],
-            msg: to_binary(&AstroportPairExecuteMsg::ProvideLiquidity {
+            msg: to_binary(&CustomExecuteMsg::ProvideLiquidity {
                 assets: vec![uluna_amount(1000000u128), ibc_amount(0u128)],
                 slippage_tolerance: Some(Decimal::percent(1)),
-                auto_stake: None,
                 receiver: Some("sender".to_string()),
             })?,
         }),]
