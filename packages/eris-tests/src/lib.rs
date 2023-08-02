@@ -8,9 +8,10 @@ use anyhow::{Error, Ok, Result};
 use cosmwasm_std::testing::{mock_env, MockApi, MockStorage};
 use cosmwasm_std::{coin, Addr, Attribute, BlockInfo, Decimal, Timestamp, Validator};
 use cw_multi_test::{App, AppResponse, BankKeeper, BasicAppBuilder, StakeKeeper, StakingInfo};
+use eris::constants::CONTRACT_DENOM;
 use eris::governance_helper::{get_period, EPOCH_START, WEEK};
 
-pub const UTOKEN_DENOM: &str = "aarch";
+pub const UTOKEN_DENOM: &str = CONTRACT_DENOM;
 
 #[allow(clippy::all)]
 #[allow(dead_code)]
