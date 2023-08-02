@@ -1011,7 +1011,6 @@ fn mint_and_msg(
     let supply = deps.querier.get_cw20_total_supply(token);
     deps.querier.set_cw20_balance(token, user, balance + amount);
     deps.querier.set_cw20_total_supply(token, supply + amount);
-
     Token(Addr::unchecked(token)).mint(Uint128::new(amount), Addr::unchecked(user)).unwrap()
 }
 
@@ -1025,7 +1024,6 @@ fn burn_and_msg(
     let supply = deps.querier.get_cw20_total_supply(token);
     deps.querier.set_cw20_balance(token, user, balance - amount);
     deps.querier.set_cw20_total_supply(token, supply - amount);
-
     Token(Addr::unchecked(token)).burn(Uint128::new(amount)).unwrap()
 }
 

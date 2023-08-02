@@ -1,7 +1,6 @@
 use astroport::asset::{
     native_asset, native_asset_info, token_asset, token_asset_info, Asset, AssetInfo,
 };
-use astroport::pair::ExecuteMsg as AstroportPairExecuteMsg;
 use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     coin, from_binary, to_binary, Addr, Coin, CosmosMsg, Decimal, StdError, StdResult, Uint128,
@@ -1019,10 +1018,9 @@ fn provide_liquidity() -> Result<(), ContractError> {
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "pair_contract_2".to_string(),
             funds: vec![coin(2000000, "ibc/token"), coin(1000000, "uluna"),],
-            msg: to_binary(&AstroportPairExecuteMsg::ProvideLiquidity {
+            msg: to_binary(&CustomExecuteMsg::ProvideLiquidity {
                 assets: vec![uluna_amount(1000000u128), ibc_amount(2000000u128)],
                 slippage_tolerance: Some(Decimal::percent(1)),
-                auto_stake: None,
                 receiver: Some("sender".to_string()),
             })?,
         }),]
