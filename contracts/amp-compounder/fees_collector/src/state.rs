@@ -15,11 +15,15 @@ pub struct Config {
     /// The factory contract address
     pub factory_contract: Addr,
     /// The list of address and weight to receive fees
-    pub target_list: Vec<TargetConfig<Addr>>,
+    pub target_list: Vec<TargetConfig>,
     /// The stablecoin token address
     pub stablecoin: AssetInfo,
     /// The max spread allowed when swapping fee tokens to stablecoin
     pub max_spread: Decimal,
+
+    #[serde(default)]
+    // compound proxy to swap token through
+    pub compound_proxy: Option<Addr>,
 }
 
 /// Stores the contract configuration at the given key

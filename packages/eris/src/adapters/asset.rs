@@ -2,10 +2,19 @@ use std::collections::HashMap;
 
 use astroport::asset::{Asset, AssetInfo};
 use cosmwasm_std::{
-    to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, MessageInfo, QuerierWrapper, StdError,
-    StdResult, Uint128, WasmMsg,
+    coin, to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Env, IbcTimeout, MessageInfo,
+    QuerierWrapper, StdError, StdResult, Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, Expiration};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
+pub struct Ics20TransferMsg {
+    pub channel: String,
+    pub remote_address: String,
+}
 
 pub trait AssetInfosEx {
     fn query_balances(&self, querier: &QuerierWrapper, address: &Addr) -> StdResult<Vec<Asset>>;
@@ -91,6 +100,14 @@ pub trait AssetEx {
         recipient: &Addr,
         messages: &mut Vec<CosmosMsg>,
     ) -> StdResult<()>;
+
+    fn transfer_msg_ibc(
+        &self,
+        env: &Env,
+        to_addr: String,
+        channel_id: String,
+        ics20: Option<String>,
+    ) -> StdResult<CosmosMsg>;
 }
 
 impl AssetEx for Asset {
@@ -145,6 +162,46 @@ impl AssetEx for Asset {
             }
         } else {
             self.transfer_msg(to_addr)
+        }
+    }
+
+    fn transfer_msg_ibc(
+        &self,
+        env: &Env,
+        to_addr: String,
+        channel: String,
+        ics20: Option<String>,
+    ) -> StdResult<CosmosMsg> {
+        match &self.info {
+            AssetInfo::Token {
+                contract_addr,
+            } => {
+                if let Some(ics20) = ics20 {
+                    Ok(CosmosMsg::Wasm(WasmMsg::Execute {
+                        contract_addr: contract_addr.to_string(),
+                        msg: to_binary(&Cw20ExecuteMsg::Send {
+                            contract: ics20,
+                            amount: self.amount,
+                            msg: to_binary(&Ics20TransferMsg {
+                                channel,
+                                remote_address: to_addr,
+                            })?,
+                        })?,
+                        funds: vec![],
+                    }))
+                } else {
+                    Err(StdError::generic_err("ICS20 not setup correctly"))
+                }
+            },
+
+            AssetInfo::NativeToken {
+                denom,
+            } => Ok(CosmosMsg::Ibc(cosmwasm_std::IbcMsg::Transfer {
+                channel_id: channel,
+                to_address: to_addr,
+                amount: coin(self.amount.u128(), denom),
+                timeout: IbcTimeout::with_timestamp(env.block.time.plus_seconds(10 * 60)),
+            })),
         }
     }
 

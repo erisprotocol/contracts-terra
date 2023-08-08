@@ -6,6 +6,7 @@ amp-compounder is a fork of <https://github.com/spectrumprotocol/spectrum-core>
 
 - fees_collector
   - Support sending funds to a smart contract with a predefined message to wake it up.
+  - Support sending through IBC
 - astroport_farm
   - Use minting / burning of amp[LP] token instead of tracking reward info locally
   - Query interface changed to include exchange_rate and more info

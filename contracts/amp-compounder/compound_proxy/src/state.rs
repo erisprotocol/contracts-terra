@@ -69,6 +69,7 @@ impl RouteConfig {
                 router,
                 router_type,
             } => router.execute_swap_operations_msg(
+                router_type.clone(),
                 offer_asset.clone(),
                 router_type.create_swap_operations(route)?,
                 None,

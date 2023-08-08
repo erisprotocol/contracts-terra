@@ -15,8 +15,8 @@ use crate::error::ContractError;
 use crate::mock_querier::{mock_dependencies, WasmMockQuerier};
 use crate::state::{Config, CONFIG};
 
-type TargetConfigUnchecked = TargetConfig<String>;
-type TargetConfigChecked = TargetConfig<Addr>;
+type TargetConfigUnchecked = TargetConfig;
+type TargetConfigChecked = TargetConfig;
 
 const OWNER: &str = "owner";
 const OPERATOR_1: &str = "operator_1";
@@ -66,6 +66,7 @@ fn test_fillup() -> Result<(), ContractError> {
             TargetConfigUnchecked::new(USER_2.to_string(), 2),
             TargetConfigUnchecked::new(USER_3.to_string(), 3),
         ]),
+        compound_proxy: None,
         max_spread: None,
     };
 
@@ -88,6 +89,7 @@ fn test_fillup() -> Result<(), ContractError> {
             TargetConfigUnchecked::new(USER_2.to_string(), 2),
             TargetConfigUnchecked::new(USER_3.to_string(), 3),
         ]),
+        compound_proxy: None,
         max_spread: None,
     };
 
@@ -102,6 +104,7 @@ fn test_fillup() -> Result<(), ContractError> {
             assets: vec![AssetWithLimit {
                 info: native_asset_info(IBC_TOKEN.to_string()),
                 limit: None,
+                use_compound_proxy: None,
             }],
         },
     )?;
@@ -238,6 +241,7 @@ fn create(
             TargetConfigUnchecked::new(USER_2.to_string(), 2),
             TargetConfigUnchecked::new(USER_3.to_string(), 3),
         ],
+        compound_proxy: None,
     };
     let res = instantiate(deps.as_mut(), env, info, instantiate_msg);
     assert!(res.is_ok());
@@ -250,13 +254,14 @@ fn create(
             operator: Addr::unchecked(OPERATOR_1),
             factory_contract: Addr::unchecked(FACTORY_1),
             target_list: vec![
-                TargetConfigChecked::new(Addr::unchecked(USER_2), 2),
-                TargetConfigChecked::new(Addr::unchecked(USER_3), 3)
+                TargetConfigChecked::new(USER_2, 2),
+                TargetConfigChecked::new(USER_3, 3)
             ],
             stablecoin: AssetInfo::NativeToken {
                 denom: IBC_TOKEN.to_string(),
             },
-            max_spread: Decimal::percent(1)
+            max_spread: Decimal::percent(1),
+            compound_proxy: None,
         }
     );
 
@@ -275,6 +280,7 @@ fn config(
         factory_contract: None,
         target_list: None,
         max_spread: None,
+        compound_proxy: None,
     };
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
     assert_error(res, "Unauthorized");
@@ -288,6 +294,7 @@ fn config(
         factory_contract: Some(FACTORY_2.to_string()),
         target_list: None,
         max_spread: None,
+        compound_proxy: None,
     };
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
     assert!(res.is_ok());
@@ -297,6 +304,7 @@ fn config(
         factory_contract: None,
         target_list: Some(vec![TargetConfigUnchecked::new(USER_1.to_string(), 1)]),
         max_spread: None,
+        compound_proxy: None,
     };
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
     assert!(res.is_ok());
@@ -306,6 +314,7 @@ fn config(
         factory_contract: None,
         target_list: None,
         max_spread: Some(Decimal::percent(5)),
+        compound_proxy: None,
     };
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
     assert!(res.is_ok());
@@ -322,7 +331,8 @@ fn config(
             stablecoin: AssetInfo::NativeToken {
                 denom: IBC_TOKEN.to_string(),
             },
-            max_spread: Decimal::percent(5)
+            max_spread: Decimal::percent(5),
+            compound_proxy: None,
         }
     );
 
@@ -334,6 +344,7 @@ fn config(
             TargetConfigUnchecked::new(USER_3.to_string(), 3),
         ]),
         max_spread: Some(Decimal::percent(1)),
+        compound_proxy: None,
     };
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
     assert!(res.is_ok());
@@ -353,7 +364,8 @@ fn config(
             stablecoin: AssetInfo::NativeToken {
                 denom: IBC_TOKEN.to_string(),
             },
-            max_spread: Decimal::percent(1)
+            max_spread: Decimal::percent(1),
+            compound_proxy: None,
         }
     );
 
@@ -554,6 +566,7 @@ fn collect(
                 contract_addr: Addr::unchecked(TOKEN_1),
             },
             limit: None,
+            use_compound_proxy: None,
         }],
     };
 
@@ -631,6 +644,7 @@ fn collect(
                 contract_addr: Addr::unchecked(TOKEN_2),
             },
             limit: Some(Uint128::from(1500000u128)),
+            use_compound_proxy: None,
         }],
     };
 
@@ -736,6 +750,7 @@ fn distribute_fees_to_contract(
             TargetConfigUnchecked::new(USER_1.to_string(), 4),
         ]),
         max_spread: None,
+        compound_proxy: None,
     };
     let res = execute(deps.as_mut(), env.clone(), owner.clone(), msg.clone());
     assert!(res.is_ok());

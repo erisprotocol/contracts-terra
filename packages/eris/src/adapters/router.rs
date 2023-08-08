@@ -129,6 +129,39 @@ pub enum Cw20HookMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
+pub enum TfmExecuteMsg {
+    ExecuteSwapOperations {
+        offer_amount: Uint128,
+        expect_amount: Option<Uint128>,
+        minimum_receive: Option<Uint128>,
+        to: Option<Addr>,
+        max_spread: Option<Decimal>,
+        routes: Vec<TfmRoute>,
+    },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum TfmCw20HookMsg {
+    ExecuteSwapOperations {
+        offer_amount: Uint128,
+        expect_amount: Option<Uint128>,
+        minimum_receive: Option<Uint128>,
+        to: Option<Addr>,
+        max_spread: Option<Decimal>,
+        routes: Vec<TfmRoute>,
+    },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct TfmRoute {
+    offer_amount: Uint128,
+    operations: Vec<SwapOperation>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     SimulateSwapOperations {
         offer_amount: Uint128,
@@ -162,6 +195,7 @@ impl Router {
 
     pub fn execute_swap_operations_msg(
         &self,
+        router_type: RouterType,
         offer_asset: Asset,
         operations: Vec<SwapOperation>,
         minimum_receive: Option<Uint128>,
@@ -176,12 +210,28 @@ impl Router {
                 msg: to_binary(&Cw20ExecuteMsg::Send {
                     contract: self.0.to_string(),
                     amount: offer_asset.amount,
-                    msg: to_binary(&Cw20HookMsg::ExecuteSwapOperations {
-                        operations,
-                        minimum_receive,
-                        to,
-                        max_spread,
-                    })?,
+
+                    msg: match router_type {
+                        RouterType::TFM {
+                            ..
+                        } => to_binary(&TfmCw20HookMsg::ExecuteSwapOperations {
+                            minimum_receive,
+                            to,
+                            max_spread,
+                            expect_amount: minimum_receive,
+                            offer_amount: offer_asset.amount,
+                            routes: vec![TfmRoute {
+                                offer_amount: offer_asset.amount,
+                                operations,
+                            }],
+                        })?,
+                        _ => to_binary(&Cw20HookMsg::ExecuteSwapOperations {
+                            operations,
+                            minimum_receive,
+                            to,
+                            max_spread,
+                        })?,
+                    },
                 })?,
                 funds: vec![],
             },
@@ -189,12 +239,27 @@ impl Router {
                 denom,
             } => WasmMsg::Execute {
                 contract_addr: self.0.to_string(),
-                msg: to_binary(&ExecuteMsg::ExecuteSwapOperations {
-                    operations,
-                    minimum_receive,
-                    to,
-                    max_spread,
-                })?,
+                msg: match router_type {
+                    RouterType::TFM {
+                        ..
+                    } => to_binary(&TfmExecuteMsg::ExecuteSwapOperations {
+                        minimum_receive,
+                        to,
+                        max_spread,
+                        expect_amount: minimum_receive,
+                        offer_amount: offer_asset.amount,
+                        routes: vec![TfmRoute {
+                            offer_amount: offer_asset.amount,
+                            operations,
+                        }],
+                    })?,
+                    _ => to_binary(&ExecuteMsg::ExecuteSwapOperations {
+                        operations,
+                        minimum_receive,
+                        to,
+                        max_spread,
+                    })?,
+                },
                 funds: vec![Coin {
                     denom: denom.clone(),
                     amount: offer_asset.amount,

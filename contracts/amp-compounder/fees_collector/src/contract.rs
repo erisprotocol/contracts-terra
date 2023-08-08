@@ -13,10 +13,12 @@ use cosmwasm_std::{
     Order, Response, StdError, StdResult, Uint128, WasmMsg,
 };
 use eris::adapters::asset::AssetEx;
+use eris::adapters::compounder::Compounder;
 use eris::fees_collector::{
     AssetWithLimit, BalancesResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg,
     TargetConfig,
 };
+use eris::helper::funds_or_allowance;
 use std::cmp;
 use std::collections::{HashMap, HashSet};
 
@@ -55,6 +57,11 @@ pub fn instantiate(
             .map(|target| target.validate(deps.api))
             .collect::<StdResult<_>>()?,
         max_spread,
+        compound_proxy: if let Some(compound) = msg.compound_proxy {
+            Some(deps.api.addr_validate(&compound)?)
+        } else {
+            None
+        },
     };
 
     CONFIG.save(deps.storage, &config)?;
@@ -84,7 +91,16 @@ pub fn execute(
             factory_contract,
             target_list,
             max_spread,
-        } => update_config(deps, info, operator, factory_contract, target_list, max_spread),
+            compound_proxy,
+        } => update_config(
+            deps,
+            info,
+            operator,
+            factory_contract,
+            target_list,
+            max_spread,
+            compound_proxy,
+        ),
         ExecuteMsg::SwapBridgeAssets {
             assets,
             depth,
@@ -168,7 +184,8 @@ fn collect(
 /// ## Description
 /// This enum describes available token types that can be used as a SwapTarget.
 enum SwapTarget {
-    Stable(CosmosMsg),
+    Direct(CosmosMsg),
+    DirectAll(Vec<CosmosMsg>),
     Bridge {
         asset: AssetInfo,
         msg: CosmosMsg,
@@ -197,9 +214,16 @@ fn swap_assets(
         }
 
         if !balance.is_zero() {
-            let swap_msg = swap(deps, config, a.info, balance)?;
+            let swap_msg = swap(
+                deps,
+                &env,
+                config,
+                a.info,
+                balance,
+                a.use_compound_proxy.unwrap_or_default(),
+            )?;
             match swap_msg {
-                SwapTarget::Stable(msg) => {
+                SwapTarget::Direct(msg) => {
                     messages.push(msg);
                 },
                 SwapTarget::Bridge {
@@ -208,6 +232,11 @@ fn swap_assets(
                 } => {
                     messages.push(msg);
                     bridge_assets.insert(asset.to_string(), asset);
+                },
+                SwapTarget::DirectAll(msgs) => {
+                    for msg in msgs {
+                        messages.push(msg)
+                    }
                 },
             }
         }
@@ -222,12 +251,27 @@ fn swap_assets(
 /// of type [`SwapTarget`] if the operation was successful.
 fn swap(
     deps: Deps,
+    env: &Env,
     config: &Config,
     from_token: AssetInfo,
     amount_in: Uint128,
+    use_compound_proxy: bool,
 ) -> Result<SwapTarget, ContractError> {
     let stablecoin = config.stablecoin.clone();
     let uluna = native_asset_info(ULUNA_DENOM.to_string());
+
+    if use_compound_proxy {
+        if let Some(compound_proxy) = &config.compound_proxy {
+            let balances = vec![from_token.with_balance(amount_in)];
+            let (funds, mut allowances) = funds_or_allowance(env, compound_proxy, &balances, None)?;
+
+            let msg = Compounder(compound_proxy.clone())
+                .multi_swap_msg(balances, stablecoin, funds, None)?;
+
+            allowances.push(msg);
+            return Ok(SwapTarget::DirectAll(allowances));
+        }
+    }
 
     // Check if bridge tokens exist
     let bridge_token = BRIDGES.load(deps.storage, from_token.to_string());
@@ -243,7 +287,7 @@ fn swap(
     let swap_to_stablecoin =
         try_build_swap_msg(&deps.querier, config, from_token.clone(), stablecoin, amount_in);
     if let Ok(msg) = swap_to_stablecoin {
-        return Ok(SwapTarget::Stable(msg));
+        return Ok(SwapTarget::Direct(msg));
     }
 
     // Check for a pair with LUNA
@@ -290,6 +334,7 @@ fn swap_bridge_assets(
         .map(|a| AssetWithLimit {
             info: a,
             limit: None,
+            use_compound_proxy: None,
         })
         .collect();
 
@@ -336,7 +381,7 @@ fn distribute(
 
     let stablecoin = config.stablecoin.clone();
 
-    let mut total_amount = stablecoin.query_pool(&deps.querier, env.contract.address)?;
+    let mut total_amount = stablecoin.query_pool(&deps.querier, env.contract.address.clone())?;
     if total_amount.is_zero() {
         return Ok((messages, attributes));
     }
@@ -361,15 +406,22 @@ fn distribute(
                         // reduce amount from total_amount. Rest is distributed by share
                         total_amount = total_amount.checked_sub(amount)?;
 
-                        let send_msg = stablecoin
-                            .with_balance(amount)
-                            .transfer_msg_target(&target.addr, target.msg)?;
+                        let send_msg = stablecoin.with_balance(amount).transfer_msg_target(
+                            &deps.api.addr_validate(target.addr.as_str())?,
+                            target.msg,
+                        )?;
+
                         messages.push(send_msg);
                         attributes.push(("type".to_string(), "fill_up".to_string()));
                         attributes.push(("to".to_string(), target.addr.to_string()));
                         attributes.push(("amount".to_string(), amount.to_string()));
                     }
                 }
+            },
+            eris::fees_collector::TargetType::Ibc {
+                ..
+            } => {
+                weighted.push(target);
             },
         }
     }
@@ -379,9 +431,29 @@ fn distribute(
     for target in weighted {
         let amount = total_amount.multiply_ratio(target.weight, total_weight);
         if !amount.is_zero() {
-            let send_msg =
-                stablecoin.with_balance(amount).transfer_msg_target(&target.addr, target.msg)?;
-            messages.push(send_msg);
+            match target.target_type {
+                eris::fees_collector::TargetType::Weight => {
+                    let send_msg = stablecoin.with_balance(amount).transfer_msg_target(
+                        &deps.api.addr_validate(target.addr.as_str())?,
+                        target.msg,
+                    )?;
+                    messages.push(send_msg);
+                },
+                eris::fees_collector::TargetType::Ibc {
+                    channel_id,
+                    ics20,
+                } => {
+                    let send_msg = stablecoin.with_balance(amount).transfer_msg_ibc(
+                        &env,
+                        target.addr.clone(),
+                        channel_id,
+                        ics20,
+                    )?;
+                    messages.push(send_msg);
+                },
+                _ => (),
+            }
+
             attributes.push(("to".to_string(), target.addr.to_string()));
             attributes.push(("amount".to_string(), amount.to_string()));
         }
@@ -400,8 +472,9 @@ pub fn update_config(
     info: MessageInfo,
     operator: Option<String>,
     factory_contract: Option<String>,
-    target_list: Option<Vec<TargetConfig<String>>>,
+    target_list: Option<Vec<TargetConfig>>,
     max_spread: Option<Decimal>,
+    compound_proxy: Option<String>,
 ) -> Result<Response, ContractError> {
     let mut config: Config = CONFIG.load(deps.storage)?;
 
@@ -415,6 +488,10 @@ pub fn update_config(
 
     if let Some(factory_contract) = factory_contract {
         config.factory_contract = deps.api.addr_validate(&factory_contract)?;
+    }
+
+    if let Some(compound_proxy) = compound_proxy {
+        config.compound_proxy = Some(deps.api.addr_validate(&compound_proxy)?);
     }
 
     if let Some(max_spread) = max_spread {
