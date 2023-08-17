@@ -159,8 +159,8 @@ fn proper_initialization() -> StdResult<()> {
     let routes: Vec<RouteResponseItem> = from_binary(&query(deps.as_ref(), env.clone(), msg)?)?;
 
     assert_eq!(
-        routes,
-        vec![
+        sort_routes(routes),
+        sort_routes(vec![
             RouteResponseItem {
                 key: ("any".to_string(), UTOKEN_DENOM.to_string()),
                 route_type: RouteTypeResponseItem::PairProxy {
@@ -212,7 +212,7 @@ fn proper_initialization() -> StdResult<()> {
                     asset_infos: vec![UTOKEN_DENOM.to_string(), "ibc/token".to_string()]
                 }
             }
-        ]
+        ])
     );
 
     Ok(())
@@ -475,8 +475,8 @@ fn add_remove_routes() -> StdResult<()> {
     let routes: Vec<RouteResponseItem> = from_binary(&query(deps.as_ref(), env.clone(), msg)?)?;
 
     assert_eq!(
-        routes,
-        vec![
+        sort_routes(routes),
+        sort_routes(vec![
             RouteResponseItem {
                 key: ("astro".to_string(), UTOKEN_DENOM.to_string()),
                 route_type: RouteTypeResponseItem::Path {
@@ -510,10 +510,19 @@ fn add_remove_routes() -> StdResult<()> {
                     asset_infos: vec![UTOKEN_DENOM.to_string(), "ibc/token".to_string()]
                 }
             }
-        ]
+        ])
     );
 
     Ok(())
+}
+
+fn sort_coins(mut vec: Vec<Coin>) -> Vec<Coin> {
+    vec.sort_unstable_by_key(|item| (item.denom.clone()));
+    vec
+}
+fn sort_routes(mut vec: Vec<RouteResponseItem>) -> Vec<RouteResponseItem> {
+    vec.sort_unstable_by_key(|item| item.key.clone());
+    vec
 }
 
 #[allow(clippy::redundant_clone)]
@@ -959,7 +968,7 @@ fn provide_liquidity() -> Result<(), ContractError> {
         res.messages.into_iter().map(|it| it.msg).collect::<Vec<CosmosMsg>>(),
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "pair_contract_2".to_string(),
-            funds: vec![coin(1000000, UTOKEN_DENOM), coin(2000000, "ibc/token"),],
+            funds: sort_coins(vec![coin(1000000, UTOKEN_DENOM), coin(2000000, "ibc/token")]),
             msg: to_binary(&AstroportPairExecuteMsg::ProvideLiquidity {
                 assets: vec![utoken_amount(1000000u128), ibc_amount(2000000u128)],
                 slippage_tolerance: Some(Decimal::percent(1)),
