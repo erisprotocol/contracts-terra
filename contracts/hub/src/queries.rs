@@ -12,11 +12,11 @@ use eris::hub::{
 };
 use itertools::Itertools;
 
-use crate::constants::CONTRACT_DENOM;
 use crate::helpers::{get_wanted_delegations, query_all_delegations, query_cw20_total_supply};
-use crate::math::get_uluna_per_validator_prepared;
+use crate::math::get_utoken_per_validator_prepared;
 use crate::state::State;
 use crate::types::gauges::PeriodGaugeLoader;
+use eris::constants::CONTRACT_DENOM;
 
 const MAX_LIMIT: u32 = 30;
 const DEFAULT_LIMIT: u32 = 10;
@@ -64,7 +64,7 @@ pub fn state(deps: Deps, env: Env) -> StdResult<StateResponse> {
     let total_ustake = query_cw20_total_supply(&deps.querier, &stake_token)?;
 
     let delegations = query_all_delegations(&deps.querier, &env.contract.address)?;
-    let total_uluna: u128 = delegations.iter().map(|d| d.amount).sum();
+    let total_utoken: u128 = delegations.iter().map(|d| d.amount).sum();
 
     // only not reconciled batches are relevant as they are still unbonding and estimated unbond time in the future.
     let unbonding: u128 = state
@@ -78,7 +78,7 @@ pub fn state(deps: Deps, env: Env) -> StdResult<StateResponse> {
             v
         })
         .filter(|item| item.est_unbond_end_time > env.block.time.seconds())
-        .map(|item| item.uluna_unclaimed.u128())
+        .map(|item| item.utoken_unclaimed.u128())
         .sum();
 
     let available = deps.querier.query_balance(&env.contract.address, CONTRACT_DENOM)?.amount;
@@ -86,17 +86,17 @@ pub fn state(deps: Deps, env: Env) -> StdResult<StateResponse> {
     let exchange_rate = if total_ustake.is_zero() {
         Decimal::one()
     } else {
-        Decimal::from_ratio(total_uluna, total_ustake)
+        Decimal::from_ratio(total_utoken, total_ustake)
     };
 
     Ok(StateResponse {
         total_ustake,
-        total_uluna: Uint128::new(total_uluna),
+        total_utoken: Uint128::new(total_utoken),
         exchange_rate,
         unlocked_coins: state.unlocked_coins.load(deps.storage)?,
         unbonding: Uint128::from(unbonding),
         available,
-        tvl_uluna: Uint128::from(total_uluna)
+        tvl_utoken: Uint128::from(total_utoken)
             .checked_add(Uint128::from(unbonding))?
             .checked_add(available)?,
     })
@@ -105,7 +105,7 @@ pub fn state(deps: Deps, env: Env) -> StdResult<StateResponse> {
 pub fn wanted_delegations(deps: Deps, env: Env) -> StdResult<WantedDelegationsResponse> {
     let state = State::default();
 
-    let (delegations, _, _, share) = get_uluna_per_validator_prepared(
+    let (delegations, _, _, share) = get_utoken_per_validator_prepared(
         &state,
         deps.storage,
         &deps.querier,
@@ -141,7 +141,7 @@ pub fn simulate_wanted_delegations(
         },
     )?;
 
-    let (delegations, _, _, share) = get_uluna_per_validator_prepared(
+    let (delegations, _, _, share) = get_utoken_per_validator_prepared(
         &state,
         deps.storage,
         &deps.querier,

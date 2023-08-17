@@ -6539,10 +6539,10 @@ FN:47,compute_unbond_amount
 FN:66,compute_undelegations
 FN:112,compute_redelegations_for_removal
 FN:156,merge_with_validators
-FN:176,get_uluna_for_validator
+FN:176,get_utoken_for_validator
 FN:201,compute_redelegations_for_rebalancing
-FN:263,get_uluna_per_validator_prepared
-FN:276,get_uluna_per_validator
+FN:263,get_utoken_per_validator_prepared
+FN:276,get_utoken_per_validator
 FN:313,{closure#0}
 FN:339,reconcile_batches
 FN:354,mark_reconciled_batches
@@ -6552,10 +6552,10 @@ FNDA:1,compute_unbond_amount
 FNDA:1,compute_undelegations
 FNDA:1,compute_redelegations_for_removal
 FNDA:7,merge_with_validators
-FNDA:3,get_uluna_for_validator
+FNDA:3,get_utoken_for_validator
 FNDA:3,compute_redelegations_for_rebalancing
-FNDA:2,get_uluna_per_validator_prepared
-FNDA:6,get_uluna_per_validator
+FNDA:2,get_utoken_per_validator_prepared
+FNDA:6,get_utoken_per_validator
 FNDA:32,{closure#0}
 FNDA:1,reconcile_batches
 FNDA:2,mark_reconciled_batches

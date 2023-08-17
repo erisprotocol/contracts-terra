@@ -13,7 +13,7 @@ use eris::hub::{
     UnbondRequest,
 };
 
-use crate::constants::{get_reward_fee_cap, CONTRACT_DENOM, CONTRACT_NAME, CONTRACT_VERSION};
+use crate::constants::{get_reward_fee_cap, CONTRACT_NAME, CONTRACT_VERSION};
 use crate::error::{ContractError, ContractResult};
 use crate::helpers::{
     assert_validator_exists, assert_validators_exists, dedupe, get_wanted_delegations,
@@ -26,6 +26,7 @@ use crate::math::{
 use crate::state::State;
 use crate::types::gauges::TuneInfoGaugeLoader;
 use crate::types::{Coins, Delegation, SendFee};
+use eris::constants::CONTRACT_DENOM;
 
 //--------------------------------------------------------------------------------------------------
 // Instantiation
@@ -133,11 +134,11 @@ pub fn register_stake_token(deps: DepsMut, response: SubMsgResponse) -> Contract
 // Bonding and harvesting logics
 //--------------------------------------------------------------------------------------------------
 
-/// NOTE: In a previous implementation, we split up the deposited Luna over all validators, so that
+/// NOTE: In a previous implementation, we split up the deposited [Token] over all validators, so that
 /// they all have the same amount of delegation. This is however quite gas-expensive: $1.5 cost in
 /// the case of 15 validators.
 ///
-/// To save gas for users, now we simply delegate all deposited Luna to the validator with the
+/// To save gas for users, now we simply delegate all deposited [Token] to the validator with the
 /// smallest amount of delegation. If delegations become severely unbalance as a result of this
 /// (e.g. when a single user makes a very big deposit), anyone can invoke `ExecuteMsg::Rebalance`
 /// to balance the delegations.
@@ -170,7 +171,7 @@ pub fn bond(
 
     let event = Event::new("erishub/bonded")
         .add_attribute("receiver", receiver.clone())
-        .add_attribute("uluna_bonded", token_to_bond)
+        .add_attribute("utoken_bonded", token_to_bond)
         .add_attribute("ustake_minted", ustake_to_mint);
 
     let mint_msg = if donate {
@@ -236,7 +237,7 @@ fn check_received_coin_msg(
 }
 
 /// NOTE:
-/// 1. When delegation Luna here, we don't need to use a `SubMsg` to handle the received coins,
+/// 1. When delegation [Token] here, we don't need to use a `SubMsg` to handle the received coins,
 /// because we have already withdrawn all claimable staking rewards previously in the same atomic
 /// execution.
 /// 2. Same as with `bond`, in the latest implementation we only delegate staking rewards with the
@@ -247,14 +248,14 @@ pub fn reinvest(deps: DepsMut, env: Env) -> ContractResult {
     let mut unlocked_coins = state.unlocked_coins.load(deps.storage)?;
     let stake_token = state.stake_token.load(deps.storage)?;
 
-    let uluna_available = unlocked_coins
+    let utoken_available = unlocked_coins
         .iter()
         .find(|coin| coin.denom == CONTRACT_DENOM)
         .ok_or_else(|| ContractError::NoTokensAvailable(CONTRACT_DENOM.into()))?
         .amount;
 
-    let protocol_fee_amount = fee_config.protocol_reward_fee.checked_mul_uint(uluna_available)?;
-    let to_bond = uluna_available.saturating_sub(protocol_fee_amount);
+    let protocol_fee_amount = fee_config.protocol_reward_fee.checked_mul_uint(utoken_available)?;
+    let to_bond = utoken_available.saturating_sub(protocol_fee_amount);
 
     let (new_delegation, delegations) = find_new_delegation(&state, &deps, &env, to_bond)?;
 
@@ -262,8 +263,8 @@ pub fn reinvest(deps: DepsMut, env: Env) -> ContractResult {
     state.unlocked_coins.save(deps.storage, &unlocked_coins)?;
 
     let event = Event::new("erishub/harvested")
-        .add_attribute("uluna_bonded", to_bond)
-        .add_attribute("uluna_protocol_fee", protocol_fee_amount);
+        .add_attribute("utoken_bonded", to_bond)
+        .add_attribute("utoken_protocol_fee", protocol_fee_amount);
 
     let mut msgs = vec![new_delegation.to_cosmos_msg()];
 
@@ -331,7 +332,7 @@ fn find_new_delegation(
     state: &State,
     deps: &DepsMut,
     env: &Env,
-    uluna_to_bond: Uint128,
+    utoken_to_bond: Uint128,
 ) -> Result<(Delegation, Vec<Delegation>), StdError> {
     let delegation_strategy =
         state.delegation_strategy.may_load(deps.storage)?.unwrap_or(DelegationStrategy::Uniform {});
@@ -372,7 +373,7 @@ fn find_new_delegation(
             amount = d.amount;
         }
     }
-    let new_delegation = Delegation::new(validator, uluna_to_bond.u128());
+    let new_delegation = Delegation::new(validator, utoken_to_bond.u128());
 
     Ok((new_delegation, delegations))
 }
@@ -445,10 +446,10 @@ pub fn submit_batch(deps: DepsMut, env: Env) -> ContractResult {
     let delegations = query_all_delegations(&deps.querier, &env.contract.address)?;
     let ustake_supply = query_cw20_total_supply(&deps.querier, &stake_token)?;
 
-    let uluna_to_unbond =
+    let utoken_to_unbond =
         compute_unbond_amount(ustake_supply, pending_batch.ustake_to_burn, &delegations);
     let new_undelegations =
-        compute_undelegations(&state, deps.storage, uluna_to_unbond, &delegations, validators)?;
+        compute_undelegations(&state, deps.storage, utoken_to_unbond, &delegations, validators)?;
 
     state.previous_batches.save(
         deps.storage,
@@ -457,7 +458,7 @@ pub fn submit_batch(deps: DepsMut, env: Env) -> ContractResult {
             id: pending_batch.id,
             reconciled: false,
             total_shares: pending_batch.ustake_to_burn,
-            uluna_unclaimed: uluna_to_unbond,
+            utoken_unclaimed: utoken_to_unbond,
             est_unbond_end_time: current_time + unbond_period,
         },
     )?;
@@ -484,7 +485,7 @@ pub fn submit_batch(deps: DepsMut, env: Env) -> ContractResult {
 
     let event = Event::new("erishub/unbond_submitted")
         .add_attribute("id", pending_batch.id.to_string())
-        .add_attribute("uluna_unbonded", uluna_to_unbond)
+        .add_attribute("utoken_unbonded", utoken_to_unbond)
         .add_attribute("ustake_burned", pending_batch.ustake_to_burn);
 
     Ok(Response::new()
@@ -517,19 +518,19 @@ pub fn reconcile(deps: DepsMut, env: Env) -> ContractResult {
         .filter(|b| current_time > b.est_unbond_end_time)
         .collect::<Vec<_>>();
 
-    let uluna_expected_received: Uint128 = batches.iter().map(|b| b.uluna_unclaimed).sum();
+    let utoken_expected_received: Uint128 = batches.iter().map(|b| b.utoken_unclaimed).sum();
 
-    if uluna_expected_received.is_zero() {
+    if utoken_expected_received.is_zero() {
         return Ok(Response::new());
     }
 
     let unlocked_coins = state.unlocked_coins.load(deps.storage)?;
-    let uluna_expected_unlocked = Coins(unlocked_coins).find(CONTRACT_DENOM).amount;
+    let utoken_expected_unlocked = Coins(unlocked_coins).find(CONTRACT_DENOM).amount;
 
-    let uluna_expected = uluna_expected_received + uluna_expected_unlocked;
-    let uluna_actual = deps.querier.query_balance(&env.contract.address, CONTRACT_DENOM)?.amount;
+    let utoken_expected = utoken_expected_received + utoken_expected_unlocked;
+    let utoken_actual = deps.querier.query_balance(&env.contract.address, CONTRACT_DENOM)?.amount;
 
-    if uluna_actual >= uluna_expected {
+    if utoken_actual >= utoken_expected {
         mark_reconciled_batches(&mut batches);
         for batch in &batches {
             state.previous_batches.save(deps.storage, batch.id, batch)?;
@@ -537,13 +538,13 @@ pub fn reconcile(deps: DepsMut, env: Env) -> ContractResult {
         let ids = batches.iter().map(|b| b.id.to_string()).collect::<Vec<_>>().join(",");
         let event = Event::new("erishub/reconciled")
             .add_attribute("ids", ids)
-            .add_attribute("uluna_deducted", "0");
+            .add_attribute("utoken_deducted", "0");
         return Ok(Response::new().add_event(event).add_attribute("action", "erishub/reconcile"));
     }
 
-    let uluna_to_deduct = uluna_expected - uluna_actual;
+    let utoken_to_deduct = utoken_expected - utoken_actual;
 
-    reconcile_batches(&mut batches, uluna_to_deduct);
+    reconcile_batches(&mut batches, utoken_to_deduct);
 
     for batch in &batches {
         state.previous_batches.save(deps.storage, batch.id, batch)?;
@@ -553,7 +554,7 @@ pub fn reconcile(deps: DepsMut, env: Env) -> ContractResult {
 
     let event = Event::new("erishub/reconciled")
         .add_attribute("ids", ids)
-        .add_attribute("uluna_deducted", uluna_to_deduct.to_string());
+        .add_attribute("utoken_deducted", utoken_to_deduct.to_string());
 
     Ok(Response::new().add_event(event).add_attribute("action", "erishub/reconcile"))
 }
@@ -577,25 +578,25 @@ pub fn withdraw_unbonded(deps: DepsMut, env: Env, user: Addr, receiver: Addr) ->
         })
         .collect::<StdResult<Vec<_>>>()?;
 
-    // NOTE: Luna in the following batches are withdrawn it the batch:
+    // NOTE: [Token] in the following batches are withdrawn it the batch:
     // - is a _previous_ batch, not a _pending_ batch
     // - is reconciled
     // - has finished unbonding
     // If not sure whether the batches have been reconciled, the user should first invoke `ExecuteMsg::Reconcile`
     // before withdrawing.
-    let mut total_uluna_to_refund = Uint128::zero();
+    let mut total_utoken_to_refund = Uint128::zero();
     let mut ids: Vec<String> = vec![];
     for request in &requests {
         if let Ok(mut batch) = state.previous_batches.load(deps.storage, request.id) {
             if batch.reconciled && batch.est_unbond_end_time < current_time {
-                let uluna_to_refund =
-                    batch.uluna_unclaimed.multiply_ratio(request.shares, batch.total_shares);
+                let utoken_to_refund =
+                    batch.utoken_unclaimed.multiply_ratio(request.shares, batch.total_shares);
 
                 ids.push(request.id.to_string());
 
-                total_uluna_to_refund += uluna_to_refund;
+                total_utoken_to_refund += utoken_to_refund;
                 batch.total_shares -= request.shares;
-                batch.uluna_unclaimed -= uluna_to_refund;
+                batch.utoken_unclaimed -= utoken_to_refund;
 
                 if batch.total_shares.is_zero() {
                     state.previous_batches.remove(deps.storage, request.id)?;
@@ -608,20 +609,20 @@ pub fn withdraw_unbonded(deps: DepsMut, env: Env, user: Addr, receiver: Addr) ->
         }
     }
 
-    if total_uluna_to_refund.is_zero() {
+    if total_utoken_to_refund.is_zero() {
         return Err(ContractError::CantBeZero("withdrawable amount".into()));
     }
 
     let refund_msg = CosmosMsg::Bank(BankMsg::Send {
         to_address: receiver.clone().into(),
-        amount: vec![Coin::new(total_uluna_to_refund.u128(), CONTRACT_DENOM)],
+        amount: vec![Coin::new(total_utoken_to_refund.u128(), CONTRACT_DENOM)],
     });
 
     let event = Event::new("erishub/unbonded_withdrawn")
         .add_attribute("ids", ids.join(","))
         .add_attribute("user", user)
         .add_attribute("receiver", receiver)
-        .add_attribute("uluna_refunded", total_uluna_to_refund);
+        .add_attribute("utoken_refunded", total_utoken_to_refund);
 
     Ok(Response::new()
         .add_message(refund_msg)
@@ -684,7 +685,7 @@ pub fn rebalance(
 
     let amount: u128 = new_redelegations.iter().map(|rd| rd.amount).sum();
 
-    let event = Event::new("erishub/rebalanced").add_attribute("uluna_moved", amount.to_string());
+    let event = Event::new("erishub/rebalanced").add_attribute("utoken_moved", amount.to_string());
 
     let check_msg = if !redelegate_msgs.is_empty() {
         // only check coins if a redelegation is happening

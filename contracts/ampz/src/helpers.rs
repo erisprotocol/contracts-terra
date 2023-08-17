@@ -1,6 +1,6 @@
 use cosmwasm_std::{Addr, Api, QuerierWrapper, StdResult};
 
-use crate::constants::CONTRACT_DENOM;
+use eris::constants::CONTRACT_DENOM;
 #[derive(Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 pub struct Delegation {

@@ -6,9 +6,10 @@ use cosmwasm_std::testing::{mock_env, mock_info};
 use cosmwasm_std::{coins, Addr};
 
 use eris::ampz::{AstroportConfig, ConfigResponse, ExecuteMsg, FeeConfig, QueryMsg};
+use eris_tests::UTOKEN_DENOM;
 
-use crate::constants::CONTRACT_DENOM;
 use crate::contract::execute;
+use eris::constants::CONTRACT_DENOM;
 
 use crate::error::ContractError;
 use crate::state::State;
@@ -31,7 +32,7 @@ fn check_default_config() {
             astroport: AstroportConfig {
                 generator: "generator".into(),
                 coins: vec![
-                    native_asset_info("uluna".into()),
+                    native_asset_info(UTOKEN_DENOM.into()),
                     token_asset_info(Addr::unchecked("astro")),
                 ]
             },

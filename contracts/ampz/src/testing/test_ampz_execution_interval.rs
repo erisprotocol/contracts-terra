@@ -8,12 +8,12 @@ use eris::ampz::{CallbackMsg, ExecuteMsg, Execution, Schedule};
 use eris::constants::{DAY, HOUR};
 use protobuf::SpecialFields;
 
-use crate::constants::CONTRACT_DENOM;
 use crate::contract::execute;
 use crate::error::ContractError;
 use crate::protos::authz::MsgExec;
 use crate::protos::proto::MsgWithdrawDelegatorReward;
 use crate::testing::helpers::{mock_env_at_timestamp, setup_test};
+use eris::constants::CONTRACT_DENOM;
 
 use super::custom_querier::CustomQuerier;
 

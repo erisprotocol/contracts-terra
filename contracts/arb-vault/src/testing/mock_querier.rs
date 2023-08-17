@@ -194,7 +194,7 @@
 //                                 id,
 //                                 reconciled: id < 2,
 //                                 total_shares: Uint128::from(1000u128),
-//                                 uluna_unclaimed: Uint128::from(1000u128),
+//                                 utoken_unclaimed: Uint128::from(1000u128),
 //                                 est_unbond_end_time: 100,
 //                             })
 //                             .into(),
@@ -217,7 +217,7 @@
 //                         SteakQueryMsg::State {} => SystemResult::Ok(
 //                             to_binary(&steak::StateResponse {
 //                                 total_usteak: Uint128::from(1000u128),
-//                                 total_uluna: Uint128::from(1000u128),
+//                                 total_utoken: Uint128::from(1000u128),
 //                                 exchange_rate: Decimal::one(),
 //                                 unlocked_coins: vec![],
 //                             })

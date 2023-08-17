@@ -43,19 +43,19 @@ pub fn state(deps: Deps, env: Env, addr: Option<String>) -> StdResult<StateRespo
     let mut stake_available = stake_balance.checked_sub(stake_extracted)?;
 
     let last_exchange_rate = state.last_exchange_rate.load(deps.storage)?;
-    let exchange_rate_stake_uluna =
+    let exchange_rate_stake_utoken =
         query_exchange_rate(&deps.querier, extract_config.interface, &extract_config.hub_contract)?;
 
-    if exchange_rate_stake_uluna.le(&last_exchange_rate) || last_exchange_rate.is_zero() {
+    if exchange_rate_stake_utoken.le(&last_exchange_rate) || last_exchange_rate.is_zero() {
         // if the current rate is lower or equal to the last exchange rate nothing will be extracted
         // it is expected that exchange_rate will only increase - slashings ignored / nothing extracted until it is higher again.
         // if last_exchange_rate is not set, nothing is deposited anyways.
     } else {
-        // no check needed, as we checked for "le" already. exchange_rate_stake_uluna is also not zero
+        // no check needed, as we checked for "le" already. exchange_rate_stake_utoken is also not zero
 
         // (20 - 10) / 20 = 0.5
         let exchange_rate_diff =
-            (exchange_rate_stake_uluna - last_exchange_rate) / exchange_rate_stake_uluna;
+            (exchange_rate_stake_utoken - last_exchange_rate) / exchange_rate_stake_utoken;
 
         // 0.5 * 0.1 * 100_000000 = 5_000000
         let stake_to_extract = exchange_rate_diff
@@ -89,12 +89,12 @@ pub fn state(deps: Deps, env: Env, addr: Option<String>) -> StdResult<StateRespo
         stake_available,
 
         exchange_rate_lp_stake,
-        exchange_rate_stake_uluna,
+        exchange_rate_stake_utoken,
 
         user_share,
         user_received_asset,
 
-        tvl_uluna: exchange_rate_stake_uluna.checked_mul_uint(stake_balance)?,
+        tvl_utoken: exchange_rate_stake_utoken.checked_mul_uint(stake_balance)?,
     })
 }
 

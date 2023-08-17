@@ -1,17 +1,17 @@
-# Eris Stake Hub (Amplified Luna)
+# Eris Stake Hub (Amplified [Token])
 
-Eris Stake Hub contract manages the bonding/unbonding of Luna, minting/burning of ampLUNA, and reinvestment of staking rewards.
+Eris Stake Hub contract manages the bonding/unbonding of [Token], minting/burning of ampLUNA, and reinvestment of staking rewards.
 
 ## Overview
 
 ### Exchange rate
 
-Unlike [Lido's stETH](https://github.com/lidofinance/lido-dao/tree/master/contracts/0.4.24), the ampLUNA token does not rebase; instead, the exchange rate between Luna and ampLUNA increases (i.e. each ampLUNA becomes worth more Luna) as staking rewards are harvested, and reduces if validators are slashed.
+Unlike [Lido's stETH](https://github.com/lidofinance/lido-dao/tree/master/contracts/0.4.24), the ampLUNA token does not rebase; instead, the exchange rate between [Token] and ampLUNA increases (i.e. each ampLUNA becomes worth more [Token]) as staking rewards are harvested, and reduces if validators are slashed.
 
-The exchange rate, as defined by the amount of `uluna` redeemable per `ustake`, is calculated as
+The exchange rate, as defined by the amount of `utoken` redeemable per `ustake`, is calculated as
 
 ```plain
-exchange_rate = total_uluna_staked / total_ustake_supply
+exchange_rate = total_utoken_staked / total_ustake_supply
 ```
 
 ### Unlocked coins
@@ -20,7 +20,7 @@ Unlocked coin refers to coins held by the Eris Staking Hub contract (referred to
 
 Each time the Hub contract delegates to or undelegates from a validator, the claimable staking rewards are automatically transferred to the contract. The amounts of coins transferred are recorded in the `coin_received` event. When handling the response, the contract parses this event and updates the `unlocked_coins` variable accordingly.
 
-When harvesting, the contract needs to swap Terra stablecoins into Luna. the contract offers all unlocked coins that have exchange rates defined against Luna to be swapped, and deduct them from `unlocked_coins` accordingly. When handling the response, the contract parses the `swap` event and increments the unlocked Luna amount.
+When harvesting, the contract needs to swap Terra stablecoins into [Token]. the contract offers all unlocked coins that have exchange rates defined against [Token] to be swapped, and deduct them from `unlocked_coins` accordingly. When handling the response, the contract parses the `swap` event and increments the unlocked [Token] amount.
 
 ### Unbonding
 
@@ -32,15 +32,15 @@ For mainnet, the contract will submit a batch every 3 days, such that there are 
 
 During the 3 day period, the contract accepts unbonding requests from users and store them in an `IndexedMap` data structure under the `unbond_requests` key, and the aggregated properties of the pending batch under the `pending_batch` key. Each user's share in the batch is proportional to the amount of ampLUNA tokens the user requests to burn.
 
-At the end of the 3 day period, anyone can invoke the `ExecuteMsg::SubmitBatch` function to submit the pending batch to be unbonded. The contract calculates the amount of Luna to unbond based on the Luna/ampLUNA exchange rate at the time, burns the ampLUNA tokens, and initiates undelegations with the validators.
+At the end of the 3 day period, anyone can invoke the `ExecuteMsg::SubmitBatch` function to submit the pending batch to be unbonded. The contract calculates the amount of [Token] to unbond based on the [Token]/ampLUNA exchange rate at the time, burns the ampLUNA tokens, and initiates undelegations with the validators.
 
-At the end of the following 21 day unbonding period, the user can invoke the `ExecuteMsg::WithdrawUnbonded` function. The contract pulls all of the user's unclaimed unbonding requests, and refunds appropriate amounts of Luna based on the each request's share in that batch, to the user.
+At the end of the following 21 day unbonding period, the user can invoke the `ExecuteMsg::WithdrawUnbonded` function. The contract pulls all of the user's unclaimed unbonding requests, and refunds appropriate amounts of [Token] based on the each request's share in that batch, to the user.
 
 ## Reference
 
 Similar projects:
 
 * [Lido - stLUNA](https://github.com/lidofinance/lido-terra-contracts)
-* [Stader - LunaX](https://github.com/stader-labs/stader-liquid-token)
+* [Stader - [Token]X](https://github.com/stader-labs/stader-liquid-token)
 * [Prism - cLUNA (not published anymore)](https://github.com/prism-finance)
 * [Staking derivatives (dSCRT)](https://github.com/Cashmaney/SecretStaking)

@@ -1,7 +1,7 @@
 use cosmwasm_std::{attr, StdResult, Uint128};
 use eris::governance_helper::WEEK;
 use eris_tests::gov_helper::EscrowHelper;
-use eris_tests::{mock_app, EventChecker, TerraAppExtension};
+use eris_tests::{mock_app, AppExtension, EventChecker};
 use std::vec;
 
 use eris::amp_gauges::{ConfigResponse, ExecuteMsg};

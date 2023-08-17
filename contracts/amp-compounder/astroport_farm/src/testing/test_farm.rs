@@ -18,6 +18,7 @@ use eris::astroport_farm::{
 };
 use eris::compound_proxy::ExecuteMsg as CompoundProxyExecuteMsg;
 use eris::constants::DAY;
+use eris_tests::UTOKEN_DENOM;
 
 use super::mock_querier::{mock_dependencies, WasmMockQuerier};
 
@@ -848,12 +849,12 @@ fn bond_same_assets() -> Result<(), ContractError> {
 
     create(&mut deps)?;
 
-    let info = mock_info(USER_1, &[coin(200, "uluna")]);
+    let info = mock_info(USER_1, &[coin(200, UTOKEN_DENOM)]);
 
     // Check with native assets
     let assets = vec![
-        native_asset("uluna".to_string(), Uint128::new(100)),
-        native_asset("uluna".to_string(), Uint128::new(100)),
+        native_asset(UTOKEN_DENOM.to_string(), Uint128::new(100)),
+        native_asset(UTOKEN_DENOM.to_string(), Uint128::new(100)),
     ];
 
     let msg = ExecuteMsg::BondAssets {

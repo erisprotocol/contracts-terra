@@ -139,7 +139,7 @@ impl Eris {
                             token_amount: item.shares,
                             reconciled: previous.reconciled,
                             exchange_rate: Decimal::from_ratio(
-                                previous.uluna_unclaimed,
+                                previous.utoken_unclaimed,
                                 previous.total_shares,
                             ),
                         }

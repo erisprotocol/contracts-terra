@@ -10,6 +10,7 @@ use cosmwasm_std::{
     Validator,
 };
 use eris::constants::{DAY, HOUR};
+use eris_tests::UTOKEN_DENOM;
 use serde::de::DeserializeOwned;
 
 use eris::ampz::{
@@ -17,8 +18,8 @@ use eris::ampz::{
     QueryMsg, Schedule, WhiteWhaleConfig,
 };
 
-use crate::constants::CONTRACT_DENOM;
 use crate::contract::{execute, query};
+use eris::constants::CONTRACT_DENOM;
 
 use super::custom_querier::CustomQuerier;
 use super::cw20_querier::Cw20Querier;
@@ -118,7 +119,7 @@ pub(super) fn setup_test() -> OwnedDeps<MockStorage, MockApi, CustomQuerier> {
             astroport: AstroportConfig {
                 generator: "generator".to_string(),
                 coins: vec![
-                    native_asset_info("uluna".into()),
+                    native_asset_info(UTOKEN_DENOM.into()),
                     token_asset_info(Addr::unchecked("astro")),
                 ],
             },

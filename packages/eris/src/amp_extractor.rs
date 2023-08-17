@@ -74,7 +74,7 @@ pub enum ExecuteMsg {
 
 #[cw_serde]
 pub enum ReceiveMsg {
-    /// Deposit cw20 ampLuna into the vault
+    /// Deposit cw20 amp[Token] into the vault
     Deposit {},
 
     Withdraw {},
@@ -125,7 +125,7 @@ pub struct ConfigResponse {
 pub struct StateResponse {
     /// Total supply to the lp token
     pub total_lp: Uint128,
-    /// Total amount of uluna staked (bonded)
+    /// Total amount of utoken staked (bonded)
     pub stake_balance: Uint128,
     // Amount of lsd to be harvestable
     pub stake_extracted: Uint128,
@@ -136,12 +136,12 @@ pub struct StateResponse {
     // stake_balance - stake_extracted
     pub stake_available: Uint128,
 
-    /// The exchange rate between ustake and uluna, in terms of uluna per ustake
+    /// The exchange rate between ustake and utoken, in terms of utoken per ustake
     pub exchange_rate_lp_stake: Decimal,
-    /// The exchange rate between the liquid staking derivate and uluna
-    pub exchange_rate_stake_uluna: Decimal,
-    // Total amount of uluna within the contract (stake_balance * exchange_rate_stake_uluna)
-    pub tvl_uluna: Uint128,
+    /// The exchange rate between the liquid staking derivate and utoken
+    pub exchange_rate_stake_utoken: Decimal,
+    // Total amount of utoken within the contract (stake_balance * exchange_rate_stake_utoken)
+    pub tvl_utoken: Uint128,
 
     // amount of LP shares the provided addr holds
     pub user_share: Option<Uint128>,

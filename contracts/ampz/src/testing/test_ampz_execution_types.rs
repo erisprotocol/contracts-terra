@@ -18,9 +18,9 @@ use cosmwasm_std::{coins, Addr, Uint128};
 use eris::ampz::{CallbackMsg, ExecuteMsg, Execution, Schedule};
 use protobuf::SpecialFields;
 
-use crate::constants::CONTRACT_DENOM;
 use crate::protos::authz::MsgExec;
 use crate::protos::proto::MsgWithdrawDelegatorReward;
+use eris::constants::CONTRACT_DENOM;
 
 fn astro() -> Addr {
     Addr::unchecked("astro")

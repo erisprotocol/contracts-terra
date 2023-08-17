@@ -8,10 +8,10 @@ Also a previous version ([v1.0.0-rc0](https://github.com/st4k3h0us3/steak-contra
 
 ## Contracts
 
-| Contract                                  | Description                                              |
-| ----------------------------------------- | -------------------------------------------------------- |
-| [`erist-staking-hub`](./contracts/hub)    | Manages minting/burning of ampLUNA token and bonded Luna |
-| [`eris-staking-token`](./contracts/token) | Modified CW20 token contract                             |
+| Contract                                  | Description                                                 |
+| ----------------------------------------- | ----------------------------------------------------------- |
+| [`erist-staking-hub`](./contracts/hub)    | Manages minting/burning of ampLUNA token and bonded [Token] |
+| [`eris-staking-token`](./contracts/token) | Modified CW20 token contract                                |
 
 ## Deployment
 
@@ -44,7 +44,7 @@ For interacting with the smart contract clone <https://github.com/erisprotocol/l
 - added a reward fee for running the protocol
 - added schema generation
 - added a more detailed unbonding query
-- Fixed an issue in reconciliation when the expected Luna was correct the unbinding queue items were not marked reconciled
+- Fixed an issue in reconciliation when the expected [Token] was correct the unbinding queue items were not marked reconciled
 - move scripts to another repository, so that the repo of the smart contracts will not be touched as much <https://github.com/erisprotocol/liquid-staking-scripts>
 
 ## Changelog
@@ -52,7 +52,7 @@ For interacting with the smart contract clone <https://github.com/erisprotocol/l
 ### Hub Version 1.1.0
 
 - Support new execute operation "donate" to add LUNA without minting ampLUNA. Will be used to increase the exchange_rate
-- Extended "state" query to include the full tvl in uluna.
+- Extended "state" query to include the full tvl in utoken.
 - Added migration version handling
 
 ### Hub Version 1.1.1

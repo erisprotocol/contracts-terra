@@ -13,7 +13,10 @@ use eris::{
     governance_helper::WEEK,
 };
 
-use crate::base::{BaseErisTestInitMessage, BaseErisTestPackage};
+use crate::{
+    base::{BaseErisTestInitMessage, BaseErisTestPackage},
+    UTOKEN_DENOM,
+};
 
 pub const MULTIPLIER: u64 = 1000000;
 
@@ -375,7 +378,7 @@ impl EscrowHelper {
         router_ref
             .sudo(cw_multi_test::SudoMsg::Bank(cw_multi_test::BankSudo::Mint {
                 to_address: self.base.hub.get_address_string(),
-                amount: vec![coin(amount, "uluna")],
+                amount: vec![coin(amount, UTOKEN_DENOM)],
             }))
             .unwrap();
 
@@ -653,7 +656,7 @@ impl EscrowHelper {
 
     pub fn arb_fake_fill_arb_contract(&self, router_ref: &mut App) {
         let amount = 11000_000000u128;
-        let result = self.hub_bond(router_ref, "fake", amount, "uluna").unwrap();
+        let result = self.hub_bond(router_ref, "fake", amount, UTOKEN_DENOM).unwrap();
 
         let minted_event = result.events.iter().find(|f| f.ty == "wasm-erishub/bonded").unwrap();
         let minted_attribute =
@@ -680,7 +683,7 @@ impl EscrowHelper {
 
     pub fn arb_stader_fake_fill_arb_contract(&self, router_ref: &mut App) {
         let amount = 11000_000000u128;
-        let result = self.stader_bond(router_ref, "fake", amount, "uluna").unwrap();
+        let result = self.stader_bond(router_ref, "fake", amount, UTOKEN_DENOM).unwrap();
 
         let minted_event = result.events.iter().find(|f| f.ty == "wasm").unwrap();
         let minted_attribute = minted_event.attributes.iter().find(|a| a.key == "amount").unwrap();
@@ -706,7 +709,7 @@ impl EscrowHelper {
 
     pub fn arb_steak_fake_fill_arb_contract(&self, router_ref: &mut App) {
         let amount = 11000_000000u128;
-        let result = self.steak_bond(router_ref, "fake", amount, "uluna").unwrap();
+        let result = self.steak_bond(router_ref, "fake", amount, UTOKEN_DENOM).unwrap();
 
         let minted_event = result.events.iter().find(|f| f.ty == "wasm-steakhub/bonded").unwrap();
         let minted_attribute =
@@ -741,10 +744,10 @@ impl EscrowHelper {
             Addr::unchecked(sender),
             self.base.arb_vault.get_address(),
             &eris::arb_vault::ExecuteMsg::Deposit {
-                asset: native_asset("uluna".to_string(), Uint128::new(amount)),
+                asset: native_asset(UTOKEN_DENOM.to_string(), Uint128::new(amount)),
                 receiver: None,
             },
-            &[coin(amount, "uluna")],
+            &[coin(amount, UTOKEN_DENOM)],
         )
     }
 
@@ -914,7 +917,7 @@ impl EscrowHelper {
         router_ref
             .sudo(cw_multi_test::SudoMsg::Bank(cw_multi_test::BankSudo::Mint {
                 to_address: self.base.stader.get_address_string(),
-                amount: vec![coin(amount, "uluna")],
+                amount: vec![coin(amount, UTOKEN_DENOM)],
             }))
             .unwrap();
 
@@ -1001,7 +1004,7 @@ impl EscrowHelper {
         router_ref
             .sudo(cw_multi_test::SudoMsg::Bank(cw_multi_test::BankSudo::Mint {
                 to_address: self.base.steak_hub.get_address_string(),
-                amount: vec![coin(amount, "uluna")],
+                amount: vec![coin(amount, UTOKEN_DENOM)],
             }))
             .unwrap();
 

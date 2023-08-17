@@ -9,11 +9,11 @@ use eris::ampz::{
 };
 use eris::constants::{DAY, HOUR};
 
-use crate::constants::CONTRACT_DENOM;
 use crate::contract::execute;
 use crate::error::ContractError;
 use crate::state::State;
 use crate::testing::helpers::{mock_env_at_timestamp, query_helper, query_helper_fail, setup_test};
+use eris::constants::CONTRACT_DENOM;
 
 //--------------------------------------------------------------------------------------------------
 // Execution

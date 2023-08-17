@@ -258,7 +258,7 @@ fn swap(
     use_compound_proxy: bool,
 ) -> Result<SwapTarget, ContractError> {
     let stablecoin = config.stablecoin.clone();
-    let uluna = native_asset_info(ULUNA_DENOM.to_string());
+    let utoken = native_asset_info(ULUNA_DENOM.to_string());
 
     if use_compound_proxy {
         if let Some(compound_proxy) = &config.compound_proxy {
@@ -291,12 +291,17 @@ fn swap(
     }
 
     // Check for a pair with LUNA
-    if from_token.ne(&uluna) {
-        let swap_to_uluna =
-            try_build_swap_msg(&deps.querier, config, from_token.clone(), uluna.clone(), amount_in);
-        if let Ok(msg) = swap_to_uluna {
+    if from_token.ne(&utoken) {
+        let swap_to_utoken = try_build_swap_msg(
+            &deps.querier,
+            config,
+            from_token.clone(),
+            utoken.clone(),
+            amount_in,
+        );
+        if let Ok(msg) = swap_to_utoken {
             return Ok(SwapTarget::Bridge {
-                asset: uluna,
+                asset: utoken,
                 msg,
             });
         }

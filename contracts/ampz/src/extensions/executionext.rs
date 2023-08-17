@@ -1,6 +1,7 @@
 use astroport::asset::{native_asset_info, token_asset_info, AssetInfo};
 use cosmwasm_std::DepsMut;
 use eris::ampz::{DepositMarket, Execution, RepayMarket};
+use eris::constants::CONTRACT_DENOM;
 use eris::{
     adapters::farm::Farm,
     ampz::{DestinationState, Source},
@@ -8,7 +9,6 @@ use eris::{
 
 use crate::constants::WW_MIN_LOCK_TIME;
 use crate::{
-    constants::CONTRACT_DENOM,
     error::{ContractError, CustomResult},
     helpers::validate_receiver,
     state::State,
@@ -138,7 +138,7 @@ impl ExecutionExt for Execution {
             Source::Claim => {
                 let default_asset = native_asset_info(CONTRACT_DENOM.to_string());
                 if asset_info.is_some() && *asset_info.unwrap() == default_asset {
-                    // cant use claim (uluna) to swap to uluna (useless)
+                    // cant use claim (utoken) to swap to utoken (useless)
                     Err(ContractError::CannotSwapToSameToken {})?
                 }
 

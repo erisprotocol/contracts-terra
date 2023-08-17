@@ -855,6 +855,7 @@ dependencies = [
  "cosmwasm-std",
  "cw20 0.13.2",
  "cw20-base 0.13.2",
+ "eris-tests",
  "schemars",
  "serde",
 ]
@@ -928,6 +929,7 @@ dependencies = [
  "cw-storage-plus 0.13.2",
  "cw20 0.13.2",
  "eris",
+ "eris-tests",
  "schemars",
  "serde",
  "thiserror",
@@ -945,6 +947,7 @@ dependencies = [
  "cw2 0.13.2",
  "cw20 0.13.2",
  "eris",
+ "eris-tests",
  "integer-sqrt",
  "proptest 0.10.1",
  "schemars",

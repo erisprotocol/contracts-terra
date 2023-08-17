@@ -8,6 +8,7 @@ use cosmwasm_std::{
 };
 use cw20::MinterResponse;
 use cw20_base::msg::InstantiateMsg as Cw20InstantiateMsg;
+use eris_tests::UTOKEN_DENOM;
 use serde::de::DeserializeOwned;
 
 use eris::arb_vault::{InstantiateMsg, LsdConfig, QueryMsg};
@@ -182,7 +183,7 @@ pub fn create_default_init() -> InstantiateMsg {
         symbol: "arbsymbol".into(),
         decimals: 6,
         owner: "owner".into(),
-        utoken: "utoken".into(),
+        utoken: UTOKEN_DENOM.into(),
         utilization_method: eris::arb_vault::UtilizationMethod::Steps(vec![
             (
                 // 1% = 50% of pool

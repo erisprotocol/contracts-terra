@@ -26,7 +26,7 @@ ts-node 2_deploy.ts \
   --msg /path/to/instantiate_msg.json
 ```
 
-To stake Luna and mint Stake:
+To stake [Token] and mint Stake:
 
 ```bash
 ts-node 4_bond.ts \

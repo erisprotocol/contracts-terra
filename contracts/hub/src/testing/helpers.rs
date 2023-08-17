@@ -10,8 +10,8 @@ use serde::de::DeserializeOwned;
 
 use eris::hub::{InstantiateMsg, QueryMsg};
 
-use crate::constants::CONTRACT_DENOM;
 use crate::contract::{instantiate, query, reply};
+use eris::constants::CONTRACT_DENOM;
 
 use super::custom_querier::CustomQuerier;
 

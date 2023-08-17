@@ -13,6 +13,7 @@ use eris::compound_proxy::{
     CallbackMsg, CompoundSimulationResponse, ExecuteMsg, InstantiateMsg, LpConfig, LpInit,
     PairInfo, PairType, QueryMsg, RouteDelete, RouteInit, RouteResponseItem, RouteTypeResponseItem,
 };
+use eris_tests::UTOKEN_DENOM;
 use proptest::std_facade::vec;
 
 use crate::contract::{execute, instantiate, query};
@@ -40,7 +41,7 @@ fn init_contract(
                 slippage_tolerance: Decimal::percent(1),
                 pair_contract: pair_contract.unwrap_or_else(|| "pair_contract".to_string()),
                 commission_bps: 30,
-                wanted_token: wanted_token.unwrap_or_else(uluna),
+                wanted_token: wanted_token.unwrap_or_else(utoken),
                 lp_type: None,
             },
             LpInit {
@@ -55,14 +56,14 @@ fn init_contract(
             RouteInit::Path {
                 router: "router".to_string(),
                 router_type: RouterType::AstroSwap,
-                route: vec![astro(), any(), uluna()],
+                route: vec![astro(), any(), utoken()],
             },
-            // any->uluna, uluna->any
+            // any->utoken, utoken->any
             RouteInit::PairProxy {
                 single_direction_from: None,
                 pair_contract: "pair0001".to_string(),
             },
-            // ibc->uluna
+            // ibc->utoken
             RouteInit::PairProxy {
                 single_direction_from: Some(ibc()),
                 pair_contract: "pair0002".to_string(),
@@ -109,7 +110,7 @@ fn proper_initialization() -> StdResult<()> {
     assert_eq!(
         lp_config.pair_info,
         PairInfo {
-            asset_infos: vec![token(), uluna()],
+            asset_infos: vec![token(), utoken()],
             contract_addr: Addr::unchecked("pair_contract"),
             liquidity_token: Addr::unchecked("liquidity_token"),
             pair_type: PairType::Xyk {}
@@ -138,14 +139,14 @@ fn proper_initialization() -> StdResult<()> {
             },
             LpConfig {
                 pair_info: PairInfo {
-                    asset_infos: vec![token(), uluna()],
+                    asset_infos: vec![token(), utoken()],
                     contract_addr: Addr::unchecked("pair_contract"),
                     liquidity_token: Addr::unchecked("liquidity_token"),
                     pair_type: PairType::Xyk {}
                 },
                 commission_bps: 30,
                 slippage_tolerance: Decimal::percent(1),
-                wanted_token: uluna()
+                wanted_token: utoken()
             }
         ]
     );
@@ -160,10 +161,18 @@ fn proper_initialization() -> StdResult<()> {
         routes,
         vec![
             RouteResponseItem {
-                key: ("any".to_string(), "uluna".to_string()),
+                key: ("any".to_string(), UTOKEN_DENOM.to_string()),
                 route_type: RouteTypeResponseItem::PairProxy {
                     pair_contract: "pair0001".to_string(),
-                    asset_infos: vec!["any".to_string(), "uluna".to_string()]
+                    asset_infos: vec!["any".to_string(), UTOKEN_DENOM.to_string()]
+                }
+            },
+            RouteResponseItem {
+                key: ("astro".to_string(), UTOKEN_DENOM.to_string()),
+                route_type: RouteTypeResponseItem::Path {
+                    router: "router".to_string(),
+                    router_type: RouterType::AstroSwap,
+                    route: vec!["astro".to_string(), "any".to_string(), UTOKEN_DENOM.to_string()]
                 }
             },
             RouteResponseItem {
@@ -174,14 +183,6 @@ fn proper_initialization() -> StdResult<()> {
                 }
             },
             RouteResponseItem {
-                key: ("astro".to_string(), "uluna".to_string()),
-                route_type: RouteTypeResponseItem::Path {
-                    router: "router".to_string(),
-                    router_type: RouterType::AstroSwap,
-                    route: vec!["astro".to_string(), "any".to_string(), "uluna".to_string()]
-                }
-            },
-            RouteResponseItem {
                 key: ("token".to_string(), "astro".to_string()),
                 route_type: RouteTypeResponseItem::PairProxy {
                     pair_contract: "pair_astro_token".to_string(),
@@ -189,25 +190,25 @@ fn proper_initialization() -> StdResult<()> {
                 }
             },
             RouteResponseItem {
-                key: ("uluna".to_string(), "any".to_string()),
+                key: (UTOKEN_DENOM.to_string(), "any".to_string()),
                 route_type: RouteTypeResponseItem::PairProxy {
                     pair_contract: "pair0001".to_string(),
-                    asset_infos: vec!["any".to_string(), "uluna".to_string()]
+                    asset_infos: vec!["any".to_string(), UTOKEN_DENOM.to_string()]
                 }
             },
             RouteResponseItem {
-                key: ("uluna".to_string(), "astro".to_string()),
+                key: (UTOKEN_DENOM.to_string(), "astro".to_string()),
                 route_type: RouteTypeResponseItem::Path {
                     router: "router".to_string(),
                     router_type: RouterType::AstroSwap,
-                    route: vec!["uluna".to_string(), "any".to_string(), "astro".to_string()]
+                    route: vec![UTOKEN_DENOM.to_string(), "any".to_string(), "astro".to_string()]
                 }
             },
             RouteResponseItem {
-                key: ("ibc/token".to_string(), "uluna".to_string()),
+                key: ("ibc/token".to_string(), UTOKEN_DENOM.to_string()),
                 route_type: RouteTypeResponseItem::PairProxy {
                     pair_contract: "pair0002".to_string(),
-                    asset_infos: vec!["uluna".to_string(), "ibc/token".to_string()]
+                    asset_infos: vec![UTOKEN_DENOM.to_string(), "ibc/token".to_string()]
                 }
             }
         ]
@@ -286,14 +287,14 @@ fn add_remove_lps() -> StdResult<()> {
             },
             LpConfig {
                 pair_info: PairInfo {
-                    asset_infos: vec![token(), uluna()],
+                    asset_infos: vec![token(), utoken()],
                     contract_addr: Addr::unchecked("pair_contract"),
                     liquidity_token: Addr::unchecked("liquidity_token"),
                     pair_type: PairType::Xyk {}
                 },
                 commission_bps: 30,
                 slippage_tolerance: Decimal::percent(1),
-                wanted_token: uluna()
+                wanted_token: utoken()
             }
         ]
     );
@@ -340,14 +341,14 @@ fn add_remove_lps() -> StdResult<()> {
         lp_configs,
         vec![LpConfig {
             pair_info: PairInfo {
-                asset_infos: vec![token(), uluna()],
+                asset_infos: vec![token(), utoken()],
                 contract_addr: Addr::unchecked("pair_contract"),
                 liquidity_token: Addr::unchecked("liquidity_token"),
                 pair_type: PairType::Xyk {}
             },
             commission_bps: 30,
             slippage_tolerance: Decimal::percent(1),
-            wanted_token: uluna()
+            wanted_token: utoken()
         }]
     );
 
@@ -375,7 +376,7 @@ fn add_remove_routes() -> StdResult<()> {
             delete_routes: Some(vec![
                 RouteDelete {
                     from: any(),
-                    to: uluna(),
+                    to: utoken(),
                     both: Some(true),
                 },
                 RouteDelete {
@@ -385,7 +386,7 @@ fn add_remove_routes() -> StdResult<()> {
                 },
                 RouteDelete {
                     from: astro(),
-                    to: uluna(),
+                    to: utoken(),
                     both: Some(false),
                 },
             ]),
@@ -404,18 +405,18 @@ fn add_remove_routes() -> StdResult<()> {
         routes,
         vec![
             RouteResponseItem {
-                key: ("uluna".to_string(), "astro".to_string()),
+                key: (UTOKEN_DENOM.to_string(), "astro".to_string()),
                 route_type: RouteTypeResponseItem::Path {
                     router: "router".to_string(),
                     router_type: RouterType::AstroSwap,
-                    route: vec!["uluna".to_string(), "any".to_string(), "astro".to_string()]
+                    route: vec![UTOKEN_DENOM.to_string(), "any".to_string(), "astro".to_string()]
                 }
             },
             RouteResponseItem {
-                key: ("ibc/token".to_string(), "uluna".to_string()),
+                key: ("ibc/token".to_string(), UTOKEN_DENOM.to_string()),
                 route_type: RouteTypeResponseItem::PairProxy {
                     pair_contract: "pair0002".to_string(),
-                    asset_infos: vec!["uluna".to_string(), "ibc/token".to_string()]
+                    asset_infos: vec![UTOKEN_DENOM.to_string(), "ibc/token".to_string()]
                 }
             }
         ]
@@ -433,7 +434,7 @@ fn add_remove_routes() -> StdResult<()> {
             insert_routes: Some(vec![RouteInit::Path {
                 router: "router".to_string(),
                 router_type: RouterType::AstroSwap,
-                route: vec![astro(), any(), token(), uluna()],
+                route: vec![astro(), any(), token(), utoken()],
             }]),
             delete_routes: None,
             default_max_spread: None,
@@ -454,13 +455,13 @@ fn add_remove_routes() -> StdResult<()> {
             delete_lps: None,
             delete_routes: Some(vec![RouteDelete {
                 from: astro(),
-                to: uluna(),
+                to: utoken(),
                 both: Some(true),
             }]),
             insert_routes: Some(vec![RouteInit::Path {
                 router: "router".to_string(),
                 router_type: RouterType::AstroSwap,
-                route: vec![astro(), any(), token(), uluna()],
+                route: vec![astro(), any(), token(), utoken()],
             }]),
             default_max_spread: None,
         },
@@ -477,7 +478,7 @@ fn add_remove_routes() -> StdResult<()> {
         routes,
         vec![
             RouteResponseItem {
-                key: ("astro".to_string(), "uluna".to_string()),
+                key: ("astro".to_string(), UTOKEN_DENOM.to_string()),
                 route_type: RouteTypeResponseItem::Path {
                     router: "router".to_string(),
                     router_type: RouterType::AstroSwap,
@@ -485,17 +486,17 @@ fn add_remove_routes() -> StdResult<()> {
                         "astro".to_string(),
                         "any".to_string(),
                         "token".to_string(),
-                        "uluna".to_string()
+                        UTOKEN_DENOM.to_string()
                     ]
                 }
             },
             RouteResponseItem {
-                key: ("uluna".to_string(), "astro".to_string()),
+                key: (UTOKEN_DENOM.to_string(), "astro".to_string()),
                 route_type: RouteTypeResponseItem::Path {
                     router: "router".to_string(),
                     router_type: RouterType::AstroSwap,
                     route: vec![
-                        "uluna".to_string(),
+                        UTOKEN_DENOM.to_string(),
                         "token".to_string(),
                         "any".to_string(),
                         "astro".to_string()
@@ -503,10 +504,10 @@ fn add_remove_routes() -> StdResult<()> {
                 }
             },
             RouteResponseItem {
-                key: ("ibc/token".to_string(), "uluna".to_string()),
+                key: ("ibc/token".to_string(), UTOKEN_DENOM.to_string()),
                 route_type: RouteTypeResponseItem::PairProxy {
                     pair_contract: "pair0002".to_string(),
-                    asset_infos: vec!["uluna".to_string(), "ibc/token".to_string()]
+                    asset_infos: vec![UTOKEN_DENOM.to_string(), "ibc/token".to_string()]
                 }
             }
         ]
@@ -579,18 +580,19 @@ fn add_tfm_route() -> StdResult<()> {
 fn compound() -> Result<(), ContractError> {
     let mut deps = init_contract(None, None);
 
-    deps.querier.with_balance(&[(&String::from(MOCK_CONTRACT_ADDR), &[coin(1000000, "uluna")])]);
+    deps.querier
+        .with_balance(&[(&String::from(MOCK_CONTRACT_ADDR), &[coin(1000000, UTOKEN_DENOM)])]);
 
     let msg = ExecuteMsg::Compound {
         lp_token: "liquidity_token".to_string(),
-        rewards: vec![uluna_amount(1000000)],
+        rewards: vec![utoken_amount(1000000)],
         receiver: None,
         no_swap: None,
         slippage_tolerance: None,
     };
 
     let env = mock_env();
-    let info = mock_info("addr0000", &[coin(1000000u128, "uluna")]);
+    let info = mock_info("addr0000", &[coin(1000000u128, UTOKEN_DENOM)]);
 
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg)?;
     assert_eq!(
@@ -607,7 +609,7 @@ fn compound() -> Result<(), ContractError> {
                 contract_addr: env.contract.address.to_string(),
                 funds: vec![],
                 msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::ProvideLiquidity {
-                    prev_balances: vec![token_amount(0), uluna_amount(0)],
+                    prev_balances: vec![token_amount(0), utoken_amount(0)],
                     receiver: "addr0000".to_string(),
                     slippage_tolerance: None,
                     lp_token: "liquidity_token".to_string()
@@ -620,7 +622,7 @@ fn compound() -> Result<(), ContractError> {
         &String::from(MOCK_CONTRACT_ADDR),
         &[
             Coin {
-                denom: "uluna".to_string(),
+                denom: UTOKEN_DENOM.to_string(),
                 amount: Uint128::new(1000008),
             },
             Coin {
@@ -638,7 +640,7 @@ fn compound() -> Result<(), ContractError> {
     let msg = ExecuteMsg::Compound {
         rewards: vec![Asset {
             info: AssetInfo::NativeToken {
-                denom: "uluna".to_string(),
+                denom: UTOKEN_DENOM.to_string(),
             },
             amount: Uint128::from(1000000u128),
         }],
@@ -656,7 +658,7 @@ fn compound() -> Result<(), ContractError> {
             msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::ProvideLiquidity {
                 prev_balances: vec![
                     token_asset(Addr::unchecked("token"), Uint128::from(9u128)),
-                    native_asset("uluna".to_string(), Uint128::from(8u128)),
+                    native_asset(UTOKEN_DENOM.to_string(), Uint128::from(8u128)),
                 ],
                 receiver: "addr0000".to_string(),
                 slippage_tolerance: Some(Decimal::percent(2)),
@@ -677,14 +679,14 @@ fn compound_native_proxy() -> Result<(), ContractError> {
     let info = mock_info(
         "addr0000",
         &[Coin {
-            denom: "uluna".to_string(),
+            denom: UTOKEN_DENOM.to_string(),
             amount: Uint128::from(1000000u128),
         }],
     );
 
     deps.querier.with_balance(&[(
         &String::from(MOCK_CONTRACT_ADDR),
-        &[coin(1000008, "uluna"), coin(1000, "ibc/token")],
+        &[coin(1000008, UTOKEN_DENOM), coin(1000, "ibc/token")],
     )]);
 
     deps.querier.with_token_balances(&[(
@@ -693,7 +695,7 @@ fn compound_native_proxy() -> Result<(), ContractError> {
     )]);
 
     let msg = ExecuteMsg::Compound {
-        rewards: vec![uluna_amount(1000000), ibc_amount(1000)],
+        rewards: vec![utoken_amount(1000000), ibc_amount(1000)],
         receiver: None,
         no_swap: Some(true),
         slippage_tolerance: Some(Decimal::percent(2)),
@@ -707,7 +709,7 @@ fn compound_native_proxy() -> Result<(), ContractError> {
             .to_string()
     );
 
-    let info = mock_info("addr0000", &[coin(1000000, "uluna"), coin(1000, "ibc/token")]);
+    let info = mock_info("addr0000", &[coin(1000000, UTOKEN_DENOM), coin(1000, "ibc/token")]);
 
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg)?;
 
@@ -721,7 +723,7 @@ fn compound_native_proxy() -> Result<(), ContractError> {
                 contract_addr: env.contract.address.to_string(),
                 funds: vec![],
                 msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::ProvideLiquidity {
-                    prev_balances: vec![token_amount(9), uluna_amount(8)],
+                    prev_balances: vec![token_amount(9), utoken_amount(8)],
                     receiver: "addr0000".to_string(),
                     slippage_tolerance: Some(Decimal::percent(2)),
                     lp_token: "liquidity_token".to_string()
@@ -742,7 +744,7 @@ fn compound_token_path() -> Result<(), ContractError> {
 
     deps.querier.with_balance(&[(
         &String::from(MOCK_CONTRACT_ADDR),
-        &[coin(1000008, "uluna"), coin(1000, "ibc/token")],
+        &[coin(1000008, UTOKEN_DENOM), coin(1000, "ibc/token")],
     )]);
 
     deps.querier.with_token_balances(&[(
@@ -751,27 +753,27 @@ fn compound_token_path() -> Result<(), ContractError> {
     )]);
 
     let msg = ExecuteMsg::Compound {
-        rewards: vec![uluna_amount(1000000), ibc_amount(1000), astro_amount(109)],
+        rewards: vec![utoken_amount(1000000), ibc_amount(1000), astro_amount(109)],
         receiver: None,
         no_swap: Some(true),
         slippage_tolerance: Some(Decimal::percent(2)),
         lp_token: "liquidity_token".to_string(),
     };
 
-    let info = mock_info("addr0000", &[coin(1000000, "uluna"), coin(1000, "ibc/token")]);
+    let info = mock_info("addr0000", &[coin(1000000, UTOKEN_DENOM), coin(1000, "ibc/token")]);
 
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg)?;
 
-    let config = state.routes.load(&deps.storage, (astro().as_bytes(), uluna().as_bytes()))?;
+    let config = state.routes.load(&deps.storage, (astro().as_bytes(), utoken().as_bytes()))?;
 
     assert_eq!(
         config,
         RouteConfig {
-            key: (astro(), uluna()),
+            key: (astro(), utoken()),
             route_type: RouteType::Path {
                 router: Router(Addr::unchecked("router")),
                 router_type: RouterType::AstroSwap,
-                route: vec![astro(), any(), uluna()]
+                route: vec![astro(), any(), utoken()]
             }
         }
     );
@@ -815,7 +817,7 @@ fn compound_token_path() -> Result<(), ContractError> {
                 ExecuteMsg::Callback(CallbackMsg::ProvideLiquidity {
                     prev_balances: vec![
                         token_asset(Addr::unchecked("token"), Uint128::from(0u128)),
-                        native_asset("uluna".to_string(), Uint128::from(8u128)),
+                        native_asset(UTOKEN_DENOM.to_string(), Uint128::from(8u128)),
                     ],
                     receiver: "addr0000".to_string(),
                     slippage_tolerance: Some(Decimal::percent(2)),
@@ -836,14 +838,14 @@ fn compound_same_asset() -> Result<(), ContractError> {
     let env = mock_env();
 
     let msg = ExecuteMsg::Compound {
-        rewards: vec![uluna_amount(1000000), uluna_amount(1000000)],
+        rewards: vec![utoken_amount(1000000), utoken_amount(1000000)],
         receiver: None,
         no_swap: Some(true),
         slippage_tolerance: Some(Decimal::percent(2)),
         lp_token: "liquidity_token".to_string(),
     };
 
-    let info = mock_info("addr0000", &[coin(1000000 + 1000000, "uluna")]);
+    let info = mock_info("addr0000", &[coin(1000000 + 1000000, UTOKEN_DENOM)]);
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap_err();
 
     assert_eq!(res.to_string(), "Generic error: duplicated asset".to_string());
@@ -858,7 +860,7 @@ fn compound_failed() -> Result<(), ContractError> {
 
     deps.querier.with_balance(&[(
         &String::from(MOCK_CONTRACT_ADDR),
-        &[coin(1000008, "uluna"), coin(1000, "ibc/token")],
+        &[coin(1000008, UTOKEN_DENOM), coin(1000, "ibc/token")],
     )]);
 
     deps.querier.with_token_balances(&[(
@@ -867,14 +869,14 @@ fn compound_failed() -> Result<(), ContractError> {
     )]);
 
     let msg = ExecuteMsg::Compound {
-        rewards: vec![uluna_amount(1000000), ibc_amount(1000), astro_amount(109)],
+        rewards: vec![utoken_amount(1000000), ibc_amount(1000), astro_amount(109)],
         receiver: None,
         no_swap: Some(true),
         slippage_tolerance: Some(Decimal::percent(2)),
         lp_token: "unknown".to_string(),
     };
 
-    let info = mock_info("addr0000", &[coin(1000000, "uluna"), coin(1000, "ibc/token")]);
+    let info = mock_info("addr0000", &[coin(1000000, UTOKEN_DENOM), coin(1000, "ibc/token")]);
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap_err();
 
     assert_eq!(res, StdError::generic_err("did not find lp unknown").into());
@@ -887,7 +889,7 @@ fn compound_failed() -> Result<(), ContractError> {
         lp_token: "liquidity_token".to_string(),
     };
 
-    let info = mock_info("addr0000", &[coin(1000000, "uluna"), coin(1000, "ibc/token")]);
+    let info = mock_info("addr0000", &[coin(1000000, UTOKEN_DENOM), coin(1000, "ibc/token")]);
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap_err();
 
     assert_eq!(res, StdError::generic_err("Querier contract error: unknown pair").into());
@@ -917,11 +919,11 @@ fn _any_amount(amount: u128) -> Asset {
     token_asset(Addr::unchecked("any"), Uint128::new(amount))
 }
 
-fn uluna() -> AssetInfo {
-    native_asset_info("uluna".to_string())
+fn utoken() -> AssetInfo {
+    native_asset_info(UTOKEN_DENOM.to_string())
 }
-fn uluna_amount(amount: u128) -> Asset {
-    native_asset("uluna".to_string(), Uint128::new(amount))
+fn utoken_amount(amount: u128) -> Asset {
+    native_asset(UTOKEN_DENOM.to_string(), Uint128::new(amount))
 }
 fn usdc() -> AssetInfo {
     native_asset_info("ibc/usdc".to_string())
@@ -945,7 +947,8 @@ fn optimal_swap() -> Result<(), ContractError> {
     let mut deps = init_contract(None, None);
     let env = mock_env();
 
-    deps.querier.with_balance(&[(&String::from("pair_contract"), &[coin(1000000000, "uluna")])]);
+    deps.querier
+        .with_balance(&[(&String::from("pair_contract"), &[coin(1000000000, UTOKEN_DENOM)])]);
 
     deps.querier.with_token_balances(&[(
         &String::from("token"),
@@ -994,9 +997,12 @@ fn provide_liquidity() -> Result<(), ContractError> {
     deps.querier.with_balance(&[
         (
             &String::from("pair_contract_2"),
-            &[coin(1000000000, "uluna"), coin(1000000000, "ibc/token")],
+            &[coin(1000000000, UTOKEN_DENOM), coin(1000000000, "ibc/token")],
         ),
-        (&String::from(MOCK_CONTRACT_ADDR), &[coin(1000001, "uluna"), coin(2000002, "ibc/token")]),
+        (
+            &String::from(MOCK_CONTRACT_ADDR),
+            &[coin(1000001, UTOKEN_DENOM), coin(2000002, "ibc/token")],
+        ),
     ]);
 
     let info = mock_info("addr0000", &[]);
@@ -1004,7 +1010,7 @@ fn provide_liquidity() -> Result<(), ContractError> {
     let msg = ExecuteMsg::Callback(CallbackMsg::ProvideLiquidity {
         lp_token: "liquidity_token_3".to_string(),
         receiver: "sender".to_string(),
-        prev_balances: vec![ibc_amount(2), uluna_amount(1)],
+        prev_balances: vec![ibc_amount(2), utoken_amount(1)],
         slippage_tolerance: None,
     });
 
@@ -1019,7 +1025,7 @@ fn provide_liquidity() -> Result<(), ContractError> {
             contract_addr: "pair_contract_2".to_string(),
             funds: vec![coin(2000000, "ibc/token"), coin(1000000, "uluna"),],
             msg: to_binary(&CustomExecuteMsg::ProvideLiquidity {
-                assets: vec![uluna_amount(1000000u128), ibc_amount(2000000u128)],
+                assets: vec![utoken_amount(1000000u128), ibc_amount(2000000u128)],
                 slippage_tolerance: Some(Decimal::percent(1)),
                 receiver: Some("sender".to_string()),
             })?,
@@ -1029,9 +1035,9 @@ fn provide_liquidity() -> Result<(), ContractError> {
     deps.querier.with_balance(&[
         (
             &String::from("pair_contract_2"),
-            &[coin(1000000000, "uluna"), coin(1000000000, "ibc/token")],
+            &[coin(1000000000, UTOKEN_DENOM), coin(1000000000, "ibc/token")],
         ),
-        (&String::from(MOCK_CONTRACT_ADDR), &[coin(1000001, "uluna"), coin(2, "ibc/token")]),
+        (&String::from(MOCK_CONTRACT_ADDR), &[coin(1000001, UTOKEN_DENOM), coin(2, "ibc/token")]),
     ]);
 
     let res = execute(deps.as_mut(), env, info, msg)?;
@@ -1041,7 +1047,7 @@ fn provide_liquidity() -> Result<(), ContractError> {
             contract_addr: "pair_contract_2".to_string(),
             funds: vec![coin(1000000, "uluna"),],
             msg: to_binary(&CustomExecuteMsg::ProvideLiquidity {
-                assets: vec![uluna_amount(1000000u128), ibc_amount(0u128)],
+                assets: vec![utoken_amount(1000000u128), ibc_amount(0u128)],
                 slippage_tolerance: Some(Decimal::percent(1)),
                 receiver: Some("sender".to_string()),
             })?,
@@ -1072,7 +1078,8 @@ fn test_compound_simulation_proxy() -> StdResult<()> {
     let mut deps = init_contract(None, Some(token()));
     let env = mock_env();
 
-    deps.querier.with_balance(&[(&String::from("pair_contract"), &[coin(1000000000, "uluna")])]);
+    deps.querier
+        .with_balance(&[(&String::from("pair_contract"), &[coin(1000000000, UTOKEN_DENOM)])]);
     deps.querier.with_token_balances(&[
         (&String::from("token"), &[(&String::from("pair_contract"), &Uint128::new(1000000000))]),
         (&String::from("liquidity_token"), &[(&String::from("xxxx"), &Uint128::new(1000000000))]),
@@ -1105,7 +1112,8 @@ fn test_compound_simulation_path() -> StdResult<()> {
     let mut deps = init_contract(None, None);
     let env = mock_env();
 
-    deps.querier.with_balance(&[(&String::from("pair_contract"), &[coin(1000000000, "uluna")])]);
+    deps.querier
+        .with_balance(&[(&String::from("pair_contract"), &[coin(1000000000, UTOKEN_DENOM)])]);
     deps.querier.with_token_balances(&[
         (&String::from("token"), &[(&String::from("pair_contract"), &Uint128::new(1000000000))]),
         (&String::from("liquidity_token"), &[(&String::from("xxxx"), &Uint128::new(1000000000))]),

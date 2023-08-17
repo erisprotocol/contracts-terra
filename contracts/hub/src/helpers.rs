@@ -16,10 +16,10 @@ use eris::{
 use itertools::Itertools;
 
 use crate::{
-    constants::CONTRACT_DENOM,
     state::State,
     types::{gauges::GaugeLoader, Delegation},
 };
+use eris::constants::CONTRACT_DENOM;
 
 /// Query the total supply of a CW20 token
 pub(crate) fn query_cw20_total_supply(
@@ -31,7 +31,7 @@ pub(crate) fn query_cw20_total_supply(
     Ok(token_info.total_supply)
 }
 
-/// Query the amounts of Luna a staker is delegating to a specific validator
+/// Query the amounts of [Token] a staker is delegating to a specific validator
 pub(crate) fn query_delegation(
     querier: &QuerierWrapper,
     validator: &str,
@@ -46,7 +46,7 @@ pub(crate) fn query_delegation(
     })
 }
 
-/// Query the amounts of Luna a staker is delegating to each of the validators specified
+/// Query the amounts of [Token] a staker is delegating to each of the validators specified
 pub(crate) fn query_delegations(
     querier: &QuerierWrapper,
     validators: &[String],

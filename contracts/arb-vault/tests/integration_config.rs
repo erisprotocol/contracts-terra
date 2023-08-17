@@ -1,7 +1,7 @@
 use astroport::asset::{token_asset, token_asset_info};
 use cosmwasm_std::{coin, to_binary, Decimal, StdResult, Uint128};
-use eris_tests::mock_app;
-use eris_tests::{gov_helper::EscrowHelper, TerraAppExtension};
+use eris_tests::{gov_helper::EscrowHelper, AppExtension};
+use eris_tests::{mock_app, UTOKEN_DENOM};
 use std::str::FromStr;
 use std::vec;
 
@@ -104,7 +104,7 @@ fn update_config_disable() -> StdResult<()> {
     let amount = Uint128::new(10_000000u128);
     let profit_percent = dec("1.02");
 
-    helper.hub_bond(router_ref, "user1", 100_000000, "uluna").unwrap();
+    helper.hub_bond(router_ref, "user1", 100_000000, UTOKEN_DENOM).unwrap();
     helper.arb_fake_fill_arb_contract(router_ref);
     helper.arb_deposit(router_ref, "user1", 100_000000).unwrap();
 
@@ -183,7 +183,7 @@ fn update_config_remove() -> StdResult<()> {
     let amount = Uint128::new(10_000000u128);
     let profit_percent = dec("1.02");
 
-    helper.hub_bond(router_ref, "user1", 100_000000, "uluna").unwrap();
+    helper.hub_bond(router_ref, "user1", 100_000000, UTOKEN_DENOM).unwrap();
     helper.arb_fake_fill_arb_contract(router_ref);
     helper.arb_deposit(router_ref, "user1", 100_000000).unwrap();
 
@@ -400,7 +400,7 @@ fn return_msg(
         contract_addr: Some(helper.base.arb_fake_contract.get_address_string()),
         msg: to_binary(&eris_tests::arb_contract::ExecuteMsg::ReturnAsset {
             asset: token_asset(helper.get_ustake_addr(), return_amount),
-            received: vec![coin(amount.u128(), "uluna")],
+            received: vec![coin(amount.u128(), UTOKEN_DENOM)],
         })
         .unwrap(),
         funds_amount: amount,

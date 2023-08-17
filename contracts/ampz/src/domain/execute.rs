@@ -6,13 +6,14 @@ use eris::adapters::whitewhale::WhiteWhale;
 use eris::ampz::{DepositMarket, Execution, RepayMarket, Source};
 
 use crate::error::ContractError;
+use crate::error::ContractResult;
 use crate::extensions::destinationstateext::DestinationStateExt;
 use crate::helpers::query_all_delegations;
 use crate::protos::authz::MsgExec;
 use crate::protos::msgex::CosmosMsgEx;
 use crate::protos::proto::MsgWithdrawDelegatorReward;
 use crate::state::State;
-use crate::{constants::CONTRACT_DENOM, error::ContractResult};
+use eris::constants::CONTRACT_DENOM;
 use eris::{
     adapters::asset::AssetInfosEx,
     ampz::{CallbackMsg, DestinationState},
@@ -55,7 +56,7 @@ pub fn execute_id(deps: DepsMut, env: Env, info: MessageInfo, id: u128) -> Contr
     // 1. claim yield source with ampz (in user wallet)
     // 2. deposit received yield into ampz contract with ampz (in user wallet)
     // --- Rest is executed in the contract
-    // 3. Optionally swap to required destination asset (e.g. Amplifier requires uluna deposit)
+    // 3. Optionally swap to required destination asset (e.g. Amplifier requires utoken deposit)
     // 4. Finish execution by depositing into the destination and sending the result to the user. This also pays operator + protocol fees.
     let mut msgs: Vec<CosmosMsg> = vec![];
     let mut deposit_max_amount: Option<Vec<Asset>> = None;
@@ -174,7 +175,7 @@ pub fn execute_id(deps: DepsMut, env: Env, info: MessageInfo, id: u128) -> Contr
             }
             .into_cosmos_msg(&env.contract.address, id, &user)?;
 
-            // if we swap the results will always be in the native asset (e.g. uluna)
+            // if we swap the results will always be in the native asset (e.g. utoken)
             asset_infos = vec![swap_to];
             msgs.push(swap_msg);
         }

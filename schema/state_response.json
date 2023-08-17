@@ -5,9 +5,9 @@
   "required": [
     "available",
     "exchange_rate",
-    "total_uluna",
+    "total_utoken",
     "total_ustake",
-    "tvl_uluna",
+    "tvl_utoken",
     "unbonding",
     "unlocked_coins"
   ],
@@ -16,15 +16,15 @@
       "$ref": "#/definitions/Uint128"
     },
     "exchange_rate": {
-      "description": "The exchange rate between ustake and uluna, in terms of uluna per ustake",
+      "description": "The exchange rate between ustake and utoken, in terms of utoken per ustake",
       "allOf": [
         {
           "$ref": "#/definitions/Decimal"
         }
       ]
     },
-    "total_uluna": {
-      "description": "Total amount of uluna staked (bonded)",
+    "total_utoken": {
+      "description": "Total amount of utoken staked (bonded)",
       "allOf": [
         {
           "$ref": "#/definitions/Uint128"
@@ -39,7 +39,7 @@
         }
       ]
     },
-    "tvl_uluna": {
+    "tvl_utoken": {
       "$ref": "#/definitions/Uint128"
     },
     "unbonding": {
@@ -56,10 +56,7 @@
   "definitions": {
     "Coin": {
       "type": "object",
-      "required": [
-        "amount",
-        "denom"
-      ],
+      "required": ["amount", "denom"],
       "properties": {
         "amount": {
           "$ref": "#/definitions/Uint128"
