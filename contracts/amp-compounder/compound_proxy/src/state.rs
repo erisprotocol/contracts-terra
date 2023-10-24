@@ -177,10 +177,17 @@ impl<'a> State<'a> {
 
         validate_slippage(lp_init.slippage_tolerance)?;
 
-        match pair_info.pair_type {
+        match pair_info.pair_type.clone() {
             PairType::Xyk {} => (),
             PairType::Stable {} => (),
             PairType::XykWhiteWhale {} => (),
+            PairType::Custom(custom) => {
+                if custom == "concentrated" {
+                    // concentrated is allowed
+                } else {
+                    Err(StdError::generic_err("Custom pair type not supported"))?
+                }
+            },
             _ => Err(StdError::generic_err("Custom pair type not supported"))?,
         }
 

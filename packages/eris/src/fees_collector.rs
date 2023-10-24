@@ -17,8 +17,8 @@ pub struct InstantiateMsg {
     pub target_list: Vec<TargetConfig>,
     /// The maximum spread used when swapping fee tokens
     pub max_spread: Option<Decimal>,
-    // compound proxy to swap token through
-    pub compound_proxy: Option<String>,
+
+    pub zapper: String,
 }
 
 /// This structure describes the functions that can be executed in this contract.
@@ -39,20 +39,8 @@ pub enum ExecuteMsg {
         target_list: Option<Vec<TargetConfig>>,
         /// The maximum spread used when swapping fee tokens
         max_spread: Option<Decimal>,
-        // compound proxy to swap token through
-        compound_proxy: Option<String>,
-    },
-    /// Add bridge tokens used to swap specific fee tokens to stablecoin (effectively declaring a swap route)
-    UpdateBridges {
-        /// List of bridge assets to be added
-        add: Option<Vec<(AssetInfo, AssetInfo)>>,
-        /// List of asset to be removed
-        remove: Option<Vec<AssetInfo>>,
-    },
-    /// Swap fee tokens via bridge assets
-    SwapBridgeAssets {
-        assets: Vec<AssetInfo>,
-        depth: u64,
+
+        zapper: Option<String>,
     },
     /// Distribute stablecoin to beneficiary
     DistributeFees {},
@@ -78,8 +66,6 @@ pub enum QueryMsg {
     Balances {
         assets: Vec<AssetInfo>,
     },
-    /// Returns list of bridge assets
-    Bridges {},
 }
 
 /// A custom struct used to return multiple asset balances.

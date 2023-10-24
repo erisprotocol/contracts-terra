@@ -228,9 +228,30 @@ fn optimal_swap(
 
     let mut messages: Vec<CosmosMsg> = vec![];
 
-    match lp_config.pair_info.pair_type {
+    match &lp_config.pair_info.pair_type {
         PairType::Stable {} => {
             //Do nothing for stable pair
+        },
+        PairType::Custom(custom) => {
+            if custom == "concentrated" {
+                //Do nothing for stable pair
+            } else {
+                let assets =
+                    lp_config.pair_info.query_pools(&deps.querier, env.contract.address)?;
+                let asset_a = assets[0].clone();
+                let asset_b = assets[1].clone();
+                let max_spread = state.get_default_max_spread(deps.storage);
+                if !asset_a.amount.is_zero() || !asset_b.amount.is_zero() {
+                    calculate_optimal_swap(
+                        &deps.querier,
+                        &lp_config,
+                        asset_a,
+                        asset_b,
+                        &mut messages,
+                        max_spread,
+                    )?;
+                }
+            }
         },
         _ => {
             let assets = lp_config.pair_info.query_pools(&deps.querier, env.contract.address)?;

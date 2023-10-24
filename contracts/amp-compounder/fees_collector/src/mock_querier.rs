@@ -6,7 +6,7 @@ use cosmwasm_std::{
 };
 use std::collections::HashMap;
 
-use astroport::asset::{token_asset, AssetInfo, PairInfo};
+use astroport::asset::{token_asset, AssetInfo};
 use astroport::generator::PendingTokenResponse;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -28,7 +28,6 @@ const REWARD_TOKEN: &str = "reward";
 pub struct WasmMockQuerier {
     balances: HashMap<(String, String), Uint128>,
     raw: HashMap<(String, Binary), Binary>,
-    pairs: HashMap<Vec<u8>, PairInfo>,
 }
 
 impl WasmMockQuerier {
@@ -36,7 +35,6 @@ impl WasmMockQuerier {
         WasmMockQuerier {
             balances: HashMap::new(),
             raw: HashMap::new(),
-            pairs: HashMap::new(),
         }
     }
 
@@ -46,14 +44,6 @@ impl WasmMockQuerier {
 
     fn get_balance(&self, token: String, addr: String) -> Uint128 {
         *self.balances.get(&(token, addr)).unwrap_or(&Uint128::zero())
-    }
-
-    pub fn set_pair(&mut self, asset_infos: &[AssetInfo; 2], pair_info: PairInfo) {
-        self.pairs.insert(pair_key(asset_infos), pair_info);
-    }
-
-    fn get_pair(&self, asset_infos: &[AssetInfo; 2]) -> Option<&PairInfo> {
-        self.pairs.get(&pair_key(asset_infos))
     }
 
     fn execute_query(&self, request: &QueryRequest<Empty>) -> QuerierResult {
@@ -121,17 +111,8 @@ impl WasmMockQuerier {
                 })
             },
             MockQueryMsg::Pair {
-                asset_infos,
-            } => {
-                let pair_info: PairInfo = match self.get_pair(&asset_infos) {
-                    Some(v) => v.clone(),
-                    None => {
-                        panic!("No pair info")
-                    },
-                };
-
-                to_binary(&pair_info)
-            },
+                ..
+            } => todo!(),
         }
     }
 }
@@ -169,11 +150,4 @@ impl Querier for WasmMockQuerier {
         };
         self.execute_query(&request)
     }
-}
-
-fn pair_key(asset_infos: &[AssetInfo; 2]) -> Vec<u8> {
-    let mut asset_infos = asset_infos.to_vec();
-    asset_infos.sort_by(|a, b| a.as_bytes().cmp(b.as_bytes()));
-
-    [asset_infos[0].as_bytes(), asset_infos[1].as_bytes()].concat()
 }

@@ -1,17 +1,16 @@
+use crate::constants::{CONTRACT_NAME, CONTRACT_VERSION};
 use crate::error::ContractError;
-use crate::state::{Config, BRIDGES, CONFIG, OWNERSHIP_PROPOSAL};
+use crate::state::{Config, CONFIG, OWNERSHIP_PROPOSAL};
 
-use crate::utils::{
-    build_swap_bridge_msg, try_build_swap_msg, validate_bridge, BRIDGES_EXECUTION_MAX_DEPTH,
-    BRIDGES_INITIAL_DEPTH,
-};
-use astroport::asset::{native_asset_info, Asset, AssetInfo, AssetInfoExt, ULUNA_DENOM};
+use astroport::asset::{Asset, AssetInfo, AssetInfoExt};
 
 use astroport::common::{claim_ownership, drop_ownership_proposal, propose_new_owner};
 use cosmwasm_std::{
     attr, entry_point, to_binary, Binary, CosmosMsg, Decimal, Deps, DepsMut, Env, MessageInfo,
     Order, Response, StdError, StdResult, Uint128, WasmMsg,
 };
+use cw2::set_contract_version;
+use cw_storage_plus::Map;
 use eris::adapters::asset::AssetEx;
 use eris::adapters::compounder::Compounder;
 use eris::fees_collector::{
@@ -20,7 +19,9 @@ use eris::fees_collector::{
 };
 use eris::helper::funds_or_allowance;
 use std::cmp;
+use std::collections::HashSet;
 use std::collections::{HashMap, HashSet};
+use std::{cmp, vec};
 
 /// Sets the default maximum spread (as a percentage) used when swapping fee tokens to stablecoin.
 const DEFAULT_MAX_SPREAD: u64 = 5; // 5%
@@ -57,11 +58,7 @@ pub fn instantiate(
             .map(|target| target.validate(deps.api))
             .collect::<StdResult<_>>()?,
         max_spread,
-        compound_proxy: if let Some(compound) = msg.compound_proxy {
-            Some(deps.api.addr_validate(&compound)?)
-        } else {
-            None
-        },
+        zapper: Compounder(deps.api.addr_validate(&msg.zapper)?),
     };
 
     CONFIG.save(deps.storage, &config)?;
@@ -82,29 +79,13 @@ pub fn execute(
         ExecuteMsg::Collect {
             assets,
         } => collect(deps, env, info, assets),
-        ExecuteMsg::UpdateBridges {
-            add,
-            remove,
-        } => update_bridges(deps, info, add, remove),
         ExecuteMsg::UpdateConfig {
             operator,
             factory_contract,
             target_list,
             max_spread,
-            compound_proxy,
-        } => update_config(
-            deps,
-            info,
-            operator,
-            factory_contract,
-            target_list,
-            max_spread,
-            compound_proxy,
-        ),
-        ExecuteMsg::SwapBridgeAssets {
-            assets,
-            depth,
-        } => swap_bridge_assets(deps, env, info, assets, depth),
+            zapper,
+        } => update_config(deps, info, operator, factory_contract, target_list, max_spread, zapper),
         ExecuteMsg::DistributeFees {} => distribute_fees(deps, env, info),
         ExecuteMsg::ProposeNewOwner {
             owner,
@@ -158,18 +139,14 @@ fn collect(
         return Err(ContractError::DuplicatedAsset {});
     }
     let response = Response::default();
+
     // Swap all non stablecoin tokens
-    let (mut messages, bridge_assets) = swap_assets(
+    let mut messages = swap_assets(
         deps.as_ref(),
         env.clone(),
         &config,
         assets.into_iter().filter(|a| a.info.ne(&stablecoin)).collect(),
     )?;
-
-    // If no swap messages - send stablecoin directly to beneficiary
-    if !messages.is_empty() && !bridge_assets.is_empty() {
-        messages.push(build_swap_bridge_msg(env.clone(), bridge_assets, BRIDGES_INITIAL_DEPTH)?);
-    }
 
     let distribute_fee = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: env.contract.address.to_string(),
@@ -182,17 +159,6 @@ fn collect(
 }
 
 /// ## Description
-/// This enum describes available token types that can be used as a SwapTarget.
-enum SwapTarget {
-    Direct(CosmosMsg),
-    DirectAll(Vec<CosmosMsg>),
-    Bridge {
-        asset: AssetInfo,
-        msg: CosmosMsg,
-    },
-}
-
-/// ## Description
 /// Swap all non stablecoin tokens to stablecoin. Returns a [`ContractError`] on failure, otherwise returns
 /// a [`Response`] object if the operation was successful.
 fn swap_assets(
@@ -200,158 +166,45 @@ fn swap_assets(
     env: Env,
     config: &Config,
     assets: Vec<AssetWithLimit>,
-) -> Result<(Vec<CosmosMsg>, Vec<AssetInfo>), ContractError> {
-    let mut messages: Vec<CosmosMsg> = vec![];
-    let mut bridge_assets = HashMap::new();
+) -> Result<Vec<CosmosMsg>, ContractError> {
+    let balances = to_asset_balances(&deps, &env, assets, &config.stablecoin)?;
 
-    for a in assets {
-        // Get balance
-        let mut balance = a.info.query_pool(&deps.querier, env.contract.address.clone())?;
-        if let Some(limit) = a.limit {
-            if limit < balance && limit > Uint128::zero() {
-                balance = limit;
-            }
-        }
-
-        if !balance.is_zero() {
-            let swap_msg = swap(
-                deps,
-                &env,
-                config,
-                a.info,
-                balance,
-                a.use_compound_proxy.unwrap_or_default(),
-            )?;
-            match swap_msg {
-                SwapTarget::Direct(msg) => {
-                    messages.push(msg);
-                },
-                SwapTarget::Bridge {
-                    asset,
-                    msg,
-                } => {
-                    messages.push(msg);
-                    bridge_assets.insert(asset.to_string(), asset);
-                },
-                SwapTarget::DirectAll(msgs) => {
-                    for msg in msgs {
-                        messages.push(msg)
-                    }
-                },
-            }
-        }
+    if balances.is_empty() {
+        return Ok(vec![]);
     }
 
-    Ok((messages, bridge_assets.into_values().collect()))
+    let (funds, mut allowances) = funds_or_allowance(&env, &config.zapper.0, &balances, None)?;
+    let multi_swap =
+        config.zapper.multi_swap_msg(balances, config.stablecoin.clone(), funds, None)?;
+
+    allowances.push(multi_swap);
+
+    Ok(allowances)
 }
 
-/// ## Description
-/// Checks if all required pools and bridges exists and performs a swap operation to stablecoin.
-/// Returns a [`ContractError`] on failure, otherwise returns a vector that contains objects
-/// of type [`SwapTarget`] if the operation was successful.
-fn swap(
-    deps: Deps,
+fn to_asset_balances(
+    deps: &Deps,
     env: &Env,
-    config: &Config,
-    from_token: AssetInfo,
-    amount_in: Uint128,
-    use_compound_proxy: bool,
-) -> Result<SwapTarget, ContractError> {
-    let stablecoin = config.stablecoin.clone();
-    let uluna = native_asset_info(ULUNA_DENOM.to_string());
-
-    if use_compound_proxy {
-        if let Some(compound_proxy) = &config.compound_proxy {
-            let balances = vec![from_token.with_balance(amount_in)];
-            let (funds, mut allowances) = funds_or_allowance(env, compound_proxy, &balances, None)?;
-
-            let msg = Compounder(compound_proxy.clone())
-                .multi_swap_msg(balances, stablecoin, funds, None)?;
-
-            allowances.push(msg);
-            return Ok(SwapTarget::DirectAll(allowances));
+    assets: Vec<AssetWithLimit>,
+    stablecoin: &AssetInfo,
+) -> StdResult<Vec<Asset>> {
+    let mut result = vec![];
+    for asset in assets {
+        if asset.info != *stablecoin {
+            let mut balance = asset.info.query_pool(&deps.querier, env.contract.address.clone())?;
+            if let Some(limit) = asset.limit {
+                if limit < balance && limit > Uint128::zero() {
+                    balance = limit;
+                }
+            }
+            if !balance.is_zero() {
+                result.push(asset.info.with_balance(balance))
+            }
         }
     }
 
-    // Check if bridge tokens exist
-    let bridge_token = BRIDGES.load(deps.storage, from_token.to_string());
-    if let Ok(asset) = bridge_token {
-        let msg = try_build_swap_msg(&deps.querier, config, from_token, asset.clone(), amount_in)?;
-        return Ok(SwapTarget::Bridge {
-            asset,
-            msg,
-        });
-    }
-
-    // Check for a direct pair with stablecoin
-    let swap_to_stablecoin =
-        try_build_swap_msg(&deps.querier, config, from_token.clone(), stablecoin, amount_in);
-    if let Ok(msg) = swap_to_stablecoin {
-        return Ok(SwapTarget::Direct(msg));
-    }
-
-    // Check for a pair with LUNA
-    if from_token.ne(&uluna) {
-        let swap_to_uluna =
-            try_build_swap_msg(&deps.querier, config, from_token.clone(), uluna.clone(), amount_in);
-        if let Ok(msg) = swap_to_uluna {
-            return Ok(SwapTarget::Bridge {
-                asset: uluna,
-                msg,
-            });
-        }
-    }
-
-    Err(ContractError::CannotSwap(from_token))
+    Ok(result)
 }
-
-/// ## Description
-/// Swaps collected fees using bridge assets. Returns a [`ContractError`] on failure.
-fn swap_bridge_assets(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    assets: Vec<AssetInfo>,
-    depth: u64,
-) -> Result<Response, ContractError> {
-    if info.sender != env.contract.address {
-        return Err(ContractError::Unauthorized {});
-    }
-
-    if assets.is_empty() {
-        return Ok(Response::default());
-    }
-
-    // Check that the contract doesn't call itself endlessly
-    if depth >= BRIDGES_EXECUTION_MAX_DEPTH {
-        return Err(ContractError::MaxBridgeDepth(depth));
-    }
-
-    let config = CONFIG.load(deps.storage)?;
-
-    let bridges = assets
-        .into_iter()
-        .map(|a| AssetWithLimit {
-            info: a,
-            limit: None,
-            use_compound_proxy: None,
-        })
-        .collect();
-
-    let (mut messages, bridge_assets) = swap_assets(deps.as_ref(), env.clone(), &config, bridges)?;
-
-    // There should always be some messages, if there are none - something went wrong
-    if messages.is_empty() {
-        return Err(ContractError::Std(StdError::generic_err("Empty swap messages")));
-    }
-
-    if !bridge_assets.is_empty() {
-        messages.push(build_swap_bridge_msg(env, bridge_assets, depth + 1)?)
-    }
-
-    Ok(Response::new().add_messages(messages).add_attribute("action", "ampfee/swap_bridge_assets"))
-}
-
 /// ## Description
 /// Distributes stablecoin rewards to the target list. Returns a [`ContractError`] on failure.
 fn distribute_fees(deps: DepsMut, env: Env, info: MessageInfo) -> Result<Response, ContractError> {
@@ -474,7 +327,7 @@ pub fn update_config(
     factory_contract: Option<String>,
     target_list: Option<Vec<TargetConfig>>,
     max_spread: Option<Decimal>,
-    compound_proxy: Option<String>,
+    zapper: Option<String>,
 ) -> Result<Response, ContractError> {
     let mut config: Config = CONFIG.load(deps.storage)?;
 
@@ -490,8 +343,8 @@ pub fn update_config(
         config.factory_contract = deps.api.addr_validate(&factory_contract)?;
     }
 
-    if let Some(compound_proxy) = compound_proxy {
-        config.compound_proxy = Some(deps.api.addr_validate(&compound_proxy)?);
+    if let Some(zapper) = zapper {
+        config.zapper = Compounder(deps.api.addr_validate(&zapper)?);
     }
 
     if let Some(max_spread) = max_spread {
@@ -514,66 +367,6 @@ pub fn update_config(
 }
 
 /// ## Description
-/// Adds or removes bridge tokens used to swap fee tokens to stablecoin. Returns a [`ContractError`] on failure.
-fn update_bridges(
-    deps: DepsMut,
-    info: MessageInfo,
-    add: Option<Vec<(AssetInfo, AssetInfo)>>,
-    remove: Option<Vec<AssetInfo>>,
-) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage)?;
-
-    // Permission check
-    if info.sender != config.operator {
-        return Err(ContractError::Unauthorized {});
-    }
-
-    // Remove old bridges
-    if let Some(remove_bridges) = remove {
-        for asset in remove_bridges {
-            BRIDGES.remove(deps.storage, asset.to_string());
-        }
-    }
-
-    // Add new bridges
-    let stablecoin = config.stablecoin.clone();
-    if let Some(add_bridges) = add {
-        for (asset, bridge) in add_bridges {
-            if asset.equal(&bridge) {
-                return Err(ContractError::InvalidBridge(asset, bridge));
-            }
-            BRIDGES.save(deps.storage, asset.to_string(), &bridge)?;
-        }
-    }
-
-    let bridges = BRIDGES
-        .range(deps.storage, None, None, Order::Ascending)
-        .collect::<StdResult<Vec<(String, AssetInfo)>>>()?;
-
-    for (asset_label, bridge) in bridges {
-        let asset = match deps.api.addr_validate(&asset_label) {
-            Ok(contract_addr) => AssetInfo::Token {
-                contract_addr,
-            },
-            Err(_) => AssetInfo::NativeToken {
-                denom: asset_label,
-            },
-        };
-        // Check that bridge tokens can be swapped to stablecoin
-        validate_bridge(
-            deps.as_ref(),
-            config.factory_contract.clone(),
-            asset,
-            bridge.clone(),
-            stablecoin.clone(),
-            BRIDGES_INITIAL_DEPTH,
-        )?;
-    }
-
-    Ok(Response::default().add_attribute("action", "ampfee/update_bridges"))
-}
-
-/// ## Description
 /// Exposes all the queries available in the contract.
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
@@ -582,7 +375,6 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::Balances {
             assets,
         } => to_binary(&query_get_balances(deps, env, assets)?),
-        QueryMsg::Bridges {} => to_binary(&query_bridges(deps, env)?),
     }
 }
 
@@ -608,20 +400,23 @@ fn query_get_balances(deps: Deps, env: Env, assets: Vec<AssetInfo>) -> StdResult
 }
 
 /// ## Description
-/// Returns bridge tokens used for swapping fee tokens to stablecoin.
-fn query_bridges(deps: Deps, _env: Env) -> StdResult<Vec<(String, String)>> {
-    BRIDGES
-        .range(deps.storage, None, None, Order::Ascending)
-        .map(|bridge| {
-            let (bridge, asset) = bridge?;
-            Ok((bridge, asset.to_string()))
-        })
-        .collect()
-}
-
-/// ## Description
 /// Used for contract migration. Returns a default object of type [`Response`].
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
-    Ok(Response::default())
+pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+    if CONTRACT_VERSION == "2.0.0" {
+        let map: Map<String, AssetInfo> = Map::new("bridges");
+        let keys: Vec<String> = map
+            .keys(deps.storage, None, None, Order::Ascending)
+            .collect::<StdResult<Vec<String>>>()?;
+
+        for key in keys {
+            map.remove(deps.storage, key)
+        }
+    }
+
+    Ok(Response::new()
+        .add_attribute("new_contract_name", CONTRACT_NAME)
+        .add_attribute("new_contract_version", CONTRACT_VERSION))
 }

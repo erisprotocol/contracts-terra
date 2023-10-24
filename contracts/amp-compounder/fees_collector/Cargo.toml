@@ -1,6 +1,6 @@
 [package]
 name = "eris-fees-collector"
-version = "1.3.0"
+version = "2.0.0"
 authors = ["Spectrum", "Eris"]
 edition = "2021"
 description = "Contract to collect fees from farms"
@@ -30,6 +30,7 @@ astroport = { git = "https://github.com/astroport-fi/astroport-core.git", defaul
 eris = { path = "../../../packages/eris" }
 serde = { version = "1.0.137", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.31" }
+cw2 = "0.13.2"
 
 [dev-dependencies]
 cosmwasm-schema = { version = "1.0.0" }
