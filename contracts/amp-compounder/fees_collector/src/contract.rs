@@ -20,8 +20,7 @@ use eris::fees_collector::{
 use eris::helper::funds_or_allowance;
 use std::cmp;
 use std::collections::HashSet;
-use std::collections::{HashMap, HashSet};
-use std::{cmp, vec};
+use std::vec;
 
 /// Sets the default maximum spread (as a percentage) used when swapping fee tokens to stablecoin.
 const DEFAULT_MAX_SPREAD: u64 = 5; // 5%
@@ -58,7 +57,7 @@ pub fn instantiate(
             .map(|target| target.validate(deps.api))
             .collect::<StdResult<_>>()?,
         max_spread,
-        zapper: Compounder(deps.api.addr_validate(&msg.zapper)?),
+        compound_proxy: deps.api.addr_validate(&msg.zapper)?,
     };
 
     CONFIG.save(deps.storage, &config)?;
@@ -173,9 +172,14 @@ fn swap_assets(
         return Ok(vec![]);
     }
 
-    let (funds, mut allowances) = funds_or_allowance(&env, &config.zapper.0, &balances, None)?;
-    let multi_swap =
-        config.zapper.multi_swap_msg(balances, config.stablecoin.clone(), funds, None)?;
+    let (funds, mut allowances) =
+        funds_or_allowance(&env, &config.compound_proxy, &balances, None)?;
+    let multi_swap = Compounder(config.compound_proxy.clone()).multi_swap_msg(
+        balances,
+        config.stablecoin.clone(),
+        funds,
+        None,
+    )?;
 
     allowances.push(multi_swap);
 
@@ -327,7 +331,7 @@ pub fn update_config(
     factory_contract: Option<String>,
     target_list: Option<Vec<TargetConfig>>,
     max_spread: Option<Decimal>,
-    zapper: Option<String>,
+    compound_proxy: Option<String>,
 ) -> Result<Response, ContractError> {
     let mut config: Config = CONFIG.load(deps.storage)?;
 
@@ -343,8 +347,8 @@ pub fn update_config(
         config.factory_contract = deps.api.addr_validate(&factory_contract)?;
     }
 
-    if let Some(zapper) = zapper {
-        config.zapper = Compounder(deps.api.addr_validate(&zapper)?);
+    if let Some(compound_proxy) = compound_proxy {
+        config.compound_proxy = deps.api.addr_validate(&compound_proxy)?;
     }
 
     if let Some(max_spread) = max_spread {

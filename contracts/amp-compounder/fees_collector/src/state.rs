@@ -1,7 +1,7 @@
 use astroport::{asset::AssetInfo, common::OwnershipProposal};
 use cosmwasm_std::{Addr, Decimal};
 use cw_storage_plus::{Item, Map};
-use eris::{adapters::compounder::Compounder, fees_collector::TargetConfig};
+use eris::fees_collector::TargetConfig;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -21,7 +21,7 @@ pub struct Config {
     /// The max spread allowed when swapping fee tokens to stablecoin
     pub max_spread: Decimal,
 
-    pub zapper: Compounder,
+    pub compound_proxy: Addr,
 }
 
 /// Stores the contract configuration at the given key

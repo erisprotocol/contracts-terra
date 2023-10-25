@@ -261,7 +261,7 @@ fn create(
                 denom: IBC_TOKEN.to_string(),
             },
             max_spread: Decimal::percent(1),
-            zapper: Compounder(Addr::unchecked(ZAPPER_1)),
+            compound_proxy: Addr::unchecked(ZAPPER_1),
         }
     );
 
@@ -332,7 +332,7 @@ fn config(
                 denom: IBC_TOKEN.to_string(),
             },
             max_spread: Decimal::percent(5),
-            zapper: eris::adapters::compounder::Compounder(Addr::unchecked(ZAPPER_1)),
+            compound_proxy: Addr::unchecked(ZAPPER_1),
         }
     );
 
@@ -365,7 +365,7 @@ fn config(
                 denom: IBC_TOKEN.to_string(),
             },
             max_spread: Decimal::percent(1),
-            zapper: eris::adapters::compounder::Compounder(Addr::unchecked(ZAPPER_2)),
+            compound_proxy: Addr::unchecked(ZAPPER_2),
         }
     );
 
@@ -614,7 +614,6 @@ fn distribute_fees_to_contract(
         ]),
         zapper: None,
         max_spread: None,
-        compound_proxy: None,
     };
     let res = execute(deps.as_mut(), env.clone(), owner.clone(), msg.clone());
     assert!(res.is_ok());
