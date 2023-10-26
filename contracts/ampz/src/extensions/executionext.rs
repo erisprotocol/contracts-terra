@@ -110,6 +110,13 @@ impl ExecutionExt for Execution {
                     self.check_path_to(deps, state, asset_info.clone())?;
                 },
             },
+            DestinationState::DepositTAmplifier {
+                receiver,
+                asset_info,
+            } => {
+                validate_receiver(deps.api, receiver)?;
+                self.check_path_to(deps, state, asset_info.clone())?;
+            },
         }
 
         Ok(())
@@ -166,6 +173,16 @@ impl ExecutionExt for Execution {
             } => match claim_type {
                 eris::ampz::ClaimType::WhiteWhaleRewards => {
                     state.whitewhale.load(deps.storage)?.coins
+                },
+                eris::ampz::ClaimType::AllianceRewards => {
+                    let default_asset = native_asset_info(CONTRACT_DENOM.to_string());
+                    if asset_info.is_some() && *asset_info.unwrap() == default_asset {
+                        // cant use claim (uluna) to swap to uluna (useless)
+                        Err(ContractError::CannotSwapToSameToken {})?
+                    }
+
+                    // for claiming staking rewards only check the default chain denom
+                    vec![default_asset]
                 },
             },
             Source::WhiteWhaleRewards {

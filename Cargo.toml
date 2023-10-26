@@ -1,15 +1,15 @@
 [workspace]
 members = [
-    # "contracts/hub",
-    # "contracts/amp-extractor",
-    # "contracts/token",
-    # "contracts/ampz",
-    # "contracts/amp-compounder/*",
-    "contracts/amp-compounder/compound_proxy",
-    "contracts/amp-compounder/fees_collector",
-    # "contracts/amp-governance/*",
+    "contracts/hub",
+    "contracts/amp-extractor",
+    "contracts/token",
+    "contracts/ampz",
+    "contracts/amp-compounder/*",
+    # "contracts/amp-compounder/compound_proxy",
+    # "contracts/amp-compounder/fees_collector",
+    "contracts/amp-governance/*",
     "packages/*",
-    # "contracts/arb-vault",
+    "contracts/arb-vault",
 ]
 
 [profile.release.package.eris]

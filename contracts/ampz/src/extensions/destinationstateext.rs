@@ -51,6 +51,13 @@ impl DestinationStateExt for DestinationState {
             } => DestinationRuntime::DepositCollateral {
                 market,
             },
+            DestinationState::DepositTAmplifier {
+                receiver,
+                asset_info,
+            } => DestinationRuntime::DepositTAmplifier {
+                receiver,
+                asset_info,
+            },
         }
     }
 }

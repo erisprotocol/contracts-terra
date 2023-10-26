@@ -7,6 +7,7 @@ use cosmwasm_std::{
     Uint128,
 };
 use eris::adapters::compounder::Compounder;
+use eris::adapters::hub::Hub;
 use eris::ampz::{CallbackMsg, CallbackWrapper, DepositMarket, DestinationRuntime, RepayMarket};
 
 use crate::adapters::capapult::{CapapultLocker, CapapultMarket};
@@ -182,6 +183,57 @@ pub fn callback(
                     let bond_msg =
                         hub.bond_msg(CONTRACT_DENOM, balance.amount.u128(), Some(receiver))?;
                     msgs.push(bond_msg);
+                },
+
+                DestinationRuntime::DepositTAmplifier {
+                    receiver,
+                    asset_info,
+                } => {
+                    attrs.push(attr("type", "deposit_tamplifier"));
+
+                    let alliance = state.alliance.load(deps.storage)?;
+                    let contract =
+                        alliance.tamplifiers.into_iter().find_map(|(asset, contract)| {
+                            if asset == asset_info {
+                                Some(contract)
+                            } else {
+                                None
+                            }
+                        });
+
+                    if let Some(contract) = contract {
+                        let main_token = asset_info.clone();
+                        let amount = main_token.query_pool(&deps.querier, env.contract.address)?;
+                        let balances = vec![main_token.with_balance(amount)];
+
+                        if amount.is_zero() {
+                            return Err(ContractError::NothingToDeposit {});
+                        }
+
+                        let balances = pay_fees(
+                            &state, &deps, &mut msgs, &mut attrs, balances, executor, &user,
+                        )?;
+
+                        // always 1 result if it inputs a non-zero token
+                        let balance = balances.first().unwrap();
+
+                        let receiver: String = receiver.unwrap_or(user).into();
+                        let hub = Hub(contract);
+                        let denom = match asset_info {
+                            AssetInfo::Token {
+                                ..
+                            } => Err(ContractError::TAssetNotSupported(asset_info))?,
+                            AssetInfo::NativeToken {
+                                denom,
+                            } => denom,
+                        };
+                        let deposit_msg =
+                            hub.bond_msg(denom, balance.amount.u128(), Some(receiver))?;
+
+                        msgs.push(deposit_msg);
+                    } else {
+                        return Err(ContractError::TAssetNotSupported(asset_info));
+                    }
                 },
 
                 DestinationRuntime::DepositArbVault {

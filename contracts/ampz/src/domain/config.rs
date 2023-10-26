@@ -28,6 +28,8 @@ pub fn update_config(
             hub,
             arb_vault,
             capapult,
+            alliance,
+            whitewhale,
         } => {
             let state = State::default();
             state.assert_owner(deps.storage, &info.sender)?;
@@ -77,6 +79,14 @@ pub fn update_config(
 
             if let Some(capapult) = capapult {
                 state.capapult.save(deps.storage, &capapult.validate(deps.api)?)?;
+            }
+
+            if let Some(alliance) = alliance {
+                state.alliance.save(deps.storage, &alliance.validate(deps.api)?)?;
+            }
+
+            if let Some(whitewhale) = whitewhale {
+                state.whitewhale.save(deps.storage, &whitewhale.validate(deps.api)?)?;
             }
 
             if let Some(zapper) = zapper {

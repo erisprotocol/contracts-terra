@@ -5,6 +5,7 @@ use cosmwasm_std::{CosmosMsg, DepsMut, Env, MessageInfo, OverflowError, Response
 use eris::adapters::whitewhale::WhiteWhale;
 use eris::ampz::{DepositMarket, Execution, RepayMarket, Source};
 
+use crate::adapters::alliance::Alliance;
 use crate::error::ContractError;
 use crate::extensions::destinationstateext::DestinationStateExt;
 use crate::helpers::query_all_delegations;
@@ -130,6 +131,16 @@ pub fn execute_id(deps: DepsMut, env: Env, info: MessageInfo, id: u128) -> Contr
                         .to_authz_msg(&user, &env)?;
                     msgs.push(msg);
                 },
+                eris::ampz::ClaimType::AllianceRewards => {
+                    let alliance = state.alliance.load(deps.storage)?;
+                    asset_infos = vec![native_asset_info(CONTRACT_DENOM.to_string())];
+                    user_balance_start = asset_infos.query_balances(&deps.querier, &user)?;
+
+                    for msg in Alliance(alliance.contract).claim_msgs(alliance.claim_coins)? {
+                        let msg = msg.to_authz_msg(&user, &env)?;
+                        msgs.push(msg);
+                    }
+                },
             }
         },
         Source::WhiteWhaleRewards {
@@ -250,5 +261,9 @@ fn get_swap_asset(
                 asset_info,
             } => Some(asset_info.clone()),
         },
+        DestinationState::DepositTAmplifier {
+            asset_info,
+            ..
+        } => Some(asset_info.clone()),
     })
 }

@@ -48,11 +48,13 @@ pub enum Source {
 #[cw_serde]
 pub enum ClaimType {
     WhiteWhaleRewards,
+    AllianceRewards,
 }
 impl fmt::Display for ClaimType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             ClaimType::WhiteWhaleRewards => write!(f, "WhiteWhaleRewards"),
+            ClaimType::AllianceRewards => write!(f, "AllianceRewards"),
         }
     }
 }
@@ -128,7 +130,6 @@ pub struct WhiteWhaleConfig<T> {
     pub incentive_factory_addr: T,
     pub lp_tokens: Vec<T>,
 }
-
 impl WhiteWhaleConfig<String> {
     pub fn validate(self, api: &dyn Api) -> StdResult<WhiteWhaleConfig<Addr>> {
         Ok(WhiteWhaleConfig {
@@ -139,6 +140,27 @@ impl WhiteWhaleConfig<String> {
                 .lp_tokens
                 .into_iter()
                 .map(|lp| api.addr_validate(&lp))
+                .collect::<StdResult<Vec<_>>>()?,
+        })
+    }
+}
+
+#[cw_serde]
+pub struct AllianceConfig<T> {
+    pub contract: T,
+    pub claim_coins: Vec<AssetInfo>,
+    pub tamplifiers: Vec<(AssetInfo, T)>,
+}
+
+impl AllianceConfig<String> {
+    pub fn validate(self, api: &dyn Api) -> StdResult<AllianceConfig<Addr>> {
+        Ok(AllianceConfig {
+            contract: api.addr_validate(&self.contract)?,
+            claim_coins: self.claim_coins,
+            tamplifiers: self
+                .tamplifiers
+                .into_iter()
+                .map(|(asset, amplifier)| Ok((asset, api.addr_validate(&amplifier)?)))
                 .collect::<StdResult<Vec<_>>>()?,
         })
     }
@@ -165,6 +187,7 @@ impl CapapultConfig<String> {
 
 /// This structure describes the execute messages available in the contract.
 #[cw_serde]
+#[allow(clippy::large_enum_variant)]
 pub enum ExecuteMsg {
     Execute {
         id: Uint128,
@@ -204,6 +227,8 @@ pub enum ExecuteMsg {
         arb_vault: Option<String>,
         astroport: Option<AstroportConfig<String>>,
         capapult: Option<CapapultConfig<String>>,
+        whitewhale: Option<WhiteWhaleConfig<String>>,
+        alliance: Option<AllianceConfig<String>>,
         fee: Option<FeeConfig<String>>,
     },
 }
@@ -252,6 +277,10 @@ pub enum DestinationState {
         #[serde(default)]
         receiver: Option<Addr>,
     },
+    DepositTAmplifier {
+        receiver: Option<Addr>,
+        asset_info: AssetInfo,
+    },
     DepositArbVault {
         receiver: Option<Addr>,
     },
@@ -288,6 +317,10 @@ pub enum DepositLiquidity {
 pub enum DestinationRuntime {
     DepositAmplifier {
         receiver: Option<Addr>,
+    },
+    DepositTAmplifier {
+        receiver: Option<Addr>,
+        asset_info: AssetInfo,
     },
     DepositArbVault {
         receiver: Option<Addr>,

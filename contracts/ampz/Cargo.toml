@@ -25,6 +25,7 @@ astroport = { git = "https://github.com/astroport-fi/astroport-core.git", defaul
 capapult = { package = "moneymarket", git = "https://github.com/capapult-finance/capa-money-market.git", default-features = false, rev = "e03e6c6dd3003293852a0e2c3aa7ed3b21b97410" }
 thiserror = { version = "1.0" }
 cosmwasm-schema = "1.0.0"
+cw-asset = "2.4.0"
 
 [dev-dependencies]
 cw-multi-test = "0.13.2"

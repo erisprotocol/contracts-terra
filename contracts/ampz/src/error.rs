@@ -86,4 +86,7 @@ pub enum ContractError {
 
     #[error("Cannot add and remove farms in the same transaction!")]
     CannotAddAndRemoveFarms {},
+
+    #[error("The t-asset for {0} is not supported")]
+    TAssetNotSupported(AssetInfo),
 }
