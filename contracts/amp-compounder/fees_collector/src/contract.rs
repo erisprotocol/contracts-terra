@@ -145,14 +145,20 @@ fn collect(
 
     // find all targets that have a specified asset_override
     // these will be directly transferred without swap messages
-    for (key, targets) in
-        config.target_list.clone().into_iter().group_by(|a| a.asset_override.clone()).into_iter()
+    for (key, targets) in config
+        .target_list
+        .clone()
+        .into_iter()
+        // remove none values
+        .filter_map(|target| target.clone().asset_override.map(|asset| (asset, target)))
+        // group by asset, by option does not work correctly
+        .group_by(|(a, _)| a.clone())
+        .into_iter()
     {
-        if let Some(asset) = key {
-            // remove direct target asset from assets
-            assets.retain(|a| a.info != asset);
-            create_send_msgs(&deps, &env, asset, &mut messages, &mut attributes, targets.collect())?
-        }
+        let asset = key;
+        assets.retain(|a| a.info != asset);
+        let collected = targets.map(|(_, b)| b).collect_vec();
+        create_send_msgs(&deps, &env, asset, &mut messages, &mut attributes, collected)?
     }
 
     // Swap all non stablecoin tokens
@@ -319,6 +325,7 @@ fn create_send_msgs(
             },
         }
     }
+
     let total_weight = weighted.iter().map(|target| target.weight).sum::<u64>();
     for target in weighted {
         let amount = total_amount.multiply_ratio(target.weight, total_weight);
