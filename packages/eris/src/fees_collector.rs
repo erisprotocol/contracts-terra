@@ -100,6 +100,8 @@ pub struct TargetConfig {
     pub msg: Option<Binary>,
     #[serde(default = "default_type")]
     pub target_type: TargetType,
+    /// If provided, it will ignore the output asset and just send the override asset to the target without swapping it to the "stablecoin"
+    pub asset_override: Option<AssetInfo>,
 }
 
 fn default_type() -> TargetType {
@@ -127,6 +129,17 @@ impl TargetConfig {
             weight,
             msg: None,
             target_type: TargetType::Weight,
+            asset_override: None,
+        }
+    }
+
+    pub fn new_asset(addr: impl Into<String>, weight: u64, asset_override: AssetInfo) -> Self {
+        Self {
+            addr: addr.into(),
+            weight,
+            msg: None,
+            target_type: TargetType::Weight,
+            asset_override: Some(asset_override),
         }
     }
 
@@ -136,6 +149,7 @@ impl TargetConfig {
             weight,
             msg,
             target_type: TargetType::Weight,
+            asset_override: None,
         }
     }
 
@@ -162,6 +176,7 @@ impl TargetConfig {
             weight: self.weight,
             msg: self.msg.clone(),
             target_type: self.target_type.clone(),
+            asset_override: self.asset_override.clone(),
         })
     }
 }

@@ -18,6 +18,7 @@ use eris::fees_collector::{
     TargetConfig,
 };
 use eris::helper::funds_or_allowance;
+use itertools::Itertools;
 use std::cmp;
 use std::collections::HashSet;
 use std::vec;
@@ -123,7 +124,7 @@ fn collect(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    assets: Vec<AssetWithLimit>,
+    mut assets: Vec<AssetWithLimit>,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     let stablecoin = config.stablecoin.clone();
@@ -132,6 +133,9 @@ fn collect(
         return Err(ContractError::Unauthorized {});
     }
 
+    let mut messages = vec![];
+    let mut attributes = vec![];
+
     // Check for duplicate assets
     let mut uniq = HashSet::new();
     if !assets.clone().into_iter().all(|a| uniq.insert(a.info.to_string())) {
@@ -139,8 +143,20 @@ fn collect(
     }
     let response = Response::default();
 
+    // find all targets that have a specified asset_override
+    // these will be directly transferred without swap messages
+    for (key, targets) in
+        config.target_list.clone().into_iter().group_by(|a| a.asset_override.clone()).into_iter()
+    {
+        if let Some(asset) = key {
+            // remove direct target asset from assets
+            assets.retain(|a| a.info != asset);
+            create_send_msgs(&deps, &env, asset, &mut messages, &mut attributes, targets.collect())?
+        }
+    }
+
     // Swap all non stablecoin tokens
-    let mut messages = swap_assets(
+    let swap_msgs = swap_assets(
         deps.as_ref(),
         env.clone(),
         &config,
@@ -152,9 +168,13 @@ fn collect(
         msg: to_binary(&ExecuteMsg::DistributeFees {})?,
         funds: vec![],
     });
-    messages.push(distribute_fee);
 
-    Ok(response.add_messages(messages).add_attribute("action", "ampfee/collect"))
+    Ok(response
+        .add_messages(messages)
+        .add_messages(swap_msgs)
+        .add_message(distribute_fee)
+        .add_attribute("action", "ampfee/collect")
+        .add_attributes(attributes))
 }
 
 /// ## Description
@@ -218,9 +238,9 @@ fn distribute_fees(deps: DepsMut, env: Env, info: MessageInfo) -> Result<Respons
     }
 
     let config = CONFIG.load(deps.storage)?;
-    let (distribute_msg, attributes) = distribute(deps, env, config)?;
+    let (distribute_msgs, attributes) = distribute(deps, env, config)?;
 
-    Ok(Response::new().add_messages(distribute_msg).add_attributes(attributes))
+    Ok(Response::new().add_messages(distribute_msgs).add_attributes(attributes))
 }
 
 type DistributeMsgParts = (Vec<CosmosMsg>, Vec<(String, String)>);
@@ -238,20 +258,37 @@ fn distribute(
 
     let stablecoin = config.stablecoin.clone();
 
-    let mut total_amount = stablecoin.query_pool(&deps.querier, env.contract.address.clone())?;
-    if total_amount.is_zero() {
-        return Ok((messages, attributes));
-    }
+    // only distribute stablecoin to targets without an asset_override
+    let targets = config.target_list.into_iter().filter(|a| a.asset_override.is_none()).collect();
 
+    create_send_msgs(&deps, &env, stablecoin, &mut messages, &mut attributes, targets)?;
+
+    attributes.push(("action".to_string(), "ampfee/distribute_fees".to_string()));
+
+    Ok((messages, attributes))
+}
+
+fn create_send_msgs(
+    deps: &DepsMut<'_>,
+    env: &Env,
+    asset: AssetInfo,
+    messages: &mut Vec<CosmosMsg>,
+    attributes: &mut Vec<(String, String)>,
+    targets: Vec<TargetConfig>,
+) -> Result<(), ContractError> {
+    let mut total_amount = asset.query_pool(&deps.querier, env.contract.address.clone())?;
+    if total_amount.is_zero() {
+        return Ok(());
+    }
     let mut weighted = vec![];
-    for target in config.target_list {
+    for target in targets {
         match target.target_type {
             eris::fees_collector::TargetType::Weight => weighted.push(target),
             eris::fees_collector::TargetType::FillUpFirst {
                 filled_to,
                 min_fill,
             } => {
-                let filled_asset = &stablecoin;
+                let filled_asset = &asset;
                 let current_asset_amount =
                     filled_asset.query_pool(&deps.querier, target.addr.to_string())?;
 
@@ -263,7 +300,7 @@ fn distribute(
                         // reduce amount from total_amount. Rest is distributed by share
                         total_amount = total_amount.checked_sub(amount)?;
 
-                        let send_msg = stablecoin.with_balance(amount).transfer_msg_target(
+                        let send_msg = asset.with_balance(amount).transfer_msg_target(
                             &deps.api.addr_validate(target.addr.as_str())?,
                             target.msg,
                         )?;
@@ -282,15 +319,13 @@ fn distribute(
             },
         }
     }
-
     let total_weight = weighted.iter().map(|target| target.weight).sum::<u64>();
-
     for target in weighted {
         let amount = total_amount.multiply_ratio(target.weight, total_weight);
         if !amount.is_zero() {
             match target.target_type {
                 eris::fees_collector::TargetType::Weight => {
-                    let send_msg = stablecoin.with_balance(amount).transfer_msg_target(
+                    let send_msg = asset.with_balance(amount).transfer_msg_target(
                         &deps.api.addr_validate(target.addr.as_str())?,
                         target.msg,
                     )?;
@@ -300,8 +335,8 @@ fn distribute(
                     channel_id,
                     ics20,
                 } => {
-                    let send_msg = stablecoin.with_balance(amount).transfer_msg_ibc(
-                        &env,
+                    let send_msg = asset.with_balance(amount).transfer_msg_ibc(
+                        env,
                         target.addr.clone(),
                         channel_id,
                         ics20,
@@ -315,10 +350,7 @@ fn distribute(
             attributes.push(("amount".to_string(), amount.to_string()));
         }
     }
-
-    attributes.push(("action".to_string(), "ampfee/distribute_fees".to_string()));
-
-    Ok((messages, attributes))
+    Ok(())
 }
 
 /// ## Description

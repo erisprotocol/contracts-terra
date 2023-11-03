@@ -62,6 +62,7 @@ fn test_fillup() -> Result<(), ContractError> {
                     filled_to: Uint128::new(10_000000),
                     min_fill: Some(Uint128::new(1_000000)),
                 },
+                asset_override: None,
             },
             TargetConfigUnchecked::new(USER_2.to_string(), 2),
             TargetConfigUnchecked::new(USER_3.to_string(), 3),
@@ -85,6 +86,7 @@ fn test_fillup() -> Result<(), ContractError> {
                     filled_to: Uint128::new(10_000000),
                     min_fill: Some(Uint128::new(1_000000)),
                 },
+                asset_override: None,
             },
             TargetConfigUnchecked::new(USER_2.to_string(), 2),
             TargetConfigUnchecked::new(USER_3.to_string(), 3),
@@ -210,6 +212,278 @@ fn test_fillup() -> Result<(), ContractError> {
 
     Ok(())
 }
+
+#[test]
+fn test_distribute_first() -> Result<(), ContractError> {
+    let mut deps = mock_dependencies();
+    create(&mut deps)?;
+
+    let msg = ExecuteMsg::UpdateConfig {
+        operator: None,
+        factory_contract: None,
+        target_list: Some(vec![
+            TargetConfigUnchecked {
+                addr: "filler".to_string(),
+                weight: 1,
+                msg: None,
+                target_type: eris::fees_collector::TargetType::FillUpFirst {
+                    filled_to: Uint128::new(10_000000),
+                    min_fill: Some(Uint128::new(1_000000)),
+                },
+                asset_override: None,
+            },
+            TargetConfigUnchecked::new_asset(
+                USER_2.to_string(),
+                2,
+                native_asset_info(IBC_TOKEN.to_string()),
+            ),
+            TargetConfigUnchecked::new_asset(
+                USER_3.to_string(),
+                3,
+                native_asset_info(IBC_TOKEN.to_string()),
+            ),
+        ]),
+        zapper: None,
+        max_spread: None,
+    };
+
+    let res = execute(deps.as_mut(), mock_env(), mock_info(USER_1, &[]), msg).unwrap_err();
+    assert_eq!(res.to_string(), "Generic error: FillUp can't have a weight (1)");
+
+    let msg = ExecuteMsg::UpdateConfig {
+        operator: None,
+        factory_contract: None,
+        target_list: Some(vec![
+            TargetConfigUnchecked {
+                addr: "filler".to_string(),
+                weight: 0,
+                msg: None,
+                target_type: eris::fees_collector::TargetType::FillUpFirst {
+                    filled_to: Uint128::new(10_000000),
+                    min_fill: Some(Uint128::new(1_000000)),
+                },
+                asset_override: None,
+            },
+            TargetConfigUnchecked::new_asset(
+                USER_2.to_string(),
+                2,
+                native_asset_info(IBC_TOKEN.to_string()),
+            ),
+            TargetConfigUnchecked::new_asset(
+                USER_3.to_string(),
+                3,
+                native_asset_info(IBC_TOKEN.to_string()),
+            ),
+        ]),
+        zapper: None,
+        max_spread: None,
+    };
+
+    execute(deps.as_mut(), mock_env(), mock_info(USER_1, &[]), msg).unwrap();
+
+    // set balance
+    deps.querier.set_balance(
+        IBC_TOKEN.to_string(),
+        MOCK_CONTRACT_ADDR.to_string(),
+        Uint128::from(100_000000u128),
+    );
+    deps.querier.set_balance(
+        IBC_TOKEN.to_string(),
+        "filler".to_string(),
+        Uint128::from(9_500000u128),
+    );
+
+    // distribute fee only
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info(OPERATOR_1, &[]),
+        ExecuteMsg::Collect {
+            assets: vec![AssetWithLimit {
+                info: native_asset_info(IBC_TOKEN.to_string()),
+                limit: None,
+                use_compound_proxy: None,
+            }],
+        },
+    )?;
+
+    // no funds yet
+    assert_eq!(res.messages.len(), 3);
+    assert_eq!(
+        res.messages.into_iter().map(|it| it.msg).collect::<Vec<CosmosMsg>>(),
+        vec![
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: USER_2.to_string(),
+                amount: vec![Coin {
+                    denom: IBC_TOKEN.to_string(),
+                    amount: Uint128::from(40_000000u128),
+                }]
+            }),
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: USER_3.to_string(),
+                amount: vec![Coin {
+                    denom: IBC_TOKEN.to_string(),
+                    amount: Uint128::from(60_000000u128),
+                }]
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: MOCK_CONTRACT_ADDR.to_string(),
+                funds: vec![],
+                msg: to_binary(&ExecuteMsg::DistributeFees {})?,
+            }),
+        ]
+    );
+
+    // set balance
+    deps.querier.set_balance(
+        IBC_TOKEN.to_string(),
+        MOCK_CONTRACT_ADDR.to_string(),
+        Uint128::from(0_000000u128),
+    );
+
+    // distribute fees without reaching min
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info(MOCK_CONTRACT_ADDR, &[]),
+        ExecuteMsg::DistributeFees {},
+    )?;
+    assert_eq!(res.messages.len(), 0);
+
+    Ok(())
+}
+
+// #[test]
+// fn test_distribute_first_token() -> Result<(), ContractError> {
+//     let mut deps = mock_dependencies();
+//     create(&mut deps)?;
+
+//     let msg = ExecuteMsg::UpdateConfig {
+//         operator: None,
+//         factory_contract: None,
+//         target_list: Some(vec![
+//             TargetConfigUnchecked {
+//                 addr: "filler".to_string(),
+//                 weight: 1,
+//                 msg: None,
+//                 target_type: eris::fees_collector::TargetType::FillUpFirst {
+//                     filled_to: Uint128::new(10_000000),
+//                     min_fill: Some(Uint128::new(1_000000)),
+//                 },
+//                 asset_override: Some(token_asset_info(TOKEN_1.to_string())),
+//             },
+//             TargetConfigUnchecked::new(USER_2.to_string(), 2),
+//             TargetConfigUnchecked::new_asset(
+//                 USER_3.to_string(),
+//                 3,
+//                 token_asset_info(TOKEN_1.to_string()),
+//             ),
+//         ]),
+//         zapper: None,
+//         max_spread: None,
+//     };
+
+//     let res = execute(deps.as_mut(), mock_env(), mock_info(USER_1, &[]), msg).unwrap_err();
+//     assert_eq!(res.to_string(), "Generic error: FillUp can't have a weight (1)");
+
+//     let msg = ExecuteMsg::UpdateConfig {
+//         operator: None,
+//         factory_contract: None,
+//         target_list: Some(vec![
+//             TargetConfigUnchecked {
+//                 addr: "filler".to_string(),
+//                 weight: 0,
+//                 msg: None,
+//                 target_type: eris::fees_collector::TargetType::FillUpFirst {
+//                     filled_to: Uint128::new(10_000000),
+//                     min_fill: Some(Uint128::new(1_000000)),
+//                 },
+//                 asset_override: Some(token_asset_info(TOKEN_1.to_string())),
+//             },
+//             TargetConfigUnchecked::new(USER_2.to_string(), 2),
+//             TargetConfigUnchecked::new_asset(
+//                 USER_3.to_string(),
+//                 3,
+//                 token_asset_info(TOKEN_1.to_string()),
+//             ),
+//         ]),
+//         zapper: None,
+//         max_spread: None,
+//     };
+
+//     execute(deps.as_mut(), mock_env(), mock_info(USER_1, &[]), msg).unwrap();
+
+//     // set balance
+//     deps.querier.set_balance(
+//         IBC_TOKEN.to_string(),
+//         MOCK_CONTRACT_ADDR.to_string(),
+//         Uint128::from(100_000000u128),
+//     );
+//     deps.querier.set_balance(
+//         IBC_TOKEN.to_string(),
+//         "filler".to_string(),
+//         Uint128::from(9_500000u128),
+//     );
+
+//     // distribute fee only
+//     let res = execute(
+//         deps.as_mut(),
+//         mock_env(),
+//         mock_info(OPERATOR_1, &[]),
+//         ExecuteMsg::Collect {
+//             assets: vec![AssetWithLimit {
+//                 info: native_asset_info(IBC_TOKEN.to_string()),
+//                 limit: None,
+//                 use_compound_proxy: None,
+//             }],
+//         },
+//     )?;
+
+//     // no funds yet
+//     assert_eq!(res.messages.len(), 3);
+//     assert_eq!(
+//         res.messages.into_iter().map(|it| it.msg).collect::<Vec<CosmosMsg>>(),
+//         vec![
+//             CosmosMsg::Bank(BankMsg::Send {
+//                 to_address: USER_2.to_string(),
+//                 amount: vec![Coin {
+//                     denom: IBC_TOKEN.to_string(),
+//                     amount: Uint128::from(40_000000u128),
+//                 }]
+//             }),
+//             CosmosMsg::Bank(BankMsg::Send {
+//                 to_address: USER_3.to_string(),
+//                 amount: vec![Coin {
+//                     denom: IBC_TOKEN.to_string(),
+//                     amount: Uint128::from(60_000000u128),
+//                 }]
+//             }),
+//             CosmosMsg::Wasm(WasmMsg::Execute {
+//                 contract_addr: MOCK_CONTRACT_ADDR.to_string(),
+//                 funds: vec![],
+//                 msg: to_binary(&ExecuteMsg::DistributeFees {})?,
+//             }),
+//         ]
+//     );
+
+//     // set balance
+//     deps.querier.set_balance(
+//         IBC_TOKEN.to_string(),
+//         MOCK_CONTRACT_ADDR.to_string(),
+//         Uint128::from(0_000000u128),
+//     );
+
+//     // distribute fees without reaching min
+//     let res = execute(
+//         deps.as_mut(),
+//         mock_env(),
+//         mock_info(MOCK_CONTRACT_ADDR, &[]),
+//         ExecuteMsg::DistributeFees {},
+//     )?;
+//     assert_eq!(res.messages.len(), 0);
+
+//     Ok(())
+// }
 
 fn assert_error(res: Result<Response, ContractError>, expected: &str) {
     match res {
