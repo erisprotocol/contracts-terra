@@ -3,6 +3,8 @@ use cosmwasm_schema::{cw_serde, QueryResponses};
 use astroport::asset::{Asset, AssetInfo};
 
 use cosmwasm_std::{to_binary, Addr, CosmosMsg, Decimal, StdResult, Uint128, WasmMsg};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 use crate::adapters::router::RouterType;
 
@@ -46,6 +48,23 @@ pub struct PairInfo {
     /// The pool type (xyk, stableswap etc) available in [`PairType`]
     pub pair_type: PairType,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+pub struct PairInfoCompatible {
+    /// Asset information for the assets in the pool
+    pub asset_infos: Vec<AssetInfo>,
+    /// Pair contract address
+    pub contract_addr: Addr,
+}
+
+// #[cw_serde]
+// pub struct PairInfo {
+//     pub asset_infos: [AssetInfo; 2],
+//     pub contract_addr: String,
+//     pub liquidity_token: AssetInfo,
+//     pub asset_decimals: [u8; 2],
+//     pub pair_type: PairType,
+// }
 
 #[cw_serde]
 pub struct PairInfoWw {

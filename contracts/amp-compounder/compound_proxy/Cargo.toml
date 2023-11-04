@@ -1,6 +1,6 @@
 [package]
 name = "eris-compound-proxy"
-version = "1.7.0"
+version = "1.7.1"
 authors = ["Spectrum", "Eris"]
 edition = "2021"
 description = "Proxy contract to perform auto-compound"

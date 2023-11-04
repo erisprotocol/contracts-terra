@@ -3,7 +3,7 @@ use cosmwasm_std::{Addr, CosmosMsg, Decimal, QuerierWrapper, StdResult};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::compound_proxy::PairInfo;
+use crate::compound_proxy::PairInfoCompatible;
 
 use super::pair::Pair;
 
@@ -19,8 +19,7 @@ impl Factory {
         max_spread: Decimal,
         to: Option<String>,
     ) -> StdResult<CosmosMsg> {
-        let pair_info: PairInfo =
-            self.get_pair(querier, offer_asset.info.clone(), wanted.clone())?;
+        let pair_info = self.get_pair(querier, offer_asset.info.clone(), wanted.clone())?;
         Pair(pair_info.contract_addr).swap_msg(offer_asset, None, Some(max_spread), to)
     }
 
@@ -39,8 +38,8 @@ impl Factory {
         querier: &QuerierWrapper,
         offer_asset: AssetInfo,
         wanted: AssetInfo,
-    ) -> StdResult<PairInfo> {
-        let pair_info: PairInfo = querier.query_wasm_smart(
+    ) -> StdResult<PairInfoCompatible> {
+        let pair_info: PairInfoCompatible = querier.query_wasm_smart(
             self.0.to_string(),
             &astroport::factory::QueryMsg::Pair {
                 asset_infos: vec![offer_asset, wanted],

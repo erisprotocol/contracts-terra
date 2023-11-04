@@ -8,7 +8,7 @@ use cw20::Cw20ExecuteMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::compound_proxy::{PairInfo, PairInfoWw, PairType};
+use crate::compound_proxy::{PairInfo, PairInfoCompatible, PairInfoWw, PairType};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Pair(pub Addr);
@@ -44,6 +44,12 @@ pub enum CustomCw20HookMsg {
 
 impl Pair {
     pub fn query_pair_info(&self, querier: &QuerierWrapper) -> StdResult<PairInfo> {
+        querier.query_wasm_smart(self.0.to_string(), &QueryMsg::Pair {})
+    }
+    pub fn query_pair_info_compatible(
+        &self,
+        querier: &QuerierWrapper,
+    ) -> StdResult<PairInfoCompatible> {
         querier.query_wasm_smart(self.0.to_string(), &QueryMsg::Pair {})
     }
     pub fn query_ww_pair_info(&self, querier: &QuerierWrapper) -> StdResult<PairInfo> {
@@ -94,7 +100,7 @@ impl Pair {
     pub fn simulate_to_asset(
         &self,
         querier: &QuerierWrapper,
-        pair_info: &PairInfo,
+        pair_info: &PairInfoCompatible,
         offer_asset: &Asset,
     ) -> StdResult<Asset> {
         let ask_asset = if offer_asset.info == pair_info.asset_infos[0] {

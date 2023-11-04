@@ -5,7 +5,7 @@ use astroport::{
     common::OwnershipProposal,
 };
 use cosmwasm_std::{
-    Addr, CosmosMsg, Decimal, DepsMut, QuerierWrapper, StdError, StdResult, Storage,
+    Addr, Api, CosmosMsg, Decimal, DepsMut, QuerierWrapper, StdError, StdResult, Storage,
 };
 use cw_storage_plus::{Item, Map};
 use eris::{
@@ -14,7 +14,7 @@ use eris::{
         pair::Pair,
         router::{Router, RouterType},
     },
-    compound_proxy::{LpConfig, LpInit, PairInfo, PairType, RouteInit},
+    compound_proxy::{LpConfig, LpInit, PairInfo, PairInfoCompatible, PairType, RouteInit},
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -52,7 +52,7 @@ pub enum RouteType {
         route: Vec<AssetInfo>,
     },
     PairProxy {
-        pair_info: PairInfo,
+        pair_info: PairInfoCompatible,
     },
 }
 
@@ -236,7 +236,7 @@ impl<'a> State<'a> {
             } => {
                 let mut set = HashSet::new();
                 for segment in route.iter() {
-                    segment.check(deps.api)?;
+                    self.check(segment, deps.api)?;
                     if !set.insert(segment.to_string()) {
                         return Err(StdError::generic_err(format!(
                             "Segment {} duplicated",
@@ -269,7 +269,7 @@ impl<'a> State<'a> {
                 pair_contract,
             } => {
                 let pair_contract = deps.api.addr_validate(&pair_contract)?;
-                let pair_info = Pair(pair_contract).query_pair_info(&deps.querier)?;
+                let pair_info = Pair(pair_contract).query_pair_info_compatible(&deps.querier)?;
 
                 if pair_info.asset_infos.len() != 2 {
                     return Err(StdError::generic_err(
@@ -311,6 +311,20 @@ impl<'a> State<'a> {
                 }
             },
         };
+        Ok(())
+    }
+
+    pub fn check(&self, asset_info: &AssetInfo, api: &dyn Api) -> StdResult<()> {
+        match asset_info {
+            AssetInfo::Token {
+                contract_addr,
+            } => {
+                api.addr_validate(contract_addr.as_str())?;
+            },
+            AssetInfo::NativeToken {
+                ..
+            } => {},
+        }
         Ok(())
     }
 
