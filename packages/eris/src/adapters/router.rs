@@ -66,7 +66,11 @@ impl RouterType {
                         let relevant = &route[index];
                         SwapOperation::TFMSwap {
                             offer_asset_info,
-                            ask_asset_info,
+                            ask_asset_info: if relevant.0 == "whitewhale" {
+                                None
+                            } else {
+                                Some(ask_asset_info)
+                            },
                             factory_name: relevant.0.clone(),
                             pair_contract: relevant.1.clone(),
                         }
@@ -99,7 +103,7 @@ pub enum SwapOperation {
     },
     TFMSwap {
         offer_asset_info: AssetInfo,
-        ask_asset_info: AssetInfo,
+        ask_asset_info: Option<AssetInfo>,
         factory_name: String,
         pair_contract: Addr,
     },
