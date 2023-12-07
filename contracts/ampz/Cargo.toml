@@ -1,6 +1,6 @@
 [package]
 name = "eris-ampz"
-version = "1.6.2"
+version = "1.7.0"
 authors = ["devs <devs@erisprotocol.com>"]
 edition = "2018"
 license = "GPL-3.0-or-later"
@@ -22,12 +22,13 @@ eris = { path = "../../packages/eris" }
 itertools = "0.10"
 protobuf = "3"
 astroport = { git = "https://github.com/astroport-fi/astroport-core.git", default-features = false, rev = "bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62" }
-capapult = { package = "moneymarket", git = "https://github.com/capapult-finance/capa-money-market.git", default-features = false, rev="e03e6c6dd3003293852a0e2c3aa7ed3b21b97410"}
+capapult = { package = "moneymarket", git = "https://github.com/capapult-finance/capa-money-market.git", default-features = false, rev = "e03e6c6dd3003293852a0e2c3aa7ed3b21b97410" }
 thiserror = { version = "1.0" }
+cosmwasm-schema = "1.0.0"
+cw-asset = "2.4.0"
 
 [dev-dependencies]
 cw-multi-test = "0.13.2"
 anyhow = "1"
 eris-tests = { path = "../../packages/eris-tests" }
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
-cosmwasm-schema = "1.0.0"

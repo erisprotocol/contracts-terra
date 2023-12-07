@@ -13,10 +13,6 @@ pub fn unwrap_reply(reply: Reply) -> StdResult<SubMsgResponse> {
     reply.result.into_result().map_err(StdError::generic_err)
 }
 
-pub trait ScalingUint128 {
-    fn multiply_ratio_and_ceil(&self, numerator: Uint128, denominator: Uint128) -> Uint128;
-}
-
 /// Returns a lowercased, validated address upon success if present.
 pub fn addr_opt_validate(api: &dyn Api, addr: &Option<String>) -> StdResult<Option<Addr>> {
     addr.as_ref().map(|addr| api.addr_validate(addr)).transpose()
@@ -74,6 +70,10 @@ pub fn funds_or_allowance(
     }
 
     Ok((funds, msgs))
+}
+
+pub trait ScalingUint128 {
+    fn multiply_ratio_and_ceil(&self, numerator: Uint128, denominator: Uint128) -> Uint128;
 }
 
 impl ScalingUint128 for Uint128 {

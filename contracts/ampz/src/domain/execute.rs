@@ -1,9 +1,11 @@
 use std::vec;
 
 use astroport::asset::{native_asset_info, token_asset_info, Asset, AssetInfo, AssetInfoExt};
-use cosmwasm_std::{CosmosMsg, DepsMut, Env, MessageInfo, OverflowError, Response};
+use cosmwasm_std::{CosmosMsg, DepsMut, Env, MessageInfo, OverflowError, Response, StdResult};
+use eris::adapters::whitewhale::WhiteWhale;
 use eris::ampz::{DepositMarket, Execution, RepayMarket, Source};
 
+use crate::adapters::alliance::Alliance;
 use crate::error::ContractError;
 use crate::error::ContractResult;
 use crate::extensions::destinationstateext::DestinationStateExt;
@@ -113,6 +115,53 @@ pub fn execute_id(deps: DepsMut, env: Env, info: MessageInfo, id: u128) -> Contr
             // instead of querying the user balance, we take the over / min threshold
             user_balance_start = vec![over.clone()];
         },
+        Source::ClaimContract {
+            claim_type,
+        } => {
+            match claim_type {
+                eris::ampz::ClaimType::WhiteWhaleRewards => {
+                    let whitewhale = state.whitewhale.load(deps.storage)?;
+
+                    asset_infos = whitewhale.coins;
+                    // currently all supported tokens will be queried.
+                    // This could be optimized by storing possible reward tokens for each LP and only query these
+                    user_balance_start = asset_infos.query_balances(&deps.querier, &user)?;
+
+                    let msg = WhiteWhale(whitewhale.fee_distributor)
+                        .claim_msg()?
+                        .to_authz_msg(&user, &env)?;
+                    msgs.push(msg);
+                },
+                eris::ampz::ClaimType::AllianceRewards => {
+                    let alliance = state.alliance.load(deps.storage)?;
+                    asset_infos = vec![native_asset_info(CONTRACT_DENOM.to_string())];
+                    user_balance_start = asset_infos.query_balances(&deps.querier, &user)?;
+
+                    for msg in Alliance(alliance.contract).claim_msgs(alliance.claim_coins)? {
+                        let msg = msg.to_authz_msg(&user, &env)?;
+                        msgs.push(msg);
+                    }
+                },
+            }
+        },
+        Source::WhiteWhaleRewards {
+            lps,
+        } => {
+            let whitewhale = state.whitewhale.load(deps.storage)?;
+            asset_infos = whitewhale.coins;
+            // currently all supported tokens will be queried.
+            // This could be optimized by storing possible reward tokens for each LP and only query these
+            user_balance_start = asset_infos.query_balances(&deps.querier, &user)?;
+
+            let mut claim_msgs = lps
+                .iter()
+                .map(|lp| {
+                    WhiteWhale(deps.api.addr_validate(lp)?).claim_msg()?.to_authz_msg(&user, &env)
+                })
+                .collect::<StdResult<Vec<_>>>()?;
+
+            msgs.append(&mut claim_msgs);
+        },
     }
 
     state.last_execution.save(deps.storage, id, &env.block.time.seconds())?;
@@ -171,9 +220,6 @@ fn get_swap_asset(
         } => {
             match &execution.source {
                 Source::Claim => None,
-                Source::AstroRewards {
-                    ..
-                } => Some(native_asset_info(CONTRACT_DENOM.to_string())),
                 Source::Wallet {
                     over,
                     ..
@@ -185,12 +231,16 @@ fn get_swap_asset(
                         None
                     }
                 },
+                _ => Some(native_asset_info(CONTRACT_DENOM.to_string())),
             }
         },
         DestinationState::DepositArbVault {
             ..
         } => Some(native_asset_info(CONTRACT_DENOM.to_string())),
         DestinationState::DepositFarm {
+            ..
+        } => None,
+        DestinationState::DepositLiquidity {
             ..
         } => None,
         DestinationState::SwapTo {
@@ -212,5 +262,9 @@ fn get_swap_asset(
                 asset_info,
             } => Some(asset_info.clone()),
         },
+        DestinationState::DepositTAmplifier {
+            asset_info,
+            ..
+        } => Some(asset_info.clone()),
     })
 }

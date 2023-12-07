@@ -13,6 +13,27 @@ pub enum RouterType {
     AstroSwap,
     TerraSwap,
     TokenSwap,
+    TFM {
+        route: Vec<(String, Addr)>,
+    },
+}
+
+impl RouterType {
+    pub fn reverse(self) -> RouterType {
+        match self {
+            RouterType::AstroSwap => self,
+            RouterType::TerraSwap => self,
+            RouterType::TokenSwap => self,
+            RouterType::TFM {
+                mut route,
+            } => {
+                route.reverse();
+                RouterType::TFM {
+                    route,
+                }
+            },
+        }
+    }
 }
 
 impl RouterType {
@@ -23,7 +44,7 @@ impl RouterType {
         if let Some((first, tails)) = asset_infos.split_first() {
             let mut swap_operations: Vec<SwapOperation> = vec![];
             let mut previous = first.clone();
-            for asset_info in tails {
+            for (index, asset_info) in tails.iter().enumerate() {
                 let offer_asset_info = previous;
                 let ask_asset_info = asset_info.clone();
                 let op = match self {
@@ -38,6 +59,21 @@ impl RouterType {
                     RouterType::TokenSwap => SwapOperation::TokenSwap {
                         offer_asset_info,
                         ask_asset_info,
+                    },
+                    RouterType::TFM {
+                        route,
+                    } => {
+                        let relevant = &route[index];
+                        SwapOperation::TFMSwap {
+                            offer_asset_info,
+                            ask_asset_info: if relevant.0 == "whitewhale" {
+                                None
+                            } else {
+                                Some(ask_asset_info)
+                            },
+                            factory_name: relevant.0.clone(),
+                            pair_contract: relevant.1.clone(),
+                        }
                     },
                 };
                 swap_operations.push(op);
@@ -65,25 +101,12 @@ pub enum SwapOperation {
         offer_asset_info: AssetInfo,
         ask_asset_info: AssetInfo,
     },
-}
-
-impl SwapOperation {
-    pub fn get_offer_asset_info(&self) -> AssetInfo {
-        match self {
-            SwapOperation::AstroSwap {
-                offer_asset_info,
-                ..
-            } => offer_asset_info.clone(),
-            SwapOperation::TerraSwap {
-                offer_asset_info,
-                ..
-            } => offer_asset_info.clone(),
-            SwapOperation::TokenSwap {
-                offer_asset_info,
-                ..
-            } => offer_asset_info.clone(),
-        }
-    }
+    TFMSwap {
+        offer_asset_info: AssetInfo,
+        ask_asset_info: Option<AssetInfo>,
+        factory_name: String,
+        pair_contract: Addr,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
@@ -106,6 +129,39 @@ pub enum Cw20HookMsg {
         to: Option<Addr>,
         max_spread: Option<Decimal>,
     },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum TfmExecuteMsg {
+    ExecuteSwapOperations {
+        offer_amount: Uint128,
+        expect_amount: Option<Uint128>,
+        minimum_receive: Option<Uint128>,
+        to: Option<Addr>,
+        max_spread: Option<Decimal>,
+        routes: Vec<TfmRoute>,
+    },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum TfmCw20HookMsg {
+    ExecuteSwapOperations {
+        offer_amount: Uint128,
+        expect_amount: Option<Uint128>,
+        minimum_receive: Option<Uint128>,
+        to: Option<Addr>,
+        max_spread: Option<Decimal>,
+        routes: Vec<TfmRoute>,
+    },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct TfmRoute {
+    offer_amount: Uint128,
+    operations: Vec<SwapOperation>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
@@ -143,6 +199,7 @@ impl Router {
 
     pub fn execute_swap_operations_msg(
         &self,
+        router_type: RouterType,
         offer_asset: Asset,
         operations: Vec<SwapOperation>,
         minimum_receive: Option<Uint128>,
@@ -157,12 +214,28 @@ impl Router {
                 msg: to_binary(&Cw20ExecuteMsg::Send {
                     contract: self.0.to_string(),
                     amount: offer_asset.amount,
-                    msg: to_binary(&Cw20HookMsg::ExecuteSwapOperations {
-                        operations,
-                        minimum_receive,
-                        to,
-                        max_spread,
-                    })?,
+
+                    msg: match router_type {
+                        RouterType::TFM {
+                            ..
+                        } => to_binary(&TfmCw20HookMsg::ExecuteSwapOperations {
+                            minimum_receive,
+                            to,
+                            max_spread,
+                            expect_amount: minimum_receive,
+                            offer_amount: offer_asset.amount,
+                            routes: vec![TfmRoute {
+                                offer_amount: offer_asset.amount,
+                                operations,
+                            }],
+                        })?,
+                        _ => to_binary(&Cw20HookMsg::ExecuteSwapOperations {
+                            operations,
+                            minimum_receive,
+                            to,
+                            max_spread,
+                        })?,
+                    },
                 })?,
                 funds: vec![],
             },
@@ -170,12 +243,27 @@ impl Router {
                 denom,
             } => WasmMsg::Execute {
                 contract_addr: self.0.to_string(),
-                msg: to_binary(&ExecuteMsg::ExecuteSwapOperations {
-                    operations,
-                    minimum_receive,
-                    to,
-                    max_spread,
-                })?,
+                msg: match router_type {
+                    RouterType::TFM {
+                        ..
+                    } => to_binary(&TfmExecuteMsg::ExecuteSwapOperations {
+                        minimum_receive,
+                        to,
+                        max_spread,
+                        expect_amount: minimum_receive,
+                        offer_amount: offer_asset.amount,
+                        routes: vec![TfmRoute {
+                            offer_amount: offer_asset.amount,
+                            operations,
+                        }],
+                    })?,
+                    _ => to_binary(&ExecuteMsg::ExecuteSwapOperations {
+                        operations,
+                        minimum_receive,
+                        to,
+                        max_spread,
+                    })?,
+                },
                 funds: vec![Coin {
                     denom: denom.clone(),
                     amount: offer_asset.amount,

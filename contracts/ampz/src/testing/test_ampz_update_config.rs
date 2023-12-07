@@ -76,6 +76,8 @@ fn check_update_config() {
                 receiver: "new_fee_receiver".into(),
             }),
             capapult: None,
+            alliance: None,
+            whitewhale: None,
             hub: Some("new_hub".into()),
             arb_vault: Some("new_arb_vault".into()),
         },
@@ -104,6 +106,8 @@ fn check_update_config() {
                 receiver: "new_fee_receiver".into(),
             }),
             capapult: None,
+            alliance: None,
+            whitewhale: None,
             hub: Some("new_hub".into()),
             arb_vault: Some("new_arb_vault".into()),
         },
@@ -161,6 +165,8 @@ fn check_update_config() {
             capapult: None,
             hub: Some("new_hub".into()),
             arb_vault: Some("new_arb_vault".into()),
+            alliance: None,
+            whitewhale: None,
         },
     )
     .unwrap();
@@ -214,6 +220,8 @@ fn update_config_unauthorized() {
             hub: None,
             arb_vault: None,
             capapult: None,
+            alliance: None,
+            whitewhale: None,
         },
     )
     .unwrap_err();

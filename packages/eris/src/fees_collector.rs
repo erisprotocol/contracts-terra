@@ -1,6 +1,6 @@
 use astroport::asset::{Asset, AssetInfo};
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Api, Binary, Decimal, StdError, StdResult, Uint128};
+use cosmwasm_std::{Api, Binary, Decimal, StdError, StdResult, Uint128};
 
 /// This structure stores general parameters for the contract.
 #[cw_serde]
@@ -14,9 +14,11 @@ pub struct InstantiateMsg {
     /// The stablecoin asset info
     pub stablecoin: AssetInfo,
     /// The beneficiary addresses to received fees in stablecoin
-    pub target_list: Vec<TargetConfig<String>>,
+    pub target_list: Vec<TargetConfig>,
     /// The maximum spread used when swapping fee tokens
     pub max_spread: Option<Decimal>,
+
+    pub zapper: String,
 }
 
 /// This structure describes the functions that can be executed in this contract.
@@ -34,21 +36,11 @@ pub enum ExecuteMsg {
         /// The factory contract address
         factory_contract: Option<String>,
         /// The list of target address to receive fees in stablecoin
-        target_list: Option<Vec<TargetConfig<String>>>,
+        target_list: Option<Vec<TargetConfig>>,
         /// The maximum spread used when swapping fee tokens
         max_spread: Option<Decimal>,
-    },
-    /// Add bridge tokens used to swap specific fee tokens to stablecoin (effectively declaring a swap route)
-    UpdateBridges {
-        /// List of bridge assets to be added
-        add: Option<Vec<(AssetInfo, AssetInfo)>>,
-        /// List of asset to be removed
-        remove: Option<Vec<AssetInfo>>,
-    },
-    /// Swap fee tokens via bridge assets
-    SwapBridgeAssets {
-        assets: Vec<AssetInfo>,
-        depth: u64,
+
+        zapper: Option<String>,
     },
     /// Distribute stablecoin to beneficiary
     DistributeFees {},
@@ -74,8 +66,6 @@ pub enum QueryMsg {
     Balances {
         assets: Vec<AssetInfo>,
     },
-    /// Returns list of bridge assets
-    Bridges {},
 }
 
 /// A custom struct used to return multiple asset balances.
@@ -97,16 +87,21 @@ pub struct AssetWithLimit {
     pub info: AssetInfo,
     /// The amount of tokens to swap
     pub limit: Option<Uint128>,
+
+    /// if the compound proxy should be used
+    pub use_compound_proxy: Option<bool>,
 }
 
 /// This struct holds parameters to configure receiving contracts and messages.
 #[cw_serde]
-pub struct TargetConfig<T> {
-    pub addr: T,
+pub struct TargetConfig {
+    pub addr: String,
     pub weight: u64,
     pub msg: Option<Binary>,
     #[serde(default = "default_type")]
     pub target_type: TargetType,
+    /// If provided, it will ignore the output asset and just send the override asset to the target without swapping it to the "stablecoin"
+    pub asset_override: Option<AssetInfo>,
 }
 
 fn default_type() -> TargetType {
@@ -121,30 +116,49 @@ pub enum TargetType {
         filled_to: Uint128,
         min_fill: Option<Uint128>,
     },
+    Ibc {
+        channel_id: String,
+        ics20: Option<String>,
+    },
 }
 
-impl TargetConfig<String> {
-    pub fn new(addr: String, weight: u64) -> Self {
+impl TargetConfig {
+    pub fn new(addr: impl Into<String>, weight: u64) -> Self {
         Self {
-            addr,
+            addr: addr.into(),
             weight,
             msg: None,
             target_type: TargetType::Weight,
+            asset_override: None,
         }
     }
 
-    pub fn new_msg(addr: String, weight: u64, msg: Option<Binary>) -> Self {
+    pub fn new_asset(addr: impl Into<String>, weight: u64, asset_override: AssetInfo) -> Self {
         Self {
-            addr,
+            addr: addr.into(),
+            weight,
+            msg: None,
+            target_type: TargetType::Weight,
+            asset_override: Some(asset_override),
+        }
+    }
+
+    pub fn new_msg(addr: impl Into<String>, weight: u64, msg: Option<Binary>) -> Self {
+        Self {
+            addr: addr.into(),
             weight,
             msg,
             target_type: TargetType::Weight,
+            asset_override: None,
         }
     }
 
-    pub fn validate(&self, api: &dyn Api) -> StdResult<TargetConfig<Addr>> {
+    pub fn validate(&self, _api: &dyn Api) -> StdResult<TargetConfig> {
         match self.target_type {
-            TargetType::Weight => (),
+            TargetType::Weight
+            | TargetType::Ibc {
+                ..
+            } => (),
             TargetType::FillUpFirst {
                 ..
             } => {
@@ -158,21 +172,11 @@ impl TargetConfig<String> {
         }
 
         Ok(TargetConfig {
-            addr: api.addr_validate(&self.addr)?,
+            addr: self.addr.clone(),
             weight: self.weight,
             msg: self.msg.clone(),
             target_type: self.target_type.clone(),
+            asset_override: self.asset_override.clone(),
         })
-    }
-}
-
-impl TargetConfig<Addr> {
-    pub fn new(addr: Addr, weight: u64) -> Self {
-        Self {
-            addr,
-            weight,
-            msg: None,
-            target_type: TargetType::Weight,
-        }
     }
 }
