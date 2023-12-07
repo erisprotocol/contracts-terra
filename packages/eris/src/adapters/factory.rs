@@ -1,7 +1,9 @@
-use astroport::asset::{Asset, AssetInfo, PairInfo};
+use astroport::asset::{Asset, AssetInfo};
 use cosmwasm_std::{Addr, CosmosMsg, Decimal, QuerierWrapper, StdResult};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+
+use crate::compound_proxy::PairInfoCompatible;
 
 use super::pair::Pair;
 
@@ -36,8 +38,8 @@ impl Factory {
         querier: &QuerierWrapper,
         offer_asset: AssetInfo,
         wanted: AssetInfo,
-    ) -> StdResult<PairInfo> {
-        let pair_info: PairInfo = querier.query_wasm_smart(
+    ) -> StdResult<PairInfoCompatible> {
+        let pair_info: PairInfoCompatible = querier.query_wasm_smart(
             self.0.to_string(),
             &astroport::factory::QueryMsg::Pair {
                 asset_infos: vec![offer_asset, wanted],

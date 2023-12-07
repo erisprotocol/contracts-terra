@@ -1,13 +1,13 @@
-use astroport::asset::{native_asset_info, AssetInfo, PairInfo};
-use astroport::factory::PairType;
-use astroport::pair::Cw20HookMsg as AstroportPairCw20HookMsg;
+use astroport::asset::{native_asset_info, token_asset_info, AssetInfo, AssetInfoExt};
 use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
     from_binary, to_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, OwnedDeps, Response, StdError,
     Timestamp, Uint128, WasmMsg,
 };
-use cw20::Cw20ExecuteMsg;
+use eris::adapters::asset::AssetEx;
+use eris::adapters::compounder::Compounder;
 use eris::fees_collector::{AssetWithLimit, ExecuteMsg, InstantiateMsg, QueryMsg, TargetConfig};
+use eris::helper::funds_or_allowance;
 use eris::hub::ExecuteMsg as HubExecuteMsg;
 
 use crate::contract::{execute, instantiate, query};
@@ -15,8 +15,8 @@ use crate::error::ContractError;
 use crate::mock_querier::{mock_dependencies, WasmMockQuerier};
 use crate::state::{Config, CONFIG};
 
-type TargetConfigUnchecked = TargetConfig<String>;
-type TargetConfigChecked = TargetConfig<Addr>;
+type TargetConfigUnchecked = TargetConfig;
+type TargetConfigChecked = TargetConfig;
 
 const OWNER: &str = "owner";
 const OPERATOR_1: &str = "operator_1";
@@ -30,6 +30,8 @@ const FACTORY_2: &str = "factory_2";
 const TOKEN_1: &str = "token_1";
 const TOKEN_2: &str = "token_2";
 const IBC_TOKEN: &str = "ibc/stablecoin";
+const ZAPPER_1: &str = "zapper_1";
+const ZAPPER_2: &str = "zapper_2";
 
 #[test]
 fn test() -> Result<(), ContractError> {
@@ -37,7 +39,6 @@ fn test() -> Result<(), ContractError> {
     create(&mut deps)?;
     config(&mut deps)?;
     owner(&mut deps)?;
-    bridges(&mut deps)?;
     collect(&mut deps)?;
     distribute_fees(&mut deps)?;
     distribute_fees_to_contract(&mut deps)?;
@@ -62,10 +63,12 @@ fn test_fillup() -> Result<(), ContractError> {
                     filled_to: Uint128::new(10_000000),
                     min_fill: Some(Uint128::new(1_000000)),
                 },
+                asset_override: None,
             },
             TargetConfigUnchecked::new(USER_2.to_string(), 2),
             TargetConfigUnchecked::new(USER_3.to_string(), 3),
         ]),
+        zapper: None,
         max_spread: None,
     };
 
@@ -84,10 +87,12 @@ fn test_fillup() -> Result<(), ContractError> {
                     filled_to: Uint128::new(10_000000),
                     min_fill: Some(Uint128::new(1_000000)),
                 },
+                asset_override: None,
             },
             TargetConfigUnchecked::new(USER_2.to_string(), 2),
             TargetConfigUnchecked::new(USER_3.to_string(), 3),
         ]),
+        zapper: None,
         max_spread: None,
     };
 
@@ -102,6 +107,7 @@ fn test_fillup() -> Result<(), ContractError> {
             assets: vec![AssetWithLimit {
                 info: native_asset_info(IBC_TOKEN.to_string()),
                 limit: None,
+                use_compound_proxy: None,
             }],
         },
     )?;
@@ -208,6 +214,248 @@ fn test_fillup() -> Result<(), ContractError> {
     Ok(())
 }
 
+#[test]
+fn test_distribute_first() -> Result<(), ContractError> {
+    let mut deps = mock_dependencies();
+    create(&mut deps)?;
+
+    let msg = ExecuteMsg::UpdateConfig {
+        operator: None,
+        factory_contract: None,
+        target_list: Some(vec![
+            TargetConfigUnchecked {
+                addr: "filler".to_string(),
+                weight: 1,
+                msg: None,
+                target_type: eris::fees_collector::TargetType::FillUpFirst {
+                    filled_to: Uint128::new(10_000000),
+                    min_fill: Some(Uint128::new(1_000000)),
+                },
+                asset_override: None,
+            },
+            TargetConfigUnchecked::new_asset(
+                USER_2.to_string(),
+                2,
+                native_asset_info(IBC_TOKEN.to_string()),
+            ),
+            TargetConfigUnchecked::new_asset(
+                USER_3.to_string(),
+                3,
+                native_asset_info(IBC_TOKEN.to_string()),
+            ),
+        ]),
+        zapper: None,
+        max_spread: None,
+    };
+
+    let res = execute(deps.as_mut(), mock_env(), mock_info(USER_1, &[]), msg).unwrap_err();
+    assert_eq!(res.to_string(), "Generic error: FillUp can't have a weight (1)");
+
+    let msg = ExecuteMsg::UpdateConfig {
+        operator: None,
+        factory_contract: None,
+        target_list: Some(vec![
+            TargetConfigUnchecked {
+                addr: "filler".to_string(),
+                weight: 0,
+                msg: None,
+                target_type: eris::fees_collector::TargetType::FillUpFirst {
+                    filled_to: Uint128::new(10_000000),
+                    min_fill: Some(Uint128::new(1_000000)),
+                },
+                asset_override: None,
+            },
+            TargetConfigUnchecked::new_asset(
+                USER_2.to_string(),
+                2,
+                native_asset_info(IBC_TOKEN.to_string()),
+            ),
+            TargetConfigUnchecked::new_asset(
+                USER_3.to_string(),
+                3,
+                native_asset_info(IBC_TOKEN.to_string()),
+            ),
+        ]),
+        zapper: None,
+        max_spread: None,
+    };
+
+    execute(deps.as_mut(), mock_env(), mock_info(USER_1, &[]), msg).unwrap();
+
+    // set balance
+    deps.querier.set_balance(
+        IBC_TOKEN.to_string(),
+        MOCK_CONTRACT_ADDR.to_string(),
+        Uint128::from(100_000000u128),
+    );
+    deps.querier.set_balance(
+        IBC_TOKEN.to_string(),
+        "filler".to_string(),
+        Uint128::from(9_500000u128),
+    );
+
+    // distribute fee only
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info(OPERATOR_1, &[]),
+        ExecuteMsg::Collect {
+            assets: vec![AssetWithLimit {
+                info: native_asset_info(IBC_TOKEN.to_string()),
+                limit: None,
+                use_compound_proxy: None,
+            }],
+        },
+    )?;
+
+    // no funds yet
+    assert_eq!(res.messages.len(), 3);
+    assert_eq!(
+        res.messages.into_iter().map(|it| it.msg).collect::<Vec<CosmosMsg>>(),
+        vec![
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: USER_2.to_string(),
+                amount: vec![Coin {
+                    denom: IBC_TOKEN.to_string(),
+                    amount: Uint128::from(40_000000u128),
+                }]
+            }),
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: USER_3.to_string(),
+                amount: vec![Coin {
+                    denom: IBC_TOKEN.to_string(),
+                    amount: Uint128::from(60_000000u128),
+                }]
+            }),
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: MOCK_CONTRACT_ADDR.to_string(),
+                funds: vec![],
+                msg: to_binary(&ExecuteMsg::DistributeFees {})?,
+            }),
+        ]
+    );
+
+    // set balance
+    deps.querier.set_balance(
+        IBC_TOKEN.to_string(),
+        MOCK_CONTRACT_ADDR.to_string(),
+        Uint128::from(0_000000u128),
+    );
+
+    // distribute fees without reaching min
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info(MOCK_CONTRACT_ADDR, &[]),
+        ExecuteMsg::DistributeFees {},
+    )?;
+    assert_eq!(res.messages.len(), 0);
+
+    Ok(())
+}
+
+#[test]
+fn test_distribute_first_token() -> Result<(), ContractError> {
+    let mut deps = mock_dependencies();
+    create(&mut deps)?;
+
+    let msg = ExecuteMsg::UpdateConfig {
+        operator: None,
+        factory_contract: None,
+        target_list: Some(vec![
+            TargetConfigUnchecked {
+                addr: "filler".to_string(),
+                weight: 0,
+                msg: None,
+                target_type: eris::fees_collector::TargetType::FillUpFirst {
+                    filled_to: Uint128::new(10_000000),
+                    min_fill: Some(Uint128::new(1_000000)),
+                },
+                asset_override: Some(token1()),
+            },
+            TargetConfigUnchecked::new(USER_2.to_string(), 2),
+            TargetConfigUnchecked::new_asset(USER_3.to_string(), 3, token1()),
+        ]),
+        zapper: None,
+        max_spread: None,
+    };
+
+    execute(deps.as_mut(), mock_env(), mock_info(USER_1, &[]), msg).unwrap();
+
+    // set balance
+    deps.querier.set_balance(
+        TOKEN_1.to_string(),
+        MOCK_CONTRACT_ADDR.to_string(),
+        Uint128::from(100_000000u128),
+    );
+
+    deps.querier.set_balance(
+        TOKEN_1.to_string(),
+        "filler".to_string(),
+        Uint128::from(8_500000u128),
+    );
+
+    // distribute fee only
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info(OPERATOR_1, &[]),
+        ExecuteMsg::Collect {
+            assets: vec![AssetWithLimit {
+                info: token1(),
+                limit: None,
+                use_compound_proxy: None,
+            }],
+        },
+    )?;
+
+    let transfer = token1()
+        .with_balance(1_500000u128)
+        .transfer_msg_target(&Addr::unchecked("filler".to_string()), None)
+        .unwrap();
+    let transfer2 = token1()
+        .with_balance(98_500000u128)
+        .transfer_msg_target(&Addr::unchecked(USER_3.to_string()), None)
+        .unwrap();
+
+    // no funds yet
+    assert_eq!(res.messages.len(), 3);
+    assert_eq!(
+        res.messages.into_iter().map(|it| it.msg).collect::<Vec<CosmosMsg>>(),
+        vec![
+            transfer,
+            transfer2,
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: MOCK_CONTRACT_ADDR.to_string(),
+                funds: vec![],
+                msg: to_binary(&ExecuteMsg::DistributeFees {})?,
+            }),
+        ]
+    );
+
+    // set balance
+    deps.querier.set_balance(
+        TOKEN_1.to_string(),
+        MOCK_CONTRACT_ADDR.to_string(),
+        Uint128::from(0_000000u128),
+    );
+
+    // distribute fees without reaching min
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info(MOCK_CONTRACT_ADDR, &[]),
+        ExecuteMsg::DistributeFees {},
+    )?;
+    assert_eq!(res.messages.len(), 0);
+
+    Ok(())
+}
+
+fn token1() -> AssetInfo {
+    token_asset_info(Addr::unchecked(TOKEN_1))
+}
+
 fn assert_error(res: Result<Response, ContractError>, expected: &str) {
     match res {
         Err(ContractError::Std(StdError::GenericErr {
@@ -238,6 +486,7 @@ fn create(
             TargetConfigUnchecked::new(USER_2.to_string(), 2),
             TargetConfigUnchecked::new(USER_3.to_string(), 3),
         ],
+        zapper: ZAPPER_1.to_string(),
     };
     let res = instantiate(deps.as_mut(), env, info, instantiate_msg);
     assert!(res.is_ok());
@@ -250,13 +499,14 @@ fn create(
             operator: Addr::unchecked(OPERATOR_1),
             factory_contract: Addr::unchecked(FACTORY_1),
             target_list: vec![
-                TargetConfigChecked::new(Addr::unchecked(USER_2), 2),
-                TargetConfigChecked::new(Addr::unchecked(USER_3), 3)
+                TargetConfigChecked::new(USER_2, 2),
+                TargetConfigChecked::new(USER_3, 3)
             ],
             stablecoin: AssetInfo::NativeToken {
                 denom: IBC_TOKEN.to_string(),
             },
-            max_spread: Decimal::percent(1)
+            max_spread: Decimal::percent(1),
+            compound_proxy: Addr::unchecked(ZAPPER_1),
         }
     );
 
@@ -275,6 +525,7 @@ fn config(
         factory_contract: None,
         target_list: None,
         max_spread: None,
+        zapper: None,
     };
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
     assert_error(res, "Unauthorized");
@@ -288,6 +539,7 @@ fn config(
         factory_contract: Some(FACTORY_2.to_string()),
         target_list: None,
         max_spread: None,
+        zapper: None,
     };
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
     assert!(res.is_ok());
@@ -297,6 +549,7 @@ fn config(
         factory_contract: None,
         target_list: Some(vec![TargetConfigUnchecked::new(USER_1.to_string(), 1)]),
         max_spread: None,
+        zapper: None,
     };
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
     assert!(res.is_ok());
@@ -306,6 +559,7 @@ fn config(
         factory_contract: None,
         target_list: None,
         max_spread: Some(Decimal::percent(5)),
+        zapper: None,
     };
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
     assert!(res.is_ok());
@@ -322,7 +576,8 @@ fn config(
             stablecoin: AssetInfo::NativeToken {
                 denom: IBC_TOKEN.to_string(),
             },
-            max_spread: Decimal::percent(5)
+            max_spread: Decimal::percent(5),
+            compound_proxy: Addr::unchecked(ZAPPER_1),
         }
     );
 
@@ -334,6 +589,7 @@ fn config(
             TargetConfigUnchecked::new(USER_3.to_string(), 3),
         ]),
         max_spread: Some(Decimal::percent(1)),
+        zapper: Some(ZAPPER_2.to_string()),
     };
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
     assert!(res.is_ok());
@@ -353,11 +609,18 @@ fn config(
             stablecoin: AssetInfo::NativeToken {
                 denom: IBC_TOKEN.to_string(),
             },
-            max_spread: Decimal::percent(1)
+            max_spread: Decimal::percent(1),
+            compound_proxy: Addr::unchecked(ZAPPER_2),
         }
     );
 
     Ok(())
+}
+
+fn stablecoin() -> AssetInfo {
+    AssetInfo::NativeToken {
+        denom: IBC_TOKEN.to_string(),
+    }
 }
 
 #[allow(clippy::redundant_clone)]
@@ -427,126 +690,10 @@ fn owner(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Result<
     Ok(())
 }
 
-#[allow(clippy::redundant_clone)]
-fn bridges(
-    deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>,
-) -> Result<(), ContractError> {
-    let env = mock_env();
-
-    let msg = ExecuteMsg::UpdateBridges {
-        add: Some(vec![(
-            AssetInfo::Token {
-                contract_addr: Addr::unchecked(TOKEN_1),
-            },
-            AssetInfo::Token {
-                contract_addr: Addr::unchecked(TOKEN_2),
-            },
-        )]),
-        remove: None,
-    };
-
-    // update bridges unauthorized
-    let info = mock_info(USER_1, &[]);
-    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
-    assert_error(res, "Unauthorized");
-
-    deps.querier.set_pair(
-        &[
-            AssetInfo::Token {
-                contract_addr: Addr::unchecked(TOKEN_1),
-            },
-            AssetInfo::Token {
-                contract_addr: Addr::unchecked(TOKEN_2),
-            },
-        ],
-        PairInfo {
-            asset_infos: vec![
-                AssetInfo::Token {
-                    contract_addr: Addr::unchecked(TOKEN_1),
-                },
-                AssetInfo::Token {
-                    contract_addr: Addr::unchecked(TOKEN_2),
-                },
-            ],
-            contract_addr: Addr::unchecked("token1token2"),
-            liquidity_token: Addr::unchecked("liquidity0000"),
-            pair_type: PairType::Xyk {},
-        },
-    );
-
-    deps.querier.set_pair(
-        &[
-            AssetInfo::Token {
-                contract_addr: Addr::unchecked(TOKEN_2),
-            },
-            AssetInfo::NativeToken {
-                denom: IBC_TOKEN.to_string(),
-            },
-        ],
-        PairInfo {
-            asset_infos: vec![
-                AssetInfo::Token {
-                    contract_addr: Addr::unchecked(TOKEN_2),
-                },
-                AssetInfo::NativeToken {
-                    denom: IBC_TOKEN.to_string(),
-                },
-            ],
-            contract_addr: Addr::unchecked("token2ibc"),
-            liquidity_token: Addr::unchecked("liquidity0002"),
-            pair_type: PairType::Stable {},
-        },
-    );
-
-    let info = mock_info(OPERATOR_1, &[]);
-
-    // update bridges
-    let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone());
-    assert!(res.is_ok());
-
-    // query bridges
-    let bridges: Vec<(String, String)> =
-        from_binary(&query(deps.as_ref(), env.clone(), QueryMsg::Bridges {})?)?;
-    assert_eq!(vec![(TOKEN_1.to_string(), TOKEN_2.to_string())], bridges);
-
-    let msg = ExecuteMsg::UpdateBridges {
-        add: None,
-        remove: Some(vec![AssetInfo::Token {
-            contract_addr: Addr::unchecked(TOKEN_1),
-        }]),
-    };
-
-    let res = execute(deps.as_mut(), env.clone(), info, msg);
-    assert!(res.is_ok());
-
-    // query bridges
-    let bridges: Vec<(String, String)> =
-        from_binary(&query(deps.as_ref(), env.clone(), QueryMsg::Bridges {})?)?;
-    assert!(bridges.is_empty());
-
-    Ok(())
-}
-
 fn collect(
     deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>,
 ) -> Result<(), ContractError> {
     let env = mock_env();
-
-    // update bridges
-    let info = mock_info(OPERATOR_1, &[]);
-    let msg = ExecuteMsg::UpdateBridges {
-        add: Some(vec![(
-            AssetInfo::Token {
-                contract_addr: Addr::unchecked(TOKEN_1),
-            },
-            AssetInfo::Token {
-                contract_addr: Addr::unchecked(TOKEN_2),
-            },
-        )]),
-        remove: None,
-    };
-    let res = execute(deps.as_mut(), env.clone(), info, msg);
-    assert!(res.is_ok());
 
     let msg = ExecuteMsg::Collect {
         assets: vec![AssetWithLimit {
@@ -554,6 +701,7 @@ fn collect(
                 contract_addr: Addr::unchecked(TOKEN_1),
             },
             limit: None,
+            use_compound_proxy: None,
         }],
     };
 
@@ -584,40 +732,16 @@ fn collect(
 
     // collect success
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg)?;
-    assert_eq!(
-        res.messages.into_iter().map(|it| it.msg).collect::<Vec<CosmosMsg>>(),
-        vec![
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: TOKEN_1.to_string(),
-                funds: vec![],
-                msg: to_binary(&Cw20ExecuteMsg::Send {
-                    contract: "token1token2".to_string(),
-                    amount: Uint128::new(1000000u128),
-                    msg: to_binary(&AstroportPairCw20HookMsg::Swap {
-                        ask_asset_info: None,
-                        belief_price: None,
-                        max_spread: Some(Decimal::percent(1)),
-                        to: None,
-                    })?
-                })?,
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: env.contract.address.to_string(),
-                funds: vec![],
-                msg: to_binary(&ExecuteMsg::SwapBridgeAssets {
-                    assets: vec![AssetInfo::Token {
-                        contract_addr: Addr::unchecked(TOKEN_2)
-                    }],
-                    depth: 0
-                })?,
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: env.contract.address.to_string(),
-                funds: vec![],
-                msg: to_binary(&ExecuteMsg::DistributeFees {})?,
-            }),
-        ]
-    );
+    let assets = vec![token1().with_balance(1000000u128)];
+    let mut swap_msgs = get_swap_msgs(assets)?;
+
+    swap_msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: env.contract.address.to_string(),
+        funds: vec![],
+        msg: to_binary(&ExecuteMsg::DistributeFees {})?,
+    }));
+
+    assert_eq!(res.messages.into_iter().map(|it| it.msg).collect::<Vec<CosmosMsg>>(), swap_msgs);
 
     // set balance
     deps.querier.set_balance(
@@ -632,37 +756,33 @@ fn collect(
                 contract_addr: Addr::unchecked(TOKEN_2),
             },
             limit: Some(Uint128::from(1500000u128)),
+            use_compound_proxy: None,
         }],
     };
 
     // collect success
     let res = execute(deps.as_mut(), env.clone(), info, msg)?;
-    assert_eq!(
-        res.messages.into_iter().map(|it| it.msg).collect::<Vec<CosmosMsg>>(),
-        vec![
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: TOKEN_2.to_string(),
-                funds: vec![],
-                msg: to_binary(&Cw20ExecuteMsg::Send {
-                    contract: "token2ibc".to_string(),
-                    amount: Uint128::new(1500000u128),
-                    msg: to_binary(&AstroportPairCw20HookMsg::Swap {
-                        ask_asset_info: None,
-                        belief_price: None,
-                        max_spread: Some(Decimal::percent(1)),
-                        to: None,
-                    })?
-                })?,
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: env.contract.address.to_string(),
-                funds: vec![],
-                msg: to_binary(&ExecuteMsg::DistributeFees {})?,
-            }),
-        ]
-    );
+
+    let assets = vec![token_asset_info(Addr::unchecked(TOKEN_2)).with_balance(1500000u128)];
+    let mut swap_msgs = get_swap_msgs(assets)?;
+    swap_msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: env.contract.address.to_string(),
+        funds: vec![],
+        msg: to_binary(&ExecuteMsg::DistributeFees {})?,
+    }));
+
+    assert_eq!(res.messages.into_iter().map(|it| it.msg).collect::<Vec<CosmosMsg>>(), swap_msgs);
 
     Ok(())
+}
+
+fn get_swap_msgs(assets: Vec<astroport::asset::Asset>) -> Result<Vec<CosmosMsg>, ContractError> {
+    let (funds, mut allowances) =
+        funds_or_allowance(&mock_env(), &Addr::unchecked(ZAPPER_2), &assets, None)?;
+    let msg =
+        Compounder(Addr::unchecked(ZAPPER_2)).multi_swap_msg(assets, stablecoin(), funds, None)?;
+    allowances.push(msg);
+    Ok(allowances)
 }
 
 #[allow(clippy::redundant_clone)]
@@ -737,6 +857,7 @@ fn distribute_fees_to_contract(
             ),
             TargetConfigUnchecked::new(USER_1.to_string(), 4),
         ]),
+        zapper: None,
         max_spread: None,
     };
     let res = execute(deps.as_mut(), env.clone(), owner.clone(), msg.clone());

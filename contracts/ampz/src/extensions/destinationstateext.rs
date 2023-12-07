@@ -26,6 +26,14 @@ impl DestinationStateExt for DestinationState {
                 farm,
                 receiver,
             },
+            DestinationState::DepositLiquidity {
+                lp_token,
+                dex,
+            } => DestinationRuntime::DepositLiquidity {
+                asset_infos,
+                lp_token,
+                dex,
+            },
             DestinationState::SwapTo {
                 asset_info,
                 receiver,
@@ -42,6 +50,13 @@ impl DestinationStateExt for DestinationState {
                 market,
             } => DestinationRuntime::DepositCollateral {
                 market,
+            },
+            DestinationState::DepositTAmplifier {
+                receiver,
+                asset_info,
+            } => DestinationRuntime::DepositTAmplifier {
+                receiver,
+                asset_info,
             },
         }
     }

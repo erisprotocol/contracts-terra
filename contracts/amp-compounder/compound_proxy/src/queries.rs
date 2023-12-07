@@ -114,6 +114,34 @@ pub fn get_routes(
         .collect()
 }
 
+pub fn get_route(deps: Deps, from: AssetInfo, to: AssetInfo) -> StdResult<RouteResponseItem> {
+    let state = State::default();
+
+    let key: (&[u8], &[u8]) = (from.as_bytes(), to.as_bytes());
+    let route_config = state.routes.load(deps.storage, key)?;
+
+    Ok(RouteResponseItem {
+        key: (route_config.key.0.to_string(), route_config.key.1.to_string()),
+        route_type: match route_config.route_type {
+            crate::state::RouteType::Path {
+                router,
+                router_type,
+                route,
+            } => eris::compound_proxy::RouteTypeResponseItem::Path {
+                router: router.0.to_string(),
+                router_type,
+                route: route.into_iter().map(|s| s.to_string()).collect(),
+            },
+            crate::state::RouteType::PairProxy {
+                pair_info,
+            } => eris::compound_proxy::RouteTypeResponseItem::PairProxy {
+                pair_contract: pair_info.contract_addr.to_string(),
+                asset_infos: pair_info.asset_infos.into_iter().map(|s| s.to_string()).collect(),
+            },
+        },
+    })
+}
+
 pub fn query_supports_swap(
     deps: Deps,
     from: AssetInfo,

@@ -1,11 +1,11 @@
 use std::collections::HashSet;
 
 use astroport::{
-    asset::{Asset, AssetInfo, AssetInfoExt, PairInfo},
+    asset::{Asset, AssetInfo, AssetInfoExt},
     common::OwnershipProposal,
 };
 use cosmwasm_std::{
-    Addr, CosmosMsg, Decimal, DepsMut, QuerierWrapper, StdError, StdResult, Storage,
+    Addr, Api, CosmosMsg, Decimal, DepsMut, QuerierWrapper, StdError, StdResult, Storage,
 };
 use cw_storage_plus::{Item, Map};
 use eris::{
@@ -14,7 +14,7 @@ use eris::{
         pair::Pair,
         router::{Router, RouterType},
     },
-    compound_proxy::{LpConfig, LpInit, RouteInit},
+    compound_proxy::{LpConfig, LpInit, PairInfo, PairInfoCompatible, PairType, RouteInit},
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -52,7 +52,7 @@ pub enum RouteType {
         route: Vec<AssetInfo>,
     },
     PairProxy {
-        pair_info: PairInfo,
+        pair_info: PairInfoCompatible,
     },
 }
 
@@ -69,6 +69,7 @@ impl RouteConfig {
                 router,
                 router_type,
             } => router.execute_swap_operations_msg(
+                router_type.clone(),
                 offer_asset.clone(),
                 router_type.create_swap_operations(route)?,
                 None,
@@ -162,7 +163,13 @@ impl<'a> State<'a> {
 
     pub fn add_lp(&self, deps: &mut DepsMut, lp_init: LpInit) -> Result<(), ContractError> {
         let pair_contract = deps.api.addr_validate(lp_init.pair_contract.as_str())?;
-        let pair_info = Pair(pair_contract).query_pair_info(&deps.querier)?;
+
+        let pair_info: PairInfo = match lp_init.lp_type {
+            Some(eris::compound_proxy::LpType::WhiteWhale) => {
+                Pair(pair_contract).query_ww_pair_info(&deps.querier)?
+            },
+            _ => Pair(pair_contract).query_pair_info(&deps.querier)?,
+        };
 
         if !pair_info.asset_infos.contains(&lp_init.wanted_token) {
             return Err(ContractError::WantedTokenNotInPair(lp_init.wanted_token.to_string()));
@@ -170,12 +177,18 @@ impl<'a> State<'a> {
 
         validate_slippage(lp_init.slippage_tolerance)?;
 
-        match pair_info.pair_type {
-            astroport::factory::PairType::Xyk {} => (),
-            astroport::factory::PairType::Stable {} => (),
-            astroport::factory::PairType::Custom(_) => {
-                Err(StdError::generic_err("Custom pair type not supported"))?
+        match pair_info.pair_type.clone() {
+            PairType::Xyk {} => (),
+            PairType::Stable {} => (),
+            PairType::XykWhiteWhale {} => (),
+            PairType::Custom(custom) => {
+                if custom == "concentrated" {
+                    // concentrated is allowed
+                } else {
+                    Err(StdError::generic_err("Custom pair type not supported"))?
+                }
             },
+            _ => Err(StdError::generic_err("Custom pair type not supported"))?,
         }
 
         self.lps.save(
@@ -223,7 +236,7 @@ impl<'a> State<'a> {
             } => {
                 let mut set = HashSet::new();
                 for segment in route.iter() {
-                    segment.check(deps.api)?;
+                    self.check(segment, deps.api)?;
                     if !set.insert(segment.to_string()) {
                         return Err(StdError::generic_err(format!(
                             "Segment {} duplicated",
@@ -246,7 +259,7 @@ impl<'a> State<'a> {
                 let reverse_config = RouteType::Path {
                     route: route.clone().into_iter().rev().collect(),
                     router: Router(deps.api.addr_validate(&router)?),
-                    router_type,
+                    router_type: router_type.reverse(),
                 };
 
                 self.checked_save_route(deps.storage, (end, start), &reverse_config)?;
@@ -256,7 +269,7 @@ impl<'a> State<'a> {
                 pair_contract,
             } => {
                 let pair_contract = deps.api.addr_validate(&pair_contract)?;
-                let pair_info = Pair(pair_contract).query_pair_info(&deps.querier)?;
+                let pair_info = Pair(pair_contract).query_pair_info_compatible(&deps.querier)?;
 
                 if pair_info.asset_infos.len() != 2 {
                     return Err(StdError::generic_err(
@@ -298,6 +311,20 @@ impl<'a> State<'a> {
                 }
             },
         };
+        Ok(())
+    }
+
+    pub fn check(&self, asset_info: &AssetInfo, api: &dyn Api) -> StdResult<()> {
+        match asset_info {
+            AssetInfo::Token {
+                contract_addr,
+            } => {
+                api.addr_validate(contract_addr.as_str())?;
+            },
+            AssetInfo::NativeToken {
+                ..
+            } => {},
+        }
         Ok(())
     }
 

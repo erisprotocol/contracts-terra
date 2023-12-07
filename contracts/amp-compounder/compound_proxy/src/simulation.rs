@@ -7,10 +7,9 @@ use astroport::querier::query_supply;
 use cosmwasm_std::{from_binary, CosmosMsg, Deps, StdError, StdResult, Uint128};
 
 use eris::adapters::factory::Factory;
-use eris::compound_proxy::CompoundSimulationResponse;
+use eris::compound_proxy::{CompoundSimulationResponse, PairType};
 
 use astroport::asset::{Asset, MINIMUM_LIQUIDITY_AMOUNT};
-use astroport::factory::PairType;
 use eris::adapters::pair::Pair;
 use eris::helper::assert_uniq_assets;
 
@@ -77,7 +76,7 @@ pub fn query_compound_simulation(
 
     let (lp_amount, swap_asset_a_amount, swap_asset_b_amount, return_a_amount, return_b_amount) =
         match lp_config.pair_info.pair_type {
-            PairType::Xyk {} => {
+            PairType::Xyk {} | PairType::XykWhiteWhale {} => {
                 let asset_a = Asset {
                     info: asset_a_info,
                     amount: asset_a_amount,
@@ -203,7 +202,7 @@ pub fn query_compound_simulation(
 
                 (lp_amount, Uint128::zero(), Uint128::zero(), Uint128::zero(), Uint128::zero())
             },
-            PairType::Custom(_) => {
+            _ => {
                 return Err(StdError::generic_err("Custom pair type not supported"));
             },
         };

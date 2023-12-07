@@ -1030,6 +1030,7 @@ fn withdraw_liquidity_unbonding_query_requests_success() {
             attr("burnt_amount", "10000000")
         ]
     );
+    deps.querier.set_cw20_total_supply("lptoken", 90_000000);
 
     let unbonding =
         query_unbond_requests(deps.as_ref(), mid_time.clone(), "user001".to_string(), None, None)
@@ -1153,9 +1154,9 @@ fn withdraw_liquidity_unbonding_query_requests_success() {
 
     deps.querier.set_bank_balance(220_000000 - receive_amount.u128() - protocol_fee.u128());
 
-    // share value is increased by the half protocol fee (share is 50 / 100)
+    // share value is increased by the half protocol fee (share is 50 / 90)
     let share2 = query_utoken(deps.as_ref());
-    assert_eq!(share + pool_fee * Decimal::from_str("0.5").unwrap(), share2);
+    assert_eq!(share + pool_fee * Decimal::from_ratio(50u128, 90u128), share2);
 
     //
     // WITHDRAW IMMEDIATE AFTER END

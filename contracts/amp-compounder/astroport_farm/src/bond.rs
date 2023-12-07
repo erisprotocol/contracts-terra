@@ -36,6 +36,7 @@ pub fn bond_assets(
         no_swap,
         slippage_tolerance,
         &lp_token,
+        None,
     )?;
     messages.push(compound);
 

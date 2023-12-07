@@ -1,3 +1,5 @@
+use std::fmt;
+
 use astroport::asset::{Asset, AssetInfo};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{to_binary, Addr, Api, Coin, CosmosMsg, StdError, StdResult, Uint128, WasmMsg};
@@ -20,6 +22,7 @@ pub struct InstantiateMsg {
 
     pub zapper: String,
     pub astroport: AstroportConfig<String>,
+    pub whitewhale: WhiteWhaleConfig<String>,
     pub capapult: CapapultConfig<String>,
     pub fee: FeeConfig<String>,
 }
@@ -27,13 +30,33 @@ pub struct InstantiateMsg {
 #[cw_serde]
 pub enum Source {
     Claim,
+    ClaimContract {
+        claim_type: ClaimType,
+    },
     AstroRewards {
+        lps: Vec<String>,
+    },
+    WhiteWhaleRewards {
         lps: Vec<String>,
     },
     Wallet {
         over: Asset,
         max_amount: Option<Uint128>,
     },
+}
+
+#[cw_serde]
+pub enum ClaimType {
+    WhiteWhaleRewards,
+    AllianceRewards,
+}
+impl fmt::Display for ClaimType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ClaimType::WhiteWhaleRewards => write!(f, "WhiteWhaleRewards"),
+            ClaimType::AllianceRewards => write!(f, "AllianceRewards"),
+        }
+    }
 }
 
 #[cw_serde]
@@ -61,9 +84,15 @@ impl Source {
     pub fn try_get_uniq_key(&self) -> Option<String> {
         match self {
             Source::Claim => Some("claim".to_string()),
+            Source::ClaimContract {
+                claim_type,
+            } => Some(format!("claim_{0}", claim_type)),
             Source::AstroRewards {
                 ..
             } => Some("astro_rewards".to_string()),
+            Source::WhiteWhaleRewards {
+                ..
+            } => Some("whitewhale_rewards".to_string()),
             Source::Wallet {
                 ..
             } => {
@@ -94,6 +123,48 @@ impl AstroportConfig<String> {
         })
     }
 }
+#[cw_serde]
+pub struct WhiteWhaleConfig<T> {
+    pub fee_distributor: T,
+    pub coins: Vec<AssetInfo>,
+    pub incentive_factory_addr: T,
+    pub lp_tokens: Vec<T>,
+}
+impl WhiteWhaleConfig<String> {
+    pub fn validate(self, api: &dyn Api) -> StdResult<WhiteWhaleConfig<Addr>> {
+        Ok(WhiteWhaleConfig {
+            fee_distributor: api.addr_validate(&self.fee_distributor)?,
+            coins: self.coins,
+            incentive_factory_addr: api.addr_validate(&self.incentive_factory_addr)?,
+            lp_tokens: self
+                .lp_tokens
+                .into_iter()
+                .map(|lp| api.addr_validate(&lp))
+                .collect::<StdResult<Vec<_>>>()?,
+        })
+    }
+}
+
+#[cw_serde]
+pub struct AllianceConfig<T> {
+    pub contract: T,
+    pub claim_coins: Vec<AssetInfo>,
+    pub tamplifiers: Vec<(AssetInfo, T)>,
+}
+
+impl AllianceConfig<String> {
+    pub fn validate(self, api: &dyn Api) -> StdResult<AllianceConfig<Addr>> {
+        Ok(AllianceConfig {
+            contract: api.addr_validate(&self.contract)?,
+            claim_coins: self.claim_coins,
+            tamplifiers: self
+                .tamplifiers
+                .into_iter()
+                .map(|(asset, amplifier)| Ok((asset, api.addr_validate(&amplifier)?)))
+                .collect::<StdResult<Vec<_>>>()?,
+        })
+    }
+}
 
 #[cw_serde]
 pub struct CapapultConfig<T> {
@@ -116,6 +187,7 @@ impl CapapultConfig<String> {
 
 /// This structure describes the execute messages available in the contract.
 #[cw_serde]
+#[allow(clippy::large_enum_variant)]
 pub enum ExecuteMsg {
     Execute {
         id: Uint128,
@@ -155,6 +227,8 @@ pub enum ExecuteMsg {
         arb_vault: Option<String>,
         astroport: Option<AstroportConfig<String>>,
         capapult: Option<CapapultConfig<String>>,
+        whitewhale: Option<WhiteWhaleConfig<String>>,
+        alliance: Option<AllianceConfig<String>>,
         fee: Option<FeeConfig<String>>,
     },
 }
@@ -203,6 +277,10 @@ pub enum DestinationState {
         #[serde(default)]
         receiver: Option<Addr>,
     },
+    DepositTAmplifier {
+        receiver: Option<Addr>,
+        asset_info: AssetInfo,
+    },
     DepositArbVault {
         receiver: Option<Addr>,
     },
@@ -222,12 +300,27 @@ pub enum DestinationState {
     Repay {
         market: RepayMarket,
     },
+    DepositLiquidity {
+        lp_token: String,
+        dex: DepositLiquidity,
+    },
+}
+
+#[cw_serde]
+pub enum DepositLiquidity {
+    WhiteWhale {
+        lock_up: Option<u64>,
+    },
 }
 
 #[cw_serde]
 pub enum DestinationRuntime {
     DepositAmplifier {
         receiver: Option<Addr>,
+    },
+    DepositTAmplifier {
+        receiver: Option<Addr>,
+        asset_info: AssetInfo,
     },
     DepositArbVault {
         receiver: Option<Addr>,
@@ -246,6 +339,11 @@ pub enum DestinationRuntime {
     },
     Repay {
         market: RepayMarket,
+    },
+    DepositLiquidity {
+        asset_infos: Vec<AssetInfo>,
+        lp_token: String,
+        dex: DepositLiquidity,
     },
 }
 
@@ -268,6 +366,11 @@ pub enum CallbackMsg {
     AuthzDeposit {
         user_balance_start: Vec<Asset>,
         max_amount: Option<Vec<Asset>>,
+    },
+
+    AuthzLockWwLp {
+        lp_balance: Asset,
+        unbonding_duration: u64,
     },
 
     Swap {

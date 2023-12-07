@@ -75,7 +75,7 @@ pub fn compound(
                 {
                     compound_funds.push(Coin {
                         denom: denom.clone(),
-                        amount: asset.amount,
+                        amount: compound_amount,
                     });
                 } else {
                     let increase_allowance = compound_asset.increase_allowance_msg(
@@ -106,6 +106,7 @@ pub fn compound(
             None,
             slippage_tolerance,
             &staking_token,
+            None,
         )?;
         messages.push(compound);
 

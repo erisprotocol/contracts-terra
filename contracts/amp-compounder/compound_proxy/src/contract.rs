@@ -4,7 +4,7 @@ use crate::constants::{CONTRACT_NAME, CONTRACT_VERSION};
 use crate::error::ContractError;
 use crate::execute::{compound, handle_callback, multi_swap, update_config};
 use crate::queries::{
-    get_lp, get_lp_state, get_lps, get_routes, query_config, query_supports_swap,
+    get_lp, get_lp_state, get_lps, get_route, get_routes, query_config, query_supports_swap,
 };
 use crate::simulation::query_compound_simulation;
 use crate::state::{Config, State};
@@ -166,6 +166,10 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             start_after,
             limit,
         } => to_binary(&get_routes(deps, start_after, limit)?),
+        QueryMsg::GetRoute {
+            from,
+            to,
+        } => to_binary(&get_route(deps, from, to)?),
         QueryMsg::CompoundSimulation {
             rewards,
             lp_token,

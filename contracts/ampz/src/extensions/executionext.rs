@@ -7,6 +7,7 @@ use eris::{
     ampz::{DestinationState, Source},
 };
 
+use crate::constants::WW_MIN_LOCK_TIME;
 use crate::{
     error::{ContractError, CustomResult},
     helpers::validate_receiver,
@@ -49,6 +50,26 @@ impl ExecutionExt for Execution {
                     return Err(ContractError::FarmNotSupported(farm.0.to_string()));
                 }
             },
+            DestinationState::DepositLiquidity {
+                lp_token,
+                dex,
+            } => match dex {
+                eris::ampz::DepositLiquidity::WhiteWhale {
+                    lock_up,
+                } => {
+                    let whitewhale = state.whitewhale.load(deps.storage)?;
+                    let lp_token = deps.api.addr_validate(lp_token)?;
+                    if !whitewhale.lp_tokens.contains(&lp_token) {
+                        return Err(ContractError::LpTokenNotSupported(lp_token.to_string()));
+                    }
+
+                    if let Some(lock_up) = lock_up {
+                        if *lock_up < WW_MIN_LOCK_TIME {
+                            return Err(ContractError::LockTimeTooShort {});
+                        }
+                    }
+                },
+            },
             DestinationState::SwapTo {
                 asset_info,
                 receiver,
@@ -88,6 +109,13 @@ impl ExecutionExt for Execution {
                     }
                     self.check_path_to(deps, state, asset_info.clone())?;
                 },
+            },
+            DestinationState::DepositTAmplifier {
+                receiver,
+                asset_info,
+            } => {
+                validate_receiver(deps.api, receiver)?;
+                self.check_path_to(deps, state, asset_info.clone())?;
             },
         }
 
@@ -140,6 +168,26 @@ impl ExecutionExt for Execution {
                 }
                 vec![over.info.clone()]
             },
+            Source::ClaimContract {
+                claim_type,
+            } => match claim_type {
+                eris::ampz::ClaimType::WhiteWhaleRewards => {
+                    state.whitewhale.load(deps.storage)?.coins
+                },
+                eris::ampz::ClaimType::AllianceRewards => {
+                    let default_asset = native_asset_info(CONTRACT_DENOM.to_string());
+                    if asset_info.is_some() && *asset_info.unwrap() == default_asset {
+                        // cant use claim (uluna) to swap to uluna (useless)
+                        Err(ContractError::CannotSwapToSameToken {})?
+                    }
+
+                    // for claiming staking rewards only check the default chain denom
+                    vec![default_asset]
+                },
+            },
+            Source::WhiteWhaleRewards {
+                ..
+            } => state.whitewhale.load(deps.storage)?.coins,
         };
         Ok(from_assets)
     }
