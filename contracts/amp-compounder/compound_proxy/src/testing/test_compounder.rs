@@ -1033,7 +1033,7 @@ fn provide_liquidity() -> Result<(), ContractError> {
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "pair_contract_2".to_string(),
             funds: sort_coins(vec![coin(1000000, UTOKEN_DENOM), coin(2000000, "ibc/token")]),
-            msg: to_binary(&AstroportPairExecuteMsg::ProvideLiquidity {
+            msg: to_binary(&CustomExecuteMsg::ProvideLiquidity {
                 assets: vec![utoken_amount(1000000u128), ibc_amount(2000000u128)],
                 slippage_tolerance: Some(Decimal::percent(1)),
                 receiver: Some("sender".to_string()),
@@ -1055,7 +1055,7 @@ fn provide_liquidity() -> Result<(), ContractError> {
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "pair_contract_2".to_string(),
             funds: vec![coin(1000000, UTOKEN_DENOM),],
-            msg: to_binary(&AstroportPairExecuteMsg::ProvideLiquidity {
+            msg: to_binary(&CustomExecuteMsg::ProvideLiquidity {
                 assets: vec![utoken_amount(1000000u128), ibc_amount(0u128)],
                 slippage_tolerance: Some(Decimal::percent(1)),
                 receiver: Some("sender".to_string()),

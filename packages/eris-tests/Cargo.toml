@@ -20,14 +20,16 @@ cosmwasm-std = "1.1"
 cosmwasm-schema = "1.1"
 # cw-multi-test = "0.16.2" 
 # cw-multi-test = { git = "https://github.com/CosmWasm/cw-multi-test.git",  default-features = false, features = ["iterator"], rev = "9af32fd42efcf28e9a79987f2c2036f879cd5331"}
-cw-multi-test = { git = "https://github.com/erisprotocol/cw-multi-test.git",  default-features = false, features = ["iterator"], rev = "5f2f7062187d762b71fd22b91157c4e88de87a64"}
+cw-multi-test = { git = "https://github.com/erisprotocol/cw-multi-test.git", default-features = false, features = [
+    "iterator",
+], rev = "5f2f7062187d762b71fd22b91157c4e88de87a64" }
 cw-storage-plus = "0.13.2"
 
 astroport = { git = "https://github.com/astroport-fi/astroport-core.git", default-features = false, rev = "bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62" }
 
 eris = { path = "../eris" }
 
-eris-staking-hub = { path = "../../contracts/hub" }
+eris-staking-hub = { path = "../../contracts/hub", package = "eris-staking-hub-juno" }
 eris-staking-token = { path = "../../contracts/token" }
 eris-arb-vault = { path = "../../contracts/arb-vault" }
 eris-gov-voting-escrow = { path = "../../contracts/amp-governance/voting_escrow" }
@@ -35,9 +37,9 @@ eris-gov-emp-gauges = { path = "../../contracts/amp-governance/emp_gauges" }
 eris-gov-amp-gauges = { path = "../../contracts/amp-governance/amp_gauges" }
 eris-gov-prop-gauges = { path = "../../contracts/amp-governance/prop_gauges" }
 
-stader = { git = "https://github.com/stader-labs/lunax.git", package="staking", default-features = false, rev = "20143548e2dea807b343fe6ad60375086af35ea9"}
-stader-reward = { git = "https://github.com/stader-labs/lunax.git", package="reward", default-features = false, rev = "20143548e2dea807b343fe6ad60375086af35ea9"}
-steak-hub = { git = "https://github.com/PFC-developer/steak-contracts.git", package="pfc-steak-hub", default-features = false, rev = "6fbc9f9190da6e179ba9f84494e3b7e929d38842"}
-steak = { git = "https://github.com/PFC-developer/steak-contracts.git", package="pfc-steak", default-features = false, rev = "6fbc9f9190da6e179ba9f84494e3b7e929d38842"}
+stader = { git = "https://github.com/stader-labs/lunax.git", package = "staking", default-features = false, rev = "20143548e2dea807b343fe6ad60375086af35ea9" }
+stader-reward = { git = "https://github.com/stader-labs/lunax.git", package = "reward", default-features = false, rev = "20143548e2dea807b343fe6ad60375086af35ea9" }
+steak-hub = { git = "https://github.com/PFC-developer/steak-contracts.git", package = "pfc-steak-hub", default-features = false, rev = "6fbc9f9190da6e179ba9f84494e3b7e929d38842" }
+steak = { git = "https://github.com/PFC-developer/steak-contracts.git", package = "pfc-steak", default-features = false, rev = "6fbc9f9190da6e179ba9f84494e3b7e929d38842" }
 
 anyhow = "1"
