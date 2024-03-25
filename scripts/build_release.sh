@@ -24,4 +24,4 @@ fi
 docker run --env $1 --rm -v "/$projectPath":/code \
   --mount type=bind,source=/$projectPath-cache/target,target=/target \
   --mount type=bind,source=/$projectPath-cache/registry,target=/usr/local/cargo/registry \
-  cosmwasm/workspace-optimizer:0.13.0 
+  cosmwasm/workspace-optimizer:0.15.1
