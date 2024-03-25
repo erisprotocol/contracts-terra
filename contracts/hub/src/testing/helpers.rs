@@ -30,7 +30,7 @@ pub(super) fn mock_dependencies() -> OwnedDeps<MockStorage, MockApi, CustomQueri
         storage: MockStorage::default(),
         api: MockApi::default(),
         querier: CustomQuerier::default(),
-        custom_query_type: std::marker::PhantomData::default(),
+        custom_query_type: std::marker::PhantomData,
     }
 }
 

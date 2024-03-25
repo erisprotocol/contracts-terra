@@ -86,7 +86,7 @@ impl<'a> State<'a> {
     pub fn assert_not_nested(&self, storage: &dyn Storage) -> Result<(), ContractError> {
         let check = self.balance_checkpoint.may_load(storage)?;
 
-        if let Some(..) = check {
+        if check.is_some() {
             Err(ContractError::AlreadyExecuting {})
         } else {
             Ok(())

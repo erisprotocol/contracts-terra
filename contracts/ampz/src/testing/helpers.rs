@@ -54,7 +54,7 @@ pub(super) fn mock_dependencies() -> OwnedDeps<MockStorage, MockApi, CustomQueri
                 }],
             ),
         },
-        custom_query_type: std::marker::PhantomData::default(),
+        custom_query_type: std::marker::PhantomData,
     }
 }
 

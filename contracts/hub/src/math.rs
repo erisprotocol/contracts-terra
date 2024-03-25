@@ -79,7 +79,7 @@ pub(crate) fn compute_undelegations(
 
     let mut new_undelegations: Vec<Undelegation> = vec![];
     let mut uluna_available = uluna_to_unbond.u128();
-    for (_, d) in merge_with_validators(current_delegations, validators).iter().enumerate() {
+    for d in merge_with_validators(current_delegations, validators).iter() {
         let uluna_for_validator =
             get_uluna_for_validator(&uluna_per_validator, d, &mut add, &mut remove);
 
@@ -131,7 +131,7 @@ pub(crate) fn compute_redelegations_for_removal(
 
     let mut new_redelegations: Vec<Redelegation> = vec![];
     let mut uluna_available = delegation_to_remove.amount;
-    for (_, d) in merge_with_validators(current_delegations, validators).iter().enumerate() {
+    for d in merge_with_validators(current_delegations, validators).iter() {
         let uluna_for_validator =
             get_uluna_for_validator(&uluna_per_validator, d, &mut add, &mut remove);
 
@@ -223,7 +223,7 @@ pub(crate) fn compute_redelegations_for_rebalancing(
     // redelegated _to_ them. They will be put in `dst_validators` vector
     let mut src_delegations: Vec<Delegation> = vec![];
     let mut dst_delegations: Vec<Delegation> = vec![];
-    for (_, d) in merge_with_validators(current_delegations, validators).iter().enumerate() {
+    for d in merge_with_validators(current_delegations, validators).iter() {
         let uluna_for_validator =
             get_uluna_for_validator(&uluna_per_validator, d, &mut add, &mut remove);
 
@@ -393,7 +393,7 @@ pub(crate) fn reconcile_batches(batches: &mut [Batch], uluna_to_deduct: Uint128)
 
         if !remaining_underflow.is_zero() {
             // the remaining underflow will be applied by oldest batch first.
-            for (_, batch) in batches.iter_mut().enumerate() {
+            for batch in batches.iter_mut() {
                 if !batch.uluna_unclaimed.is_zero() && !remaining_underflow.is_zero() {
                     if batch.uluna_unclaimed >= remaining_underflow {
                         batch.uluna_unclaimed -= remaining_underflow;
@@ -414,7 +414,7 @@ pub(crate) fn reconcile_batches(batches: &mut [Batch], uluna_to_deduct: Uint128)
 
 /// If all funds are available we still need to mark batches as reconciled
 pub(crate) fn mark_reconciled_batches(batches: &mut [Batch]) {
-    for (_, batch) in batches.iter_mut().enumerate() {
+    for batch in batches.iter_mut() {
         batch.reconciled = true;
     }
 }

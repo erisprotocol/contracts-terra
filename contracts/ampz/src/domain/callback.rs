@@ -1,4 +1,3 @@
-use std::convert::TryInto;
 use std::{cmp, vec};
 
 use astroport::asset::{native_asset_info, token_asset_info, Asset, AssetInfo, AssetInfoExt};
@@ -365,8 +364,7 @@ pub fn callback(
                                 .query_borrower_info(&deps.querier, user.to_string())
                                 .map(|a| a.loan_amount)
                                 .unwrap_or_default()
-                                .try_into()
-                                .unwrap_or_default();
+                                .into();
 
                             if max_repay.is_zero() {
                                 return Err(ContractError::NothingToDeposit {});
