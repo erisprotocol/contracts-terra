@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     attr, to_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, DepsMut, DistributionMsg, Env, Event,
-    Order, Response, StdError, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
+    Order, Response, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
 };
 
 use cw2::set_contract_version;
@@ -21,7 +21,8 @@ use crate::helpers::{
 };
 use crate::math::{
     compute_mint_amount, compute_redelegations_for_rebalancing, compute_redelegations_for_removal,
-    compute_unbond_amount, compute_undelegations, mark_reconciled_batches, reconcile_batches,
+    compute_unbond_amount, compute_undelegations, get_uluna_per_validator, mark_reconciled_batches,
+    reconcile_batches,
 };
 use crate::state::State;
 use crate::types::gauges::TuneInfoGaugeLoader;
@@ -331,50 +332,75 @@ fn find_new_delegation(
     state: &State,
     deps: &DepsMut,
     env: &Env,
-    uluna_to_bond: Uint128,
-) -> Result<(Delegation, Vec<Delegation>), StdError> {
+    utoken_to_bond: Uint128,
+) -> Result<(Delegation, Vec<Delegation>), ContractError> {
     let delegation_strategy =
         state.delegation_strategy.may_load(deps.storage)?.unwrap_or(DelegationStrategy::Uniform {});
 
-    let delegations = match delegation_strategy {
+    match delegation_strategy {
         DelegationStrategy::Uniform {} => {
             let validators = state.validators.load(deps.storage)?;
-            query_delegations(&deps.querier, &validators, &env.contract.address)?
+            let delegations = query_delegations(&deps.querier, &validators, &env.contract.address)?;
+
+            // Query the current delegations made to validators, and find the validator with the smallest
+            // delegated amount through a linear search
+            // The code for linear search is a bit uglier than using `sort_by` but cheaper: O(n) vs O(n * log(n))
+            let mut validator = &delegations[0].validator;
+            let mut amount = delegations[0].amount;
+
+            for d in &delegations[1..] {
+                // when using uniform distribution, it is allowed to bond anywhere
+                // otherwise bond only in one of the
+                if d.amount < amount {
+                    validator = &d.validator;
+                    amount = d.amount;
+                }
+            }
+            let new_delegation = Delegation::new(validator, utoken_to_bond.u128());
+
+            Ok((new_delegation, delegations))
         },
         DelegationStrategy::Gauges {
             ..
         } => {
-            // if we have gauges, only delegate to validators that have delegations, all others are "inactive"
-            let mut delegations = query_all_delegations(&deps.querier, &env.contract.address)?;
-            if delegations.is_empty() {
-                let validators = state.validators.load(deps.storage)?;
+            let current_delegations = query_all_delegations(&deps.querier, &env.contract.address)?;
+            let utoken_staked: u128 = current_delegations.iter().map(|d| d.amount).sum();
+            let validators = state.validators.load(deps.storage)?;
 
-                delegations = vec![Delegation {
-                    amount: 0,
-                    validator: validators.first().unwrap().to_string(),
-                }]
+            let (map, _, _, _) = get_uluna_per_validator(
+                state,
+                deps.storage,
+                Uint128::new(utoken_staked).checked_add(utoken_to_bond)?.u128(),
+                &validators,
+                None,
+            )?;
+
+            let mut validator: Option<String> = None;
+            let mut amount = Uint128::zero();
+
+            for delegation in &current_delegations {
+                let diff = map
+                    .get(&delegation.validator)
+                    .copied()
+                    .unwrap_or_default()
+                    .saturating_sub(Uint128::new(delegation.amount));
+
+                if diff > amount || validator.is_none() {
+                    validator = Some(delegation.validator.clone());
+                    amount = diff;
+                }
             }
-            delegations
+
+            if validator.is_none() {
+                validator = Some(validators.first().unwrap().to_string());
+            }
+
+            let new_delegation =
+                Delegation::new(validator.unwrap().as_str(), utoken_to_bond.u128());
+
+            Ok((new_delegation, current_delegations))
         },
-    };
-
-    // Query the current delegations made to validators, and find the validator with the smallest
-    // delegated amount through a linear search
-    // The code for linear search is a bit uglier than using `sort_by` but cheaper: O(n) vs O(n * log(n))
-    let mut validator = &delegations[0].validator;
-    let mut amount = delegations[0].amount;
-
-    for d in &delegations[1..] {
-        // when using uniform distribution, it is allowed to bond anywhere
-        // otherwise bond only in one of the
-        if d.amount < amount {
-            validator = &d.validator;
-            amount = d.amount;
-        }
     }
-    let new_delegation = Delegation::new(validator, uluna_to_bond.u128());
-
-    Ok((new_delegation, delegations))
 }
 
 //--------------------------------------------------------------------------------------------------
