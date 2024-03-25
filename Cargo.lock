@@ -41,20 +41,6 @@ dependencies = [
 [[package]]
 name = "astroport"
 version = "2.0.0"
-source = "git+https://github.com/capapult-finance/capa-money-market.git?rev=e03e6c6dd3003293852a0e2c3aa7ed3b21b97410#e03e6c6dd3003293852a0e2c3aa7ed3b21b97410"
-dependencies = [
- "cosmwasm-std",
- "cw-storage-plus 0.13.2",
- "cw20 0.13.2",
- "itertools",
- "schemars",
- "serde",
- "uint",
-]
-
-[[package]]
-name = "astroport"
-version = "2.0.0"
 source = "git+https://github.com/astroport-fi/astroport-core.git#5f166bd008257ff241d4dc75a1de6cbfb8415179"
 dependencies = [
  "cosmwasm-schema",
@@ -212,16 +198,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bigint"
-version = "4.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0e8c8a600052b52482eff2cf4d810e462fdff1f656ac1ecb6232132a1ed7def"
-dependencies = [
- "byteorder",
- "crunchy 0.1.6",
-]
-
-[[package]]
 name = "bit-set"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -283,17 +259,6 @@ name = "const-oid"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "722e23542a15cea1f65d4a1419c4cfd7a26706c70871a13a04238ca3f40f1661"
-
-[[package]]
-name = "cosmwasm-bignumber"
-version = "2.2.1"
-source = "git+https://github.com/capapult-finance/capa-money-market.git?rev=e03e6c6dd3003293852a0e2c3aa7ed3b21b97410#e03e6c6dd3003293852a0e2c3aa7ed3b21b97410"
-dependencies = [
- "bigint",
- "cosmwasm-std",
- "schemars",
- "serde",
-]
 
 [[package]]
 name = "cosmwasm-crypto"
@@ -382,12 +347,6 @@ dependencies = [
 
 [[package]]
 name = "crunchy"
-version = "0.1.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2f4a431c5c9f662e1200b7c7f02c34e91361150e382089a8f2dec3ba680cbda"
-
-[[package]]
-name = "crunchy"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a81dae078cea95a014a339291cec439d2f232ebe854a9d672b796c6afafa9b7"
@@ -425,19 +384,6 @@ dependencies = [
  "rand_core 0.5.1",
  "subtle",
  "zeroize",
-]
-
-[[package]]
-name = "cw-asset"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28e955303c96778b58ad52bbbabbe10b170ae1c8df2fec08ce7d7eedf2c22701"
-dependencies = [
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-storage-plus 0.16.0",
- "cw1155",
- "cw20 0.16.0",
 ]
 
 [[package]]
@@ -512,17 +458,6 @@ dependencies = [
 
 [[package]]
 name = "cw-storage-plus"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9b6f91c0b94481a3e9ef1ceb183c37d00764f8751e39b45fc09f4d9b970d469"
-dependencies = [
- "cosmwasm-std",
- "schemars",
- "serde",
-]
-
-[[package]]
-name = "cw-storage-plus"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "053a5083c258acd68386734f428a5a171b29f7d733151ae83090c6fcc9417ffa"
@@ -575,21 +510,6 @@ dependencies = [
 
 [[package]]
 name = "cw-utils"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6a84c6c1c0acc3616398eba50783934bd6c964bad6974241eaee3460c8f5b26"
-dependencies = [
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw2 0.16.0",
- "schemars",
- "semver",
- "serde",
- "thiserror",
-]
-
-[[package]]
-name = "cw-utils"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c80e93d1deccb8588db03945016a292c3c631e6325d349ebb35d2db6f4f946f7"
@@ -631,19 +551,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cw1155"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4be0ebb4d95abc0e3f8ea00fbcf10afec5416b0aa1122c703de69850296897c5"
-dependencies = [
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-utils 0.16.0",
- "schemars",
- "serde",
-]
-
-[[package]]
 name = "cw2"
 version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -682,19 +589,6 @@ dependencies = [
 
 [[package]]
 name = "cw2"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91398113b806f4d2a8d5f8d05684704a20ffd5968bf87e3473e1973710b884ad"
-dependencies = [
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-storage-plus 0.16.0",
- "schemars",
- "serde",
-]
-
-[[package]]
-name = "cw2"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fb70cee2cf0b4a8ff7253e6bc6647107905e8eb37208f87d54f67810faa62f8"
@@ -727,19 +621,6 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-utils 0.15.1",
- "schemars",
- "serde",
-]
-
-[[package]]
-name = "cw20"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a45a8794a5dd33b66af34caee52a7beceb690856adcc1682b6e3db88b2cdee62"
-dependencies = [
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-utils 0.16.0",
  "schemars",
  "serde",
 ]
@@ -911,29 +792,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "eris-ampz"
-version = "1.7.0"
-dependencies = [
- "anyhow",
- "astroport 2.0.0 (git+https://github.com/astroport-fi/astroport-core.git?rev=bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62)",
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-asset",
- "cw-multi-test 0.13.2",
- "cw-storage-plus 0.13.2",
- "cw2 0.13.2",
- "cw20 0.13.2",
- "cw20-base 0.13.2",
- "eris",
- "eris-tests",
- "itertools",
- "moneymarket",
- "protobuf 3.2.0",
- "serde",
- "thiserror",
-]
-
-[[package]]
 name = "eris-arb-vault"
 version = "1.0.2"
 dependencies = [
@@ -953,25 +811,6 @@ dependencies = [
  "pfc-steak",
  "serde",
  "staking",
- "thiserror",
-]
-
-[[package]]
-name = "eris-compound-proxy"
-version = "1.7.1"
-dependencies = [
- "astroport 2.0.0 (git+https://github.com/astroport-fi/astroport-core.git?rev=bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62)",
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-multi-test 0.13.2",
- "cw-storage-plus 0.13.2",
- "cw2 0.13.2",
- "cw20 0.13.2",
- "eris",
- "integer-sqrt",
- "proptest 0.10.1",
- "schemars",
- "serde",
  "thiserror",
 ]
 
@@ -997,7 +836,7 @@ dependencies = [
  "eris-gov-voting-escrow",
  "eris-tests",
  "itertools",
- "proptest 1.0.0",
+ "proptest",
  "thiserror",
 ]
 
@@ -1023,7 +862,7 @@ dependencies = [
  "eris-gov-voting-escrow",
  "eris-tests",
  "itertools",
- "proptest 1.0.0",
+ "proptest",
  "thiserror",
 ]
 
@@ -1049,7 +888,7 @@ dependencies = [
  "eris-gov-voting-escrow",
  "eris-tests",
  "itertools",
- "proptest 1.0.0",
+ "proptest",
  "thiserror",
 ]
 
@@ -1069,13 +908,13 @@ dependencies = [
  "cw20 0.13.2",
  "cw20-base 0.13.2",
  "eris",
- "proptest 1.0.0",
+ "proptest",
  "thiserror",
 ]
 
 [[package]]
 name = "eris-staking-hub"
-version = "1.5.0"
+version = "1.5.1"
 dependencies = [
  "anyhow",
  "cosmwasm-schema",
@@ -1277,21 +1116,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "21a41fed9d98f27ab1c6d161da622a4fa35e8a54a8adc24bbf3ddd0ef70b0e50"
 
 [[package]]
-name = "moneymarket"
-version = "0.3.1"
-source = "git+https://github.com/capapult-finance/capa-money-market.git?rev=e03e6c6dd3003293852a0e2c3aa7ed3b21b97410#e03e6c6dd3003293852a0e2c3aa7ed3b21b97410"
-dependencies = [
- "astroport 2.0.0 (git+https://github.com/capapult-finance/capa-money-market.git?rev=e03e6c6dd3003293852a0e2c3aa7ed3b21b97410)",
- "cosmwasm-bignumber",
- "cosmwasm-std",
- "cosmwasm-storage",
- "cw20 0.13.2",
- "schemars",
- "serde",
- "terra-cosmwasm",
-]
-
-[[package]]
 name = "num-traits"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1391,26 +1215,6 @@ dependencies = [
 
 [[package]]
 name = "proptest"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12e6c80c1139113c28ee4670dc50cc42915228b51f56a9e407f0ec60f966646f"
-dependencies = [
- "bit-set",
- "bitflags",
- "byteorder",
- "lazy_static",
- "num-traits",
- "quick-error 1.2.3",
- "rand 0.7.3",
- "rand_chacha 0.2.2",
- "rand_xorshift 0.2.0",
- "regex-syntax",
- "rusty-fork",
- "tempfile",
-]
-
-[[package]]
-name = "proptest"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e0d9cc07f18492d879586c92b485def06bc850da3118075cd45d50e9c95b0e5"
@@ -1421,9 +1225,9 @@ dependencies = [
  "lazy_static",
  "num-traits",
  "quick-error 2.0.1",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
- "rand_xorshift 0.3.0",
+ "rand",
+ "rand_chacha",
+ "rand_xorshift",
  "regex-syntax",
  "rusty-fork",
  "tempfile",
@@ -1504,36 +1308,13 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.7.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a6b1679d49b24bbfe0c803429aa1874472f50d9b363131f0e89fc356b544d03"
-dependencies = [
- "getrandom 0.1.16",
- "libc",
- "rand_chacha 0.2.2",
- "rand_core 0.5.1",
- "rand_hc",
-]
-
-[[package]]
-name = "rand"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34af8d1a0e25924bc5b7c43c079c942339d8f0a8b57c39049bef581b46327404"
 dependencies = [
  "libc",
- "rand_chacha 0.3.1",
+ "rand_chacha",
  "rand_core 0.6.3",
-]
-
-[[package]]
-name = "rand_chacha"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4c8ed856279c9737206bf725bf36935d8666ead7aa69b52be55af369d193402"
-dependencies = [
- "ppv-lite86",
- "rand_core 0.5.1",
 ]
 
 [[package]]
@@ -1562,24 +1343,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d34f1408f55294453790c48b2f1ebbb1c5b4b7563eb1f418bcfcfdbb06ebb4e7"
 dependencies = [
  "getrandom 0.2.6",
-]
-
-[[package]]
-name = "rand_hc"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca3129af7b92a17112d59ad498c6f81eaf463253766b90396d39ea7a39d6613c"
-dependencies = [
- "rand_core 0.5.1",
-]
-
-[[package]]
-name = "rand_xorshift"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77d416b86801d23dde1aa643023b775c3a462efc0ed96443add11546cdf1dca8"
-dependencies = [
- "rand_core 0.5.1",
 ]
 
 [[package]]
@@ -1887,18 +1650,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "terra-cosmwasm"
-version = "2.2.0"
-source = "git+https://github.com/capapult-finance/capa-money-market.git?rev=e03e6c6dd3003293852a0e2c3aa7ed3b21b97410#e03e6c6dd3003293852a0e2c3aa7ed3b21b97410"
-dependencies = [
- "astroport 2.0.0 (git+https://github.com/capapult-finance/capa-money-market.git?rev=e03e6c6dd3003293852a0e2c3aa7ed3b21b97410)",
- "cosmwasm-bignumber",
- "cosmwasm-std",
- "schemars",
- "serde",
-]
-
-[[package]]
 name = "thiserror"
 version = "1.0.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1931,7 +1682,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "12f03af7ccf01dd611cc450a0d10dbc9b745770d096473e2faf0ca6e2d66d1e0"
 dependencies = [
  "byteorder",
- "crunchy 0.2.2",
+ "crunchy",
  "hex",
  "static_assertions",
 ]

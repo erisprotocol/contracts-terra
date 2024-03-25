@@ -1,4 +1,4 @@
-use cosmwasm_std::{OverflowError, Response, StdError};
+use cosmwasm_std::{OverflowError, Response, StdError, Uint128};
 use cw20_base::ContractError as cw20baseError;
 use thiserror::Error;
 
@@ -73,6 +73,6 @@ pub enum ContractError {
     #[error("No claims provided.")]
     NoClaimsProvided {},
 
-    #[error("The reconciliation has too big of a balance difference between actual and expected balance.")]
-    ReconcileTooBig,
+    #[error("The reconciliation has too big of a balance difference between actual and expected balance. Actual: {0}, Expected {1}")]
+    ReconcileTooBig(Uint128, Uint128),
 }

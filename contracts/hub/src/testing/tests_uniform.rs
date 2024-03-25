@@ -1009,7 +1009,25 @@ fn reconciling_underflow_second() {
         )
         .unwrap();
     deps.querier.set_bank_balances(&[
-        Coin::new(12345 - 1323, CONTRACT_DENOM),
+        // unlocked + expected - slash
+        Coin::new(10000 + 1569 - 569, CONTRACT_DENOM),
+        Coin::new(234, "ukrw"),
+        Coin::new(345, "uusd"),
+        Coin::new(69420, "ibc/0471F1C4E7AFD3F07702BEF6DC365268D64570F7C1FDC98EA6098DD6DE59817B"),
+    ]);
+
+    let result = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(35000),
+        mock_info("worker", &[]),
+        ExecuteMsg::Reconcile {},
+    )
+    .unwrap_err();
+
+    assert_eq!(result, ContractError::ReconcileTooBig(Uint128::new(1000), Uint128::new(1569)));
+
+    deps.querier.set_bank_balances(&[
+        Coin::new(10000 + 1569 - 300, CONTRACT_DENOM),
         Coin::new(234, "ukrw"),
         Coin::new(345, "uusd"),
         Coin::new(69420, "ibc/0471F1C4E7AFD3F07702BEF6DC365268D64570F7C1FDC98EA6098DD6DE59817B"),
