@@ -72,4 +72,7 @@ pub enum ContractError {
 
     #[error("No claims provided.")]
     NoClaimsProvided {},
+
+    #[error("The reconciliation has too big of a balance difference between actual and expected balance.")]
+    ReconcileTooBig,
 }

@@ -529,6 +529,13 @@ pub fn reconcile(deps: DepsMut, env: Env) -> ContractResult {
     let uluna_expected = uluna_expected_received + uluna_expected_unlocked;
     let uluna_actual = deps.querier.query_balance(&env.contract.address, CONTRACT_DENOM)?.amount;
 
+    if (uluna_actual - uluna_expected_unlocked)
+        < Decimal::from_ratio(80u128, 100u128) * uluna_expected_received
+    {
+        // This case can happen when reconciliation is executed in the same block as the unlocks happen.
+        return Err(ContractError::ReconcileTooBig);
+    }
+
     if uluna_actual >= uluna_expected {
         mark_reconciled_batches(&mut batches);
         for batch in &batches {

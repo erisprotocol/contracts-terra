@@ -1,6 +1,6 @@
 [package]
 name = "eris-staking-hub"
-version = "1.5.0"
+version = "1.5.1"
 authors = ["devs <devs@erisprotocol.com>"]
 edition = "2018"
 license = "GPL-3.0-or-later"
@@ -27,7 +27,9 @@ protobuf = "3"
 [dev-dependencies]
 # cw-multi-test = "0.16"
 # cw-multi-test = { git = "https://github.com/CosmWasm/cw-multi-test.git",  default-features = false, features = ["iterator"], rev = "9af32fd42efcf28e9a79987f2c2036f879cd5331"}
-cw-multi-test = { git = "https://github.com/erisprotocol/cw-multi-test.git",  default-features = false, features = ["iterator"], rev = "5f2f7062187d762b71fd22b91157c4e88de87a64"}
+cw-multi-test = { git = "https://github.com/erisprotocol/cw-multi-test.git", default-features = false, features = [
+    "iterator",
+], rev = "5f2f7062187d762b71fd22b91157c4e88de87a64" }
 
 anyhow = "1"
 eris-tests = { path = "../../packages/eris-tests" }
