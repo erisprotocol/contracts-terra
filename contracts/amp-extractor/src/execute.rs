@@ -213,7 +213,7 @@ pub fn extract(
     state: &State,
     offset_balance: Option<Uint128>,
 ) -> StdResult<Uint128> {
-    let extract_config = state.extract_config.load(deps.storage)?;
+    let extract_config: ExtractConfig = state.extract_config.load(deps.storage)?;
     let stake_token = state.stake_token.load(deps.storage)?;
     let stake_extracted = state.stake_extracted.load(deps.storage)?;
     let last_exchange_rate = state.last_exchange_rate.load(deps.storage)?;

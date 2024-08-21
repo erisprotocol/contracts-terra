@@ -203,7 +203,7 @@ fn handle_vote(
 
     remove_votes_of_user(&user_info, block_period, deps.storage)?;
 
-    apply_votest_of_user(
+    apply_votes_of_user(
         votes,
         deps,
         block_period,
@@ -216,7 +216,7 @@ fn handle_vote(
     Ok(Response::new().add_attribute("action", "vamp/vote").add_attribute("vAMP", vamp))
 }
 
-fn apply_votest_of_user(
+fn apply_votes_of_user(
     votes: Vec<(String, BasicPoints)>,
     deps: DepsMut,
     block_period: u64,
@@ -336,7 +336,7 @@ fn update_vote(
         }
 
         let vamp = lock.voting_power + lock.fixed_amount;
-        apply_votest_of_user(
+        apply_votes_of_user(
             user_info.votes,
             deps,
             block_period,

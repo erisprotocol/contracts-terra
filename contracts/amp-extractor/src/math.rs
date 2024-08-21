@@ -12,7 +12,7 @@ pub(crate) fn compute_mint_amount(
     if stake_available.is_zero() {
         stake_deposited
     } else {
-        lp_supply.multiply_ratio(stake_deposited, stake_available)
+        stake_deposited.multiply_ratio(lp_supply, stake_available)
     }
 }
 
@@ -24,6 +24,6 @@ pub(crate) fn compute_withdraw_amount(
     if lp_supply.is_zero() {
         Uint128::zero()
     } else {
-        stake_available.multiply_ratio(lp_to_burn, lp_supply)
+        lp_to_burn.multiply_ratio(stake_available, lp_supply)
     }
 }
