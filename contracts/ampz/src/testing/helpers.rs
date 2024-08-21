@@ -5,9 +5,8 @@ use cosmwasm_std::testing::{
     mock_env, mock_info, BankQuerier, MockApi, MockStorage, StakingQuerier, MOCK_CONTRACT_ADDR,
 };
 use cosmwasm_std::{
-    coin, from_binary, Addr, BlockInfo, ContractInfo, Decimal, Deps, Env, FullDelegation,
-    OwnedDeps, QuerierResult, Response, StdError, SystemError, SystemResult, Timestamp, Uint128,
-    Validator,
+    coin, from_json, Addr, BlockInfo, ContractInfo, Decimal, Deps, Env, FullDelegation, OwnedDeps,
+    QuerierResult, Response, StdError, SystemError, SystemResult, Timestamp, Uint128, Validator,
 };
 use eris::constants::{DAY, HOUR};
 use serde::de::DeserializeOwned;
@@ -87,11 +86,11 @@ pub(super) fn mock_env_at_timestamp_height(timestamp: u64, height: u64) -> Env {
 }
 
 pub(super) fn query_helper<T: DeserializeOwned>(deps: Deps, msg: QueryMsg) -> T {
-    from_binary(&query(deps, mock_env(), msg).unwrap()).unwrap()
+    from_json(query(deps, mock_env(), msg).unwrap()).unwrap()
 }
 
 pub(super) fn query_helper_time<T: DeserializeOwned>(deps: Deps, msg: QueryMsg, time: u64) -> T {
-    from_binary(&query(deps, mock_env_at_timestamp(time), msg).unwrap()).unwrap()
+    from_json(query(deps, mock_env_at_timestamp(time), msg).unwrap()).unwrap()
 }
 
 pub(super) fn query_helper_fail(deps: Deps, msg: QueryMsg) -> StdError {

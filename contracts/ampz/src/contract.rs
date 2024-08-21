@@ -3,7 +3,8 @@ use std::vec;
 
 use astroport::asset::Asset;
 use cosmwasm_std::{
-    entry_point, to_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+    entry_point, to_json_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response,
+    StdResult,
 };
 use cw2::set_contract_version;
 
@@ -83,22 +84,22 @@ fn deposit(deps: DepsMut, env: Env, info: MessageInfo, assets: Vec<Asset>) -> Co
 #[entry_point]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::Config {} => to_binary(&queries::config(deps)?),
-        QueryMsg::State {} => to_binary(&queries::state(deps)?),
+        QueryMsg::Config {} => to_json_binary(&queries::config(deps)?),
+        QueryMsg::State {} => to_json_binary(&queries::state(deps)?),
         QueryMsg::UserInfo {
             user,
-        } => to_binary(&queries::user_info(deps, env, user)?),
+        } => to_json_binary(&queries::user_info(deps, env, user)?),
         QueryMsg::Executions {
             limit,
             start_after,
-        } => to_binary(&queries::executions(deps, start_after, limit)?),
+        } => to_json_binary(&queries::executions(deps, start_after, limit)?),
         QueryMsg::ExecutionsSchedule {
             limit,
             start_after,
-        } => to_binary(&queries::executions_schedule(deps, start_after, limit)?),
+        } => to_json_binary(&queries::executions_schedule(deps, start_after, limit)?),
         QueryMsg::Execution {
             id,
-        } => to_binary(&queries::execution(deps, env, id)?),
+        } => to_json_binary(&queries::execution(deps, env, id)?),
     }
 }
 

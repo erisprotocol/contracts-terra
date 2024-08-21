@@ -34,6 +34,12 @@ impl ExecutionExt for Execution {
             } => {
                 validate_receiver(deps.api, receiver)?;
             },
+            DestinationState::ExecuteContract {
+                contract,
+                ..
+            } => {
+                deps.api.addr_validate(contract.as_str())?;
+            },
             DestinationState::DepositArbVault {
                 receiver,
             } => {

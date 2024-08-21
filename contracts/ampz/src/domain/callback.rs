@@ -414,6 +414,20 @@ pub fn callback(
                         },
                     }
                 },
+                DestinationRuntime::ExecuteContract {
+                    contract,
+                    msg,
+                    asset_info,
+                } => {
+                    attrs.push(attr("type", "ampz_execute_contract"));
+
+                    let balances =
+                        vec![asset_info].query_balances(&deps.querier, &env.contract.address)?;
+                    let balances =
+                        pay_fees(&state, &deps, &mut msgs, &mut attrs, balances, executor, &user)?;
+                    let msg = balances[0].send_or_execute_msg_binary(contract, msg)?;
+                    msgs.push(msg);
+                },
             };
 
             state.is_executing.remove(deps.storage);

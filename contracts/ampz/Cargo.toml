@@ -1,6 +1,6 @@
 [package]
 name = "eris-ampz"
-version = "1.7.0"
+version = "1.8.0"
 authors = ["devs <devs@erisprotocol.com>"]
 edition = "2018"
 license = "GPL-3.0-or-later"
@@ -11,6 +11,7 @@ crate-type = ["cdylib", "rlib"]
 
 [features]
 backtraces = ["cosmwasm-std/backtraces"]
+library = []
 
 [dependencies]
 cosmwasm-std = { version = "1.0.0", features = ["staking", "stargate"] }

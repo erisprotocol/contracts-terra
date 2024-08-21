@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use astroport::asset::native_asset_info;
 use cosmwasm_std::testing::{BankQuerier, StakingQuerier};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Empty, Querier, QuerierResult, QueryRequest, SystemError,
-    Uint128, WasmQuery,
+    from_json, to_json_binary, Empty, Querier, QuerierResult, QueryRequest, SystemError, Uint128,
+    WasmQuery,
 };
 use cw20::Cw20QueryMsg;
 use eris::compound_proxy;
@@ -21,7 +21,7 @@ pub(super) struct CustomQuerier {
 
 impl Querier for CustomQuerier {
     fn raw_query(&self, bin_request: &[u8]) -> QuerierResult {
-        let request: QueryRequest<_> = match from_slice(bin_request) {
+        let request: QueryRequest<_> = match from_json(bin_request) {
             Ok(v) => v,
             Err(e) => {
                 return Err(SystemError::InvalidRequest {
@@ -79,16 +79,16 @@ impl CustomQuerier {
                 contract_addr,
                 msg,
             }) => {
-                if let Ok(query) = from_binary::<Cw20QueryMsg>(msg) {
+                if let Ok(query) = from_json::<Cw20QueryMsg>(msg) {
                     return self.cw20_querier.handle_query(contract_addr, query);
                 }
 
                 if let Ok(compound_proxy::QueryMsg::SupportsSwap {
                     to,
                     ..
-                }) = from_binary::<compound_proxy::QueryMsg>(msg)
+                }) = from_json::<compound_proxy::QueryMsg>(msg)
                 {
-                    return Ok(to_binary(&compound_proxy::SupportsSwapResponse {
+                    return Ok(to_json_binary(&compound_proxy::SupportsSwapResponse {
                         suppored: to != native_asset_info("notsupported".into()),
                     })
                     .into())
@@ -97,9 +97,9 @@ impl CustomQuerier {
 
                 if let Ok(capapult::market::QueryMsg::BorrowerInfo {
                     borrower,
-                }) = from_binary::<capapult::market::QueryMsg>(msg)
+                }) = from_json::<capapult::market::QueryMsg>(msg)
                 {
-                    return Ok(to_binary(&capapult::market::BorrowerInfoResponse {
+                    return Ok(to_json_binary(&capapult::market::BorrowerInfoResponse {
                         borrower,
                         loan_amount: Uint128::new(400).into(),
                     })

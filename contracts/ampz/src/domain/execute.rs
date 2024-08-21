@@ -242,6 +242,10 @@ fn get_swap_asset(
         DestinationState::DepositLiquidity {
             ..
         } => None,
+        DestinationState::ExecuteContract {
+            asset_info,
+            ..
+        } => Some(asset_info.clone()),
         DestinationState::SwapTo {
             asset_info,
             ..

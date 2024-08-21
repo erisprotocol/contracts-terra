@@ -58,6 +58,15 @@ impl DestinationStateExt for DestinationState {
                 receiver,
                 asset_info,
             },
+            DestinationState::ExecuteContract {
+                asset_info,
+                contract,
+                msg,
+            } => DestinationRuntime::ExecuteContract {
+                contract,
+                msg,
+                asset_info,
+            },
         }
     }
 }

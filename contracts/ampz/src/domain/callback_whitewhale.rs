@@ -2,7 +2,7 @@ use astroport::asset::AssetInfo;
 
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
-    to_binary, Addr, Coin, CosmosMsg, DepsMut, StdError, StdResult, Uint128, WasmMsg,
+    to_json_binary, Addr, Coin, CosmosMsg, DepsMut, StdError, StdResult, Uint128, WasmMsg,
 };
 
 type IncentiveResponse = Option<Addr>;
@@ -137,7 +137,7 @@ pub fn get_open_or_extend_lock(
 
     Ok(CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: incentive_address.to_string(),
-        msg: to_binary(&execute)?,
+        msg: to_json_binary(&execute)?,
         funds,
     }))
 }

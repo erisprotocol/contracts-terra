@@ -1,5 +1,5 @@
 use astroport::asset::Asset;
-use cosmwasm_std::{to_binary, Addr, CosmosMsg, QuerierWrapper, StdResult, WasmMsg};
+use cosmwasm_std::{to_json_binary, Addr, CosmosMsg, QuerierWrapper, StdResult, WasmMsg};
 use eris::adapters::asset::AssetEx;
 
 use crate::error::{ContractError, CustomResult};
@@ -23,7 +23,7 @@ impl CapapultMarket {
     pub fn repay_loan(&self, asset: Asset) -> StdResult<CosmosMsg> {
         let msg = asset.transfer_msg_target(
             &self.0,
-            Some(to_binary(&capapult::market::Cw20HookMsg::RepayStable {})?),
+            Some(to_json_binary(&capapult::market::Cw20HookMsg::RepayStable {})?),
         )?;
 
         Ok(msg)
@@ -43,13 +43,13 @@ impl CapapultLocker {
 
         let deposit_collateral_msg = asset.transfer_msg_target(
             &self.custody,
-            Some(to_binary(&capapult::custody::Cw20HookMsg::DepositCollateral {})?),
+            Some(to_json_binary(&capapult::custody::Cw20HookMsg::DepositCollateral {})?),
         )?;
 
         let asset_info_str = asset.info.to_string();
         let lock_collateral_msg = CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: self.overseer.to_string(),
-            msg: to_binary(&capapult::overseer::ExecuteMsg::LockCollateral {
+            msg: to_json_binary(&capapult::overseer::ExecuteMsg::LockCollateral {
                 collaterals: vec![(asset_info_str, asset.amount.into())],
             })?,
             funds: vec![],

@@ -2,7 +2,9 @@ use std::fmt;
 
 use astroport::asset::{Asset, AssetInfo};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{to_binary, Addr, Api, Coin, CosmosMsg, StdError, StdResult, Uint128, WasmMsg};
+use cosmwasm_std::{
+    to_binary, Addr, Api, Binary, Coin, CosmosMsg, StdError, StdResult, Uint128, WasmMsg,
+};
 
 use crate::{adapters::generator::Generator, helpers::bps::BasicPoints};
 
@@ -304,6 +306,11 @@ pub enum DestinationState {
         lp_token: String,
         dex: DepositLiquidity,
     },
+    ExecuteContract {
+        asset_info: AssetInfo,
+        contract: Addr,
+        msg: Binary,
+    },
 }
 
 #[cw_serde]
@@ -344,6 +351,11 @@ pub enum DestinationRuntime {
         asset_infos: Vec<AssetInfo>,
         lp_token: String,
         dex: DepositLiquidity,
+    },
+    ExecuteContract {
+        contract: Addr,
+        msg: Binary,
+        asset_info: AssetInfo,
     },
 }
 

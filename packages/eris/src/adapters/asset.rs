@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use astroport::asset::{Asset, AssetInfo};
 use cosmwasm_std::{
-    coin, to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Env, IbcTimeout, MessageInfo,
-    QuerierWrapper, StdError, StdResult, Uint128, WasmMsg,
+    coin, to_binary, to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Env, IbcTimeout,
+    MessageInfo, QuerierWrapper, StdError, StdResult, Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, Expiration};
 use schemars::JsonSchema;
@@ -108,6 +108,18 @@ pub trait AssetEx {
         channel_id: String,
         ics20: Option<String>,
     ) -> StdResult<CosmosMsg>;
+
+    fn send_or_execute_msg<A: Into<String>, T: Serialize + Sized>(
+        &self,
+        contract: A,
+        msg: &T,
+    ) -> Result<CosmosMsg, StdError>;
+
+    fn send_or_execute_msg_binary<A: Into<String>>(
+        &self,
+        contract: A,
+        msg: Binary,
+    ) -> Result<CosmosMsg, StdError>;
 }
 
 impl AssetEx for Asset {
@@ -263,5 +275,41 @@ impl AssetEx for Asset {
             },
         };
         Ok(())
+    }
+
+    fn send_or_execute_msg<A: Into<String>, T: Serialize + Sized>(
+        &self,
+        contract: A,
+        msg: &T,
+    ) -> Result<CosmosMsg, StdError> {
+        self.send_or_execute_msg_binary(contract, to_json_binary(msg)?)
+    }
+
+    fn send_or_execute_msg_binary<A: Into<String>>(
+        &self,
+        contract: A,
+        msg: Binary,
+    ) -> Result<CosmosMsg, StdError> {
+        match &self.info {
+            AssetInfo::Token {
+                contract_addr,
+            } => Ok(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: contract_addr.into(),
+                msg: to_json_binary(&Cw20ExecuteMsg::Send {
+                    contract: contract.into(),
+                    amount: self.amount,
+                    msg,
+                })?,
+                funds: vec![],
+            })),
+            AssetInfo::NativeToken {
+                denom,
+            } => Ok(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: contract.into(),
+                msg,
+                funds: vec![coin(self.amount.u128(), denom)],
+            })),
+            _ => Err(StdError::generic_err("only cw20 or native".to_string())),
+        }
     }
 }
