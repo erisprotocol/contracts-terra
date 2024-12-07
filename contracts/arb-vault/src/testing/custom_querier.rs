@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use cosmwasm_std::testing::{BankQuerier, StakingQuerier, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    coin, from_binary, from_slice, to_binary, Coin, Decimal, Empty, Querier, QuerierResult,
+    coin, from_binary, from_slice, to_json_binary, Coin, Decimal, Empty, Querier, QuerierResult,
     QueryRequest, SystemError, SystemResult, Timestamp, Uint128, WasmQuery,
 };
 use cw20::Cw20QueryMsg;
@@ -106,7 +106,7 @@ impl CustomQuerier {
                             address,
                             ..
                         } => SystemResult::Ok(
-                            to_binary(&prism::hub::UnbondRequestsResponse {
+                            to_json_binary(&prism::hub::UnbondRequestsResponse {
                                 address,
                                 requests: vec![(1u64, self.unbonding_amount)],
                             })
@@ -115,7 +115,7 @@ impl CustomQuerier {
                         prism::hub::QueryMsg::WithdrawableUnbonded {
                             ..
                         } => SystemResult::Ok(
-                            to_binary(&prism::hub::WithdrawableUnbondedResponse {
+                            to_json_binary(&prism::hub::WithdrawableUnbondedResponse {
                                 withdrawable: self.withdrawable_amount,
                             })
                             .into(),
@@ -123,7 +123,7 @@ impl CustomQuerier {
                         prism::hub::QueryMsg::Config {
                             ..
                         } => SystemResult::Ok(
-                            to_binary(&prism::hub::StateResponse {
+                            to_json_binary(&prism::hub::StateResponse {
                                 exchange_rate: Decimal::one(),
                                 total_bond_amount: Uint128::zero(),
                                 last_index_modification: 0,
@@ -139,7 +139,7 @@ impl CustomQuerier {
                             start_from,
                             ..
                         } => SystemResult::Ok(
-                            to_binary(&prism::hub::AllHistoryResponse {
+                            to_json_binary(&prism::hub::AllHistoryResponse {
                                 history: vec![prism::hub::UnbondHistory {
                                     amount: Uint128::zero(),
                                     batch_id: start_from.map(|val| val + 1).unwrap_or_default(),
@@ -152,7 +152,7 @@ impl CustomQuerier {
                             .into(),
                         ),
                         prism::hub::QueryMsg::State {} => SystemResult::Ok(
-                            to_binary(&prism::hub::StateResponse {
+                            to_json_binary(&prism::hub::StateResponse {
                                 exchange_rate: Decimal::one(),
                                 total_bond_amount: Uint128::zero(),
                                 last_index_modification: 0,
@@ -169,7 +169,7 @@ impl CustomQuerier {
                 } else if contract_addr == "eris" {
                     return match from_binary(msg).unwrap() {
                         eris::hub::QueryMsg::PendingBatch {} => SystemResult::Ok(
-                            to_binary(&eris::hub::PendingBatch {
+                            to_json_binary(&eris::hub::PendingBatch {
                                 id: 3,
                                 ustake_to_burn: Uint128::from(1000u128),
                                 est_unbond_start_time: 123,
@@ -177,7 +177,7 @@ impl CustomQuerier {
                             .into(),
                         ),
                         eris::hub::QueryMsg::PreviousBatch(id) => SystemResult::Ok(
-                            to_binary(&eris::hub::Batch {
+                            to_json_binary(&eris::hub::Batch {
                                 id,
                                 reconciled: id < 2,
                                 total_shares: Uint128::from(1000u128),
@@ -207,10 +207,10 @@ impl CustomQuerier {
                                 })
                             }
 
-                            SystemResult::Ok(to_binary(&res).into())
+                            SystemResult::Ok(to_json_binary(&res).into())
                         },
                         eris::hub::QueryMsg::State {} => SystemResult::Ok(
-                            to_binary(&eris::hub::StateResponse {
+                            to_json_binary(&eris::hub::StateResponse {
                                 total_ustake: Uint128::from(1000u128),
                                 total_uluna: Uint128::from(1100u128),
                                 exchange_rate: Decimal::from_str("1.1").unwrap(),
@@ -226,7 +226,7 @@ impl CustomQuerier {
                 } else if contract_addr == "backbone" {
                     return match from_binary(msg).unwrap() {
                         steak::hub::QueryMsg::PendingBatch {} => SystemResult::Ok(
-                            to_binary(&steak::hub::PendingBatch {
+                            to_json_binary(&steak::hub::PendingBatch {
                                 id: 3,
                                 usteak_to_burn: Uint128::from(1000u128),
                                 est_unbond_start_time: 123,
@@ -234,7 +234,7 @@ impl CustomQuerier {
                             .into(),
                         ),
                         steak::hub::QueryMsg::PreviousBatch(id) => SystemResult::Ok(
-                            to_binary(&steak::hub::Batch {
+                            to_json_binary(&steak::hub::Batch {
                                 id,
                                 reconciled: id < 2,
                                 total_shares: Uint128::from(1000u128),
@@ -246,7 +246,7 @@ impl CustomQuerier {
                         steak::hub::QueryMsg::UnbondRequestsByUser {
                             ..
                         } => SystemResult::Ok(
-                            to_binary(&vec![
+                            to_json_binary(&vec![
                                 steak::hub::UnbondRequestsByUserResponseItem {
                                     id: 1,
                                     shares: self.withdrawable_amount,
@@ -259,7 +259,7 @@ impl CustomQuerier {
                             .into(),
                         ),
                         steak::hub::QueryMsg::State {} => SystemResult::Ok(
-                            to_binary(&steak::hub::StateResponse {
+                            to_json_binary(&steak::hub::StateResponse {
                                 total_usteak: Uint128::from(1000u128),
                                 total_native: Uint128::from(1000u128),
                                 exchange_rate: Decimal::one(),
@@ -274,7 +274,7 @@ impl CustomQuerier {
                         stader::msg::QueryMsg::GetUserUndelegationRecords {
                             ..
                         } => SystemResult::Ok(
-                            to_binary(&vec![
+                            to_json_binary(&vec![
                                 UndelegationInfo {
                                     batch_id: 0u64,
                                     token_amount: self.withdrawable_amount,
@@ -289,7 +289,7 @@ impl CustomQuerier {
                         stader::msg::QueryMsg::BatchUndelegation {
                             batch_id,
                         } => SystemResult::Ok(
-                            to_binary(&QueryBatchUndelegationResponse {
+                            to_json_binary(&QueryBatchUndelegationResponse {
                                 batch: Some(BatchUndelegationRecord {
                                     undelegated_tokens: Uint128::from(0u128),
                                     create_time: Timestamp::from_seconds(10),
@@ -303,7 +303,7 @@ impl CustomQuerier {
                             .into(),
                         ),
                         stader::msg::QueryMsg::State {} => SystemResult::Ok(
-                            to_binary(&stader::msg::QueryStateResponse {
+                            to_json_binary(&stader::msg::QueryStateResponse {
                                 state: stader::state::State {
                                     total_staked: Uint128::from(100u128),
                                     exchange_rate: Decimal::from_ratio(102u128, 100u128),

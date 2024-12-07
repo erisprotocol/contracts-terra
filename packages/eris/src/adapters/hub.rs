@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{coin, to_binary, Addr, CosmosMsg, Decimal, StdResult, VoteOption, WasmMsg};
+use cosmwasm_std::{coin, to_json_binary, Addr, CosmosMsg, Decimal, StdResult, VoteOption, WasmMsg};
 
 use crate::hub::ExecuteMsg;
 
@@ -15,7 +15,7 @@ impl Hub {
     ) -> StdResult<CosmosMsg> {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: self.0.to_string(),
-            msg: to_binary(&ExecuteMsg::Bond {
+            msg: to_json_binary(&ExecuteMsg::Bond {
                 receiver,
             })?,
             funds: vec![coin(amount, denom)],
@@ -25,7 +25,7 @@ impl Hub {
     pub fn vote_msg(&self, proposal_id: u64, vote: VoteOption) -> StdResult<CosmosMsg> {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: self.0.to_string(),
-            msg: to_binary(&ExecuteMsg::Vote {
+            msg: to_json_binary(&ExecuteMsg::Vote {
                 proposal_id,
                 vote,
             })?,
@@ -40,7 +40,7 @@ impl Hub {
     ) -> StdResult<CosmosMsg> {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: self.0.to_string(),
-            msg: to_binary(&&ExecuteMsg::VoteWeighted {
+            msg: to_json_binary(&&ExecuteMsg::VoteWeighted {
                 proposal_id,
                 votes,
             })?,

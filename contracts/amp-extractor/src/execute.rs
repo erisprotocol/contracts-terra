@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    to_binary, Addr, CosmosMsg, Decimal, DepsMut, Env, Event, Response, StdError, StdResult,
+    to_json_binary, Addr, CosmosMsg, Decimal, DepsMut, Env, Event, Response, StdError, StdResult,
     SubMsg, SubMsgResponse, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
@@ -47,7 +47,7 @@ pub fn instantiate(deps: DepsMut, env: Env, msg: InstantiateMsg) -> StdResult<Re
         CosmosMsg::Wasm(WasmMsg::Instantiate {
             admin: Some(msg.owner), // use the owner as admin for now; can be changed later by a `MsgUpdateAdmin`
             code_id: msg.cw20_code_id,
-            msg: to_binary(&Cw20InstantiateMsg {
+            msg: to_json_binary(&Cw20InstantiateMsg {
                 name: msg.name,
                 symbol: msg.symbol,
                 decimals: msg.decimals,
@@ -106,7 +106,7 @@ pub fn harvest(mut deps: DepsMut, env: Env, user: Addr) -> StdResult<Response> {
     // refund remaining stake token
     let harvest_msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: stake_token.into(),
-        msg: to_binary(&Cw20ExecuteMsg::Transfer {
+        msg: to_json_binary(&Cw20ExecuteMsg::Transfer {
             amount: stake_extracted,
             recipient: extract_config.yield_extract_addr.to_string(),
         })?,
@@ -146,7 +146,7 @@ pub fn withdraw(
     // burn deposited lp token
     let burn_msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: lp_token.into(),
-        msg: to_binary(&Cw20ExecuteMsg::Burn {
+        msg: to_json_binary(&Cw20ExecuteMsg::Burn {
             amount: lp_amount,
         })?,
         funds: vec![],
@@ -155,7 +155,7 @@ pub fn withdraw(
     // refund remaining stake token
     let refund_msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: stake_token.into(),
-        msg: to_binary(&Cw20ExecuteMsg::Transfer {
+        msg: to_json_binary(&Cw20ExecuteMsg::Transfer {
             amount: stake_withdraw_amount,
             recipient: user.to_string(),
         })?,
@@ -189,7 +189,7 @@ pub fn deposit(
 
     let mint_msg: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: lp_token.into(),
-        msg: to_binary(&Cw20ExecuteMsg::Mint {
+        msg: to_json_binary(&Cw20ExecuteMsg::Mint {
             recipient: receiver.to_string(),
             amount: lp_mint_amount,
         })?,

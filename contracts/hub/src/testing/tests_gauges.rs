@@ -3,7 +3,7 @@ use std::vec;
 
 use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    coin, to_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, DistributionMsg, Event, Order,
+    coin, to_json_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, DistributionMsg, Event, Order,
     OwnedDeps, Reply, StdError, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, MinterResponse};
@@ -73,7 +73,7 @@ fn setup_test() -> OwnedDeps<MockStorage, MockApi, CustomQuerier> {
             CosmosMsg::Wasm(WasmMsg::Instantiate {
                 admin: Some("owner".to_string()),
                 code_id: 69420,
-                msg: to_binary(&Cw20InstantiateMsg {
+                msg: to_json_binary(&Cw20InstantiateMsg {
                     name: "Stake Token".to_string(),
                     symbol: "STAKE".to_string(),
                     decimals: 6,
@@ -199,7 +199,7 @@ fn bonding() {
         res.messages[1],
         SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: STAKE_DENOM.to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Mint {
+            msg: to_json_binary(&Cw20ExecuteMsg::Mint {
                 recipient: "user_1".to_string(),
                 amount: Uint128::new(1000000)
             })
@@ -238,7 +238,7 @@ fn bonding() {
         res.messages[1],
         SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: STAKE_DENOM.to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Mint {
+            msg: to_json_binary(&Cw20ExecuteMsg::Mint {
                 recipient: "user_3".to_string(),
                 amount: Uint128::new(12043)
             })
@@ -295,7 +295,7 @@ fn donating() {
         res.messages[1],
         SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: STAKE_DENOM.to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Mint {
+            msg: to_json_binary(&Cw20ExecuteMsg::Mint {
                 recipient: "user_1".to_string(),
                 amount: Uint128::new(1000000)
             })
@@ -437,7 +437,7 @@ fn harvesting() {
         res.messages[4],
         SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: MOCK_CONTRACT_ADDR.to_string(),
-            msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::Reinvest {})).unwrap(),
+            msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::Reinvest {})).unwrap(),
             funds: vec![]
         }))
     );
@@ -548,7 +548,7 @@ fn queuing_unbond() {
         ExecuteMsg::Receive(cw20::Cw20ReceiveMsg {
             sender: "hacker".to_string(),
             amount: Uint128::new(69420),
-            msg: to_binary(&ReceiveMsg::QueueUnbond {
+            msg: to_json_binary(&ReceiveMsg::QueueUnbond {
                 receiver: None,
             })
             .unwrap(),
@@ -567,7 +567,7 @@ fn queuing_unbond() {
         ExecuteMsg::Receive(cw20::Cw20ReceiveMsg {
             sender: "user_1".to_string(),
             amount: Uint128::new(23456),
-            msg: to_binary(&ReceiveMsg::QueueUnbond {
+            msg: to_json_binary(&ReceiveMsg::QueueUnbond {
                 receiver: None,
             })
             .unwrap(),
@@ -586,7 +586,7 @@ fn queuing_unbond() {
         ExecuteMsg::Receive(cw20::Cw20ReceiveMsg {
             sender: "user_2".to_string(),
             amount: Uint128::new(69420),
-            msg: to_binary(&ReceiveMsg::QueueUnbond {
+            msg: to_json_binary(&ReceiveMsg::QueueUnbond {
                 receiver: Some("user_3".to_string()),
             })
             .unwrap(),
@@ -599,7 +599,7 @@ fn queuing_unbond() {
         res.messages[0],
         SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: MOCK_CONTRACT_ADDR.to_string(),
-            msg: to_binary(&ExecuteMsg::SubmitBatch {}).unwrap(),
+            msg: to_json_binary(&ExecuteMsg::SubmitBatch {}).unwrap(),
             funds: vec![]
         }))
     );
@@ -722,7 +722,7 @@ fn submitting_batch() {
         res.messages[3],
         SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: STAKE_DENOM.to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Burn {
+            msg: to_json_binary(&Cw20ExecuteMsg::Burn {
                 amount: Uint128::new(92876)
             })
             .unwrap(),
@@ -2070,7 +2070,7 @@ fn running_dedup() {
 pub fn check_received_coin(amount: u128) -> SubMsg {
     SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: MOCK_CONTRACT_ADDR.to_string(),
-        msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::CheckReceivedCoin {
+        msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::CheckReceivedCoin {
             snapshot: coin(amount, CONTRACT_DENOM),
         }))
         .unwrap(),

@@ -4,7 +4,7 @@ use std::ops::Mul;
 use cosmwasm_schema::serde::Serialize;
 use cosmwasm_std::testing::{BankQuerier, StakingQuerier, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Coin, Decimal, Empty, Querier, QuerierResult, QueryRequest,
+    from_binary, from_slice, to_json_binary, Coin, Decimal, Empty, Querier, QuerierResult, QueryRequest,
     SystemError, Uint128, WasmQuery,
 };
 use cw20::Cw20QueryMsg;
@@ -124,7 +124,7 @@ impl CustomQuerier {
     where
         T: Serialize + Sized,
     {
-        Ok(to_binary(&val).into()).into()
+        Ok(to_json_binary(&val).into()).into()
     }
 
     fn handle_vp_query(

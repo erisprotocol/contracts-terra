@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    attr, entry_point, from_binary, to_binary, Binary, Decimal, Deps, DepsMut, Env, MessageInfo,
+    attr, entry_point, from_binary, to_json_binary, Binary, Decimal, Deps, DepsMut, Env, MessageInfo,
     Reply, Response, StdError, StdResult, SubMsg,
 };
 
@@ -263,17 +263,17 @@ pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> StdResult<Response> {
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::Config {} => to_binary(&query_config(deps)?),
+        QueryMsg::Config {} => to_json_binary(&query_config(deps)?),
         QueryMsg::UserInfo {
             addr,
-        } => to_binary(&query_user_info(deps, env, addr)?),
+        } => to_json_binary(&query_user_info(deps, env, addr)?),
         QueryMsg::State {
             addr,
-        } => to_binary(&query_state(deps, env, addr)?),
+        } => to_json_binary(&query_state(deps, env, addr)?),
         QueryMsg::ExchangeRates {
             start_after,
             limit,
-        } => to_binary(&query_exchange_rates(deps, env, start_after, limit)?),
+        } => to_json_binary(&query_exchange_rates(deps, env, start_after, limit)?),
     }
 }
 /// ## Description

@@ -19,7 +19,7 @@ use astroport_governance::voting_escrow::{
 };
 use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, to_binary, Addr, CosmosMsg, Decimal, OwnedDeps, Response, StdError, Timestamp,
+    from_binary, to_json_binary, Addr, CosmosMsg, Decimal, OwnedDeps, Response, StdError, Timestamp,
     Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
@@ -215,14 +215,14 @@ fn deposit(
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
         sender: USER1.to_string(),
         amount: Uint128::from(100u128),
-        msg: to_binary(&Cw20HookMsg::Deposit {})?,
+        msg: to_json_binary(&Cw20HookMsg::Deposit {})?,
     });
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg)?;
     assert_eq!(
         res.messages.into_iter().map(|it| it.msg).collect::<Vec<CosmosMsg>>(),
         [CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: MOCK_CONTRACT_ADDR.to_string(),
-            msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::Deposit {
+            msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::Deposit {
                 amount: Uint128::from(100u128),
                 staker_addr: Addr::unchecked(USER1),
                 lp_token: Addr::unchecked(LP_TOKEN),
@@ -246,16 +246,16 @@ fn deposit(
         [
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: LP_TOKEN.to_string(),
-                msg: to_binary(&Cw20ExecuteMsg::Send {
+                msg: to_json_binary(&Cw20ExecuteMsg::Send {
                     contract: GENERATOR.to_string(),
                     amount: Uint128::from(100u128),
-                    msg: to_binary(&GeneratorCw20HookMsg::Deposit {})?,
+                    msg: to_json_binary(&GeneratorCw20HookMsg::Deposit {})?,
                 })?,
                 funds: vec![],
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: MOCK_CONTRACT_ADDR.to_string(),
-                msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::AfterBondChanged {
+                msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::AfterBondChanged {
                     lp_token: Addr::unchecked(LP_TOKEN),
                 }))?,
                 funds: vec![],
@@ -304,7 +304,7 @@ fn deposit(
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
         sender: USER2.to_string(),
         amount: Uint128::from(60u128),
-        msg: to_binary(&Cw20HookMsg::Deposit {})?,
+        msg: to_json_binary(&Cw20HookMsg::Deposit {})?,
     });
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg)?;
     assert_eq!(
@@ -312,14 +312,14 @@ fn deposit(
         [
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: GENERATOR.to_string(),
-                msg: to_binary(&GeneratorExecuteMsg::ClaimRewards {
+                msg: to_json_binary(&GeneratorExecuteMsg::ClaimRewards {
                     lp_tokens: vec![LP_TOKEN.to_string()]
                 })?,
                 funds: vec![],
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: MOCK_CONTRACT_ADDR.to_string(),
-                msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::AfterBondClaimed {
+                msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::AfterBondClaimed {
                     lp_token: Addr::unchecked(LP_TOKEN),
                     prev_balances: vec![
                         (Addr::unchecked(ASTRO_TOKEN), Uint128::zero()),
@@ -330,7 +330,7 @@ fn deposit(
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: MOCK_CONTRACT_ADDR.to_string(),
-                msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::Deposit {
+                msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::Deposit {
                     amount: Uint128::from(60u128),
                     staker_addr: Addr::unchecked(USER2),
                     lp_token: Addr::unchecked(LP_TOKEN),
@@ -435,16 +435,16 @@ fn deposit(
         [
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: LP_TOKEN.to_string(),
-                msg: to_binary(&Cw20ExecuteMsg::Send {
+                msg: to_json_binary(&Cw20ExecuteMsg::Send {
                     contract: GENERATOR.to_string(),
                     amount: Uint128::from(60u128),
-                    msg: to_binary(&GeneratorCw20HookMsg::Deposit {})?,
+                    msg: to_json_binary(&GeneratorCw20HookMsg::Deposit {})?,
                 })?,
                 funds: vec![],
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: MOCK_CONTRACT_ADDR.to_string(),
-                msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::AfterBondChanged {
+                msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::AfterBondChanged {
                     lp_token: Addr::unchecked(LP_TOKEN),
                 }))?,
                 funds: vec![],
@@ -568,14 +568,14 @@ fn claim_rewards(
         [
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: GENERATOR.to_string(),
-                msg: to_binary(&GeneratorExecuteMsg::ClaimRewards {
+                msg: to_json_binary(&GeneratorExecuteMsg::ClaimRewards {
                     lp_tokens: vec![LP_TOKEN.to_string()]
                 })?,
                 funds: vec![],
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: MOCK_CONTRACT_ADDR.to_string(),
-                msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::AfterBondClaimed {
+                msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::AfterBondClaimed {
                     lp_token: Addr::unchecked(LP_TOKEN),
                     prev_balances: vec![
                         (Addr::unchecked(ASTRO_TOKEN), Uint128::from(10u128)),
@@ -586,7 +586,7 @@ fn claim_rewards(
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: MOCK_CONTRACT_ADDR.to_string(),
-                msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::ClaimRewards {
+                msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::ClaimRewards {
                     lp_token: Addr::unchecked(LP_TOKEN),
                     staker_addr: Addr::unchecked(USER1),
                 }))?,
@@ -686,7 +686,7 @@ fn claim_rewards(
         [
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: ASTRO_TOKEN.to_string(),
-                msg: to_binary(&Cw20ExecuteMsg::Transfer {
+                msg: to_json_binary(&Cw20ExecuteMsg::Transfer {
                     recipient: USER1.to_string(),
                     amount: Uint128::from(18u128),
                 })?,
@@ -694,7 +694,7 @@ fn claim_rewards(
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: REWARD_TOKEN.to_string(),
-                msg: to_binary(&Cw20ExecuteMsg::Transfer {
+                msg: to_json_binary(&Cw20ExecuteMsg::Transfer {
                     recipient: USER1.to_string(),
                     amount: Uint128::from(30u128),
                 })?,
@@ -772,14 +772,14 @@ fn withdraw(
         [
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: GENERATOR.to_string(),
-                msg: to_binary(&GeneratorExecuteMsg::ClaimRewards {
+                msg: to_json_binary(&GeneratorExecuteMsg::ClaimRewards {
                     lp_tokens: vec![LP_TOKEN.to_string()]
                 })?,
                 funds: vec![],
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: MOCK_CONTRACT_ADDR.to_string(),
-                msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::AfterBondClaimed {
+                msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::AfterBondClaimed {
                     lp_token: Addr::unchecked(LP_TOKEN),
                     prev_balances: vec![
                         (Addr::unchecked(ASTRO_TOKEN), Uint128::from(42u128)),
@@ -790,7 +790,7 @@ fn withdraw(
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: MOCK_CONTRACT_ADDR.to_string(),
-                msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::Withdraw {
+                msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::Withdraw {
                     amount: Uint128::from(100u128),
                     staker_addr: Addr::unchecked(USER1),
                     lp_token: Addr::unchecked(LP_TOKEN),
@@ -839,14 +839,14 @@ fn withdraw(
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: GENERATOR.to_string(),
                 funds: vec![],
-                msg: to_binary(&ExecuteMsg::Withdraw {
+                msg: to_json_binary(&ExecuteMsg::Withdraw {
                     lp_token: LP_TOKEN.to_string(),
                     amount: Uint128::from(100u128),
                 })?,
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: LP_TOKEN.to_string(),
-                msg: to_binary(&Cw20ExecuteMsg::Transfer {
+                msg: to_json_binary(&Cw20ExecuteMsg::Transfer {
                     recipient: USER1.to_string(),
                     amount: Uint128::from(100u128),
                 })?,
@@ -854,7 +854,7 @@ fn withdraw(
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: MOCK_CONTRACT_ADDR.to_string(),
-                msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::AfterBondChanged {
+                msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::AfterBondChanged {
                     lp_token: Addr::unchecked(LP_TOKEN),
                 }))?,
                 funds: vec![],
@@ -930,7 +930,7 @@ fn stake(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Result<
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
         sender: USER1.to_string(),
         amount: Uint128::from(1001u128),
-        msg: to_binary(&Cw20HookMsg::Stake {})?,
+        msg: to_json_binary(&Cw20HookMsg::Stake {})?,
     });
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg);
     assert_error(res, "Unauthorized");
@@ -939,17 +939,17 @@ fn stake(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Result<
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
         sender: USER1.to_string(),
         amount: Uint128::from(800u128),
-        msg: to_binary(&Cw20HookMsg::Stake {})?,
+        msg: to_json_binary(&Cw20HookMsg::Stake {})?,
     });
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg)?;
     assert_eq!(
         res.messages.into_iter().map(|it| it.msg).collect::<Vec<CosmosMsg>>(),
         [CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: XASTRO_TOKEN.to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Send {
+            msg: to_json_binary(&Cw20ExecuteMsg::Send {
                 contract: VOTING_ESCROW.to_string(),
                 amount: Uint128::from(800u128),
-                msg: to_binary(&VotingCw20HookMsg::CreateLock {
+                msg: to_json_binary(&VotingCw20HookMsg::CreateLock {
                     time: WEEK,
                 })?,
             })?,
@@ -1013,7 +1013,7 @@ fn stake(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Result<
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
         sender: USER2.to_string(),
         amount: Uint128::from(400u128),
-        msg: to_binary(&Cw20HookMsg::Stake {})?,
+        msg: to_json_binary(&Cw20HookMsg::Stake {})?,
     });
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg);
     assert_error(res, "Exceed quota, remaining quota is 200");
@@ -1021,17 +1021,17 @@ fn stake(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Result<
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
         sender: USER2.to_string(),
         amount: Uint128::from(100u128),
-        msg: to_binary(&Cw20HookMsg::Stake {})?,
+        msg: to_json_binary(&Cw20HookMsg::Stake {})?,
     });
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg)?;
     assert_eq!(
         res.messages.into_iter().map(|it| it.msg).collect::<Vec<CosmosMsg>>(),
         [CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: XASTRO_TOKEN.to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Send {
+            msg: to_json_binary(&Cw20ExecuteMsg::Send {
                 contract: VOTING_ESCROW.to_string(),
                 amount: Uint128::from(100u128),
-                msg: to_binary(&VotingCw20HookMsg::ExtendLockAmount {})?,
+                msg: to_json_binary(&VotingCw20HookMsg::ExtendLockAmount {})?,
             })?,
             funds: vec![],
         }),]
@@ -1105,7 +1105,7 @@ fn unstake(
     let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
         sender: USER2.to_string(),
         amount: Uint128::from(100u128),
-        msg: to_binary(&Cw20HookMsg::Stake {})?,
+        msg: to_json_binary(&Cw20HookMsg::Stake {})?,
     });
     let res = execute(deps.as_mut(), env.clone(), info.clone(), msg)?;
     assert_eq!(
@@ -1113,15 +1113,15 @@ fn unstake(
         [
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: MOCK_CONTRACT_ADDR.to_string(),
-                msg: to_binary(&ExecuteMsg::Relock {})?,
+                msg: to_json_binary(&ExecuteMsg::Relock {})?,
                 funds: vec![],
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: XASTRO_TOKEN.to_string(),
-                msg: to_binary(&Cw20ExecuteMsg::Send {
+                msg: to_json_binary(&Cw20ExecuteMsg::Send {
                     contract: VOTING_ESCROW.to_string(),
                     amount: Uint128::from(100u128),
-                    msg: to_binary(&VotingCw20HookMsg::ExtendLockAmount {})?,
+                    msg: to_json_binary(&VotingCw20HookMsg::ExtendLockAmount {})?,
                 })?,
                 funds: vec![],
             }),
@@ -1156,7 +1156,7 @@ fn unstake(
         [
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: FEE_DISTRIBUTOR.to_string(),
-                msg: to_binary(&FeeExecuteMsg::Claim {
+                msg: to_json_binary(&FeeExecuteMsg::Claim {
                     recipient: None,
                     max_periods: None,
                 })?,
@@ -1164,22 +1164,22 @@ fn unstake(
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: MOCK_CONTRACT_ADDR.to_string(),
-                msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::AfterStakingClaimed {
+                msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::AfterStakingClaimed {
                     prev_balance: Uint128::from(92u128),
                 }))?,
                 funds: vec![],
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: VOTING_ESCROW.to_string(),
-                msg: to_binary(&VotingExecuteMsg::Withdraw {})?,
+                msg: to_json_binary(&VotingExecuteMsg::Withdraw {})?,
                 funds: vec![],
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: XASTRO_TOKEN.to_string(),
-                msg: to_binary(&Cw20ExecuteMsg::Send {
+                msg: to_json_binary(&Cw20ExecuteMsg::Send {
                     contract: VOTING_ESCROW.to_string(),
                     amount: Uint128::from(400u128),
-                    msg: to_binary(&VotingCw20HookMsg::CreateLock {
+                    msg: to_json_binary(&VotingCw20HookMsg::CreateLock {
                         time: WEEK,
                     })?,
                 })?,
@@ -1268,7 +1268,7 @@ fn unstake(
         res.messages.into_iter().map(|it| it.msg).collect::<Vec<CosmosMsg>>(),
         [CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: XASTRO_TOKEN.to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Transfer {
+            msg: to_json_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: USER1.to_string(),
                 amount: Uint128::from(500u128),
             })?,
@@ -1341,7 +1341,7 @@ fn claim_income(
         res.messages.into_iter().map(|it| it.msg).collect::<Vec<CosmosMsg>>(),
         [CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: ASTRO_TOKEN.to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Transfer {
+            msg: to_json_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: USER2.to_string(),
                 amount: Uint128::from(20u128),
             })?,
@@ -1400,7 +1400,7 @@ fn send_income(
         res.messages.into_iter().map(|it| it.msg).collect::<Vec<CosmosMsg>>(),
         [CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: ASTRO_TOKEN.to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Transfer {
+            msg: to_json_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: FEE_COLLECTOR.to_string(),
                 amount: Uint128::from(5u128),
             })?,

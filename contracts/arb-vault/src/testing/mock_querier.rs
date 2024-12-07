@@ -1,6 +1,6 @@
 // use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 // use cosmwasm_std::{
-//     from_binary, from_slice, to_binary, Addr, Coin, Decimal, OwnedDeps, Querier, QuerierResult,
+//     from_binary, from_slice, to_json_binary, Addr, Coin, Decimal, OwnedDeps, Querier, QuerierResult,
 //     QueryRequest, SystemError, SystemResult, Timestamp, Uint128, WasmQuery,
 // };
 // use prism_protocol::vault::{
@@ -107,7 +107,7 @@
 //                             let res = TaxRateResponse {
 //                                 rate: self.tax_querier.rate,
 //                             };
-//                             SystemResult::Ok(to_binary(&res).into())
+//                             SystemResult::Ok(to_json_binary(&res).into())
 //                         },
 //                         TerraQuery::TaxCap {
 //                             denom,
@@ -116,7 +116,7 @@
 //                             let res = TaxCapResponse {
 //                                 cap,
 //                             };
-//                             SystemResult::Ok(to_binary(&res).into())
+//                             SystemResult::Ok(to_json_binary(&res).into())
 //                         },
 //                         _ => panic!("DO NOT ENTER HERE"),
 //                     }
@@ -134,7 +134,7 @@
 //                             address,
 //                             ..
 //                         } => SystemResult::Ok(
-//                             to_binary(&UnbondRequestsResponse {
+//                             to_json_binary(&UnbondRequestsResponse {
 //                                 address,
 //                                 requests: vec![(1u64, self.unbonding_amount)],
 //                             })
@@ -143,7 +143,7 @@
 //                         PrismQueryMsg::WithdrawableUnbonded {
 //                             ..
 //                         } => SystemResult::Ok(
-//                             to_binary(&WithdrawableUnbondedResponse {
+//                             to_json_binary(&WithdrawableUnbondedResponse {
 //                                 withdrawable: self.withdrawable_amount,
 //                             })
 //                             .into(),
@@ -151,7 +151,7 @@
 //                         PrismQueryMsg::Config {
 //                             ..
 //                         } => SystemResult::Ok(
-//                             to_binary(&prism_protocol::vault::StateResponse {
+//                             to_json_binary(&prism_protocol::vault::StateResponse {
 //                                 exchange_rate: Decimal::one(),
 //                                 total_bond_amount: Uint128::zero(),
 //                                 last_index_modification: 0,
@@ -165,7 +165,7 @@
 //                         PrismQueryMsg::AllHistory {
 //                             ..
 //                         } => SystemResult::Ok(
-//                             to_binary(&prism_protocol::vault::AllHistoryResponse {
+//                             to_json_binary(&prism_protocol::vault::AllHistoryResponse {
 //                                 history: vec![prism_protocol::vault::UnbondHistoryResponse {
 //                                     amount: Uint128::zero(),
 //                                     batch_id: 0,
@@ -182,7 +182,7 @@
 //                 } else if contract_addr == "steak" {
 //                     match from_binary(msg).unwrap() {
 //                         SteakQueryMsg::PendingBatch {} => SystemResult::Ok(
-//                             to_binary(&steak::PendingBatch {
+//                             to_json_binary(&steak::PendingBatch {
 //                                 id: 3,
 //                                 usteak_to_burn: Uint128::from(1000u128),
 //                                 est_unbond_start_time: 123,
@@ -190,7 +190,7 @@
 //                             .into(),
 //                         ),
 //                         SteakQueryMsg::PreviousBatch(id) => SystemResult::Ok(
-//                             to_binary(&steak::Batch {
+//                             to_json_binary(&steak::Batch {
 //                                 id,
 //                                 reconciled: id < 2,
 //                                 total_shares: Uint128::from(1000u128),
@@ -202,7 +202,7 @@
 //                         SteakQueryMsg::UnbondRequestsByUser {
 //                             ..
 //                         } => SystemResult::Ok(
-//                             to_binary(&vec![
+//                             to_json_binary(&vec![
 //                                 steak::UnbondRequestsByUserResponseItem {
 //                                     id: 1,
 //                                     shares: self.withdrawable_amount,
@@ -215,7 +215,7 @@
 //                             .into(),
 //                         ),
 //                         SteakQueryMsg::State {} => SystemResult::Ok(
-//                             to_binary(&steak::StateResponse {
+//                             to_json_binary(&steak::StateResponse {
 //                                 total_usteak: Uint128::from(1000u128),
 //                                 total_uluna: Uint128::from(1000u128),
 //                                 exchange_rate: Decimal::one(),
@@ -231,7 +231,7 @@
 //                             address,
 //                             ..
 //                         } => SystemResult::Ok(
-//                             to_binary(&basset::hub::UnbondRequestsResponse {
+//                             to_json_binary(&basset::hub::UnbondRequestsResponse {
 //                                 address,
 //                                 requests: vec![(
 //                                     1u64,
@@ -245,7 +245,7 @@
 //                         AnchorQueryMsg::AllHistory {
 //                             ..
 //                         } => SystemResult::Ok(
-//                             to_binary(&basset::hub::AllHistoryResponse {
+//                             to_json_binary(&basset::hub::AllHistoryResponse {
 //                                 history: vec![basset::hub::UnbondHistoryResponse {
 //                                     batch_id: 1u64,
 //                                     time: 1,
@@ -270,14 +270,14 @@
 //                         AnchorQueryMsg::WithdrawableUnbonded {
 //                             ..
 //                         } => SystemResult::Ok(
-//                             to_binary(&WithdrawableUnbondedResponse {
+//                             to_json_binary(&WithdrawableUnbondedResponse {
 //                                 // bluna + stluna + nluna
 //                                 withdrawable: self.withdrawable_amount * Uint128::from(3u128),
 //                             })
 //                             .into(),
 //                         ),
 //                         AnchorQueryMsg::State {} => SystemResult::Ok(
-//                             to_binary(&StateResponse {
+//                             to_json_binary(&StateResponse {
 //                                 bluna_exchange_rate: Decimal::from_ratio(101u128, 100u128),
 //                                 stluna_exchange_rate: Decimal::from_ratio(103u128, 100u128),
 //                                 total_bond_bluna_amount: Uint128::zero(),
@@ -298,7 +298,7 @@
 //                         StaderQueries::GetUserUndelegationRecords {
 //                             ..
 //                         } => SystemResult::Ok(
-//                             to_binary(&vec![
+//                             to_json_binary(&vec![
 //                                 stader::UndelegationInfo {
 //                                     batch_id: 0u64,
 //                                     token_amount: self.withdrawable_amount,
@@ -313,7 +313,7 @@
 //                         StaderQueries::BatchUndelegation {
 //                             batch_id,
 //                         } => SystemResult::Ok(
-//                             to_binary(&stader::QueryBatchUndelegationResponse {
+//                             to_json_binary(&stader::QueryBatchUndelegationResponse {
 //                                 batch: Some(stader::BatchUndelegationRecord {
 //                                     create_time: Timestamp::from_seconds(10),
 //                                     est_release_time: None,
@@ -327,7 +327,7 @@
 //                             .into(),
 //                         ),
 //                         StaderQueries::State {} => SystemResult::Ok(
-//                             to_binary(&stader::QueryStateResponse {
+//                             to_json_binary(&stader::QueryStateResponse {
 //                                 state: stader::StaderState {
 //                                     total_staked: Uint128::from(100u128),
 //                                     exchange_rate: Decimal::from_ratio(102u128, 100u128),
@@ -348,7 +348,7 @@
 //                         FactoryQueryMsg::IsWhitelistedExecutor {
 //                             contract_addr,
 //                         } => SystemResult::Ok(
-//                             to_binary(&eris::factory::WhitelistResponse {
+//                             to_json_binary(&eris::factory::WhitelistResponse {
 //                                 whitelisted: contract_addr == "whitelisted_exec",
 //                             })
 //                             .into(),
@@ -356,13 +356,13 @@
 //                         FactoryQueryMsg::IsWhitelistedContract {
 //                             contract_addr,
 //                         } => SystemResult::Ok(
-//                             to_binary(&eris::factory::WhitelistResponse {
+//                             to_json_binary(&eris::factory::WhitelistResponse {
 //                                 whitelisted: contract_addr == "whitelisted",
 //                             })
 //                             .into(),
 //                         ),
 //                         FactoryQueryMsg::FeeConfig {} => SystemResult::Ok(
-//                             to_binary(&eris::factory::FeeConfigResponse {
+//                             to_json_binary(&eris::factory::FeeConfigResponse {
 //                                 fee_address: Addr::unchecked("fee"),
 //                                 withdraw_fee: Decimal::from_str("0.001").unwrap(),
 //                                 performance_fee: Decimal::from_str("0.1").unwrap(),
@@ -371,7 +371,7 @@
 //                             .into(),
 //                         ),
 //                         FactoryQueryMsg::Config {} => SystemResult::Ok(
-//                             to_binary(&eris::factory::FactoryConfigResponse {
+//                             to_json_binary(&eris::factory::FactoryConfigResponse {
 //                                 owner: Addr::unchecked("owner"),
 //                                 pool_configs: vec![],
 //                                 token_code_id: 123u64,
@@ -403,7 +403,7 @@
 //                             }
 
 //                             SystemResult::Ok(
-//                                 to_binary(&TokenInfoResponse {
+//                                 to_json_binary(&TokenInfoResponse {
 //                                     name: "erisLUNA-LP".to_string(),
 //                                     symbol: "erisLUNA".to_string(),
 //                                     decimals: 6,
@@ -431,7 +431,7 @@
 //                             };
 
 //                             SystemResult::Ok(
-//                                 to_binary(&BalanceResponse {
+//                                 to_json_binary(&BalanceResponse {
 //                                     balance: *balance,
 //                                 })
 //                                 .into(),

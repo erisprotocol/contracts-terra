@@ -1,6 +1,6 @@
 use astroport::asset::{token_asset_info, AssetInfo};
 use cosmwasm_std::{
-    to_binary, Addr, CosmosMsg, Decimal, Deps, QueryRequest, Uint128, WasmMsg, WasmQuery,
+    to_json_binary, Addr, CosmosMsg, Decimal, Deps, QueryRequest, Uint128, WasmMsg, WasmQuery,
 };
 use cw20::Cw20ExecuteMsg;
 use steak::hub::{
@@ -37,7 +37,7 @@ impl Steak {
         deps.querier
             .query(&QueryRequest::Wasm(WasmQuery::Smart {
                 contract_addr: self.addr.to_string(),
-                msg: to_binary(&QueryMsg::UnbondRequestsByUser {
+                msg: to_json_binary(&QueryMsg::UnbondRequestsByUser {
                     user: self.wallet.to_string(),
                     limit: Some(100u32),
                     start_after: None,
@@ -55,7 +55,7 @@ impl Steak {
         deps.querier
             .query(&QueryRequest::Wasm(WasmQuery::Smart {
                 contract_addr: self.addr.to_string(),
-                msg: to_binary(&QueryMsg::PreviousBatch(id)).unwrap(),
+                msg: to_json_binary(&QueryMsg::PreviousBatch(id)).unwrap(),
             }))
             .map_err(|a| adapter_error("steak", "query_previous_batch", a))
     }
@@ -67,7 +67,7 @@ impl Steak {
         deps.querier
             .query(&QueryRequest::Wasm(WasmQuery::Smart {
                 contract_addr: self.addr.to_string(),
-                msg: to_binary(&QueryMsg::PendingBatch {}).unwrap(),
+                msg: to_json_binary(&QueryMsg::PendingBatch {}).unwrap(),
             }))
             .map_err(|a| adapter_error("steak", "query_pending_batch", a))
     }
@@ -76,7 +76,7 @@ impl Steak {
         deps.querier
             .query(&QueryRequest::Wasm(WasmQuery::Smart {
                 contract_addr: self.addr.to_string(),
-                msg: to_binary(&QueryMsg::State {}).unwrap(),
+                msg: to_json_binary(&QueryMsg::State {}).unwrap(),
             }))
             .map_err(|a| adapter_error("steak", "query_state", a))
     }
@@ -85,10 +85,10 @@ impl Steak {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: self.cw20.to_string(),
             funds: vec![],
-            msg: to_binary(&Cw20ExecuteMsg::Send {
+            msg: to_json_binary(&Cw20ExecuteMsg::Send {
                 contract: self.addr.to_string(),
                 amount,
-                msg: to_binary(&ReceiveMsg::QueueUnbond {
+                msg: to_json_binary(&ReceiveMsg::QueueUnbond {
                     receiver: None,
                 })?,
             })?,
@@ -99,7 +99,7 @@ impl Steak {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: self.addr.to_string(),
             funds: vec![],
-            msg: to_binary(&ExecuteMsg::WithdrawUnbonded {
+            msg: to_json_binary(&ExecuteMsg::WithdrawUnbonded {
                 receiver: None,
             })?,
         }))

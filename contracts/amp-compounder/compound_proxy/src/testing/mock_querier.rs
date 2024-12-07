@@ -4,7 +4,7 @@ use astroport::pair::QueryMsg::{Pair, Simulation};
 use astroport::pair::SimulationResponse;
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Addr, Coin, ContractResult, Empty, OwnedDeps, Querier,
+    from_binary, from_slice, to_json_binary, Addr, Coin, ContractResult, Empty, OwnedDeps, Querier,
     QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery,
 };
 use cw20::{BalanceResponse, Cw20QueryMsg, TokenInfoResponse};
@@ -88,7 +88,7 @@ impl WasmMockQuerier {
                         astroport::factory::QueryMsg::FeeInfo {
                             ..
                         } => SystemResult::Ok(
-                            to_binary(&FeeInfoResponse {
+                            to_json_binary(&FeeInfoResponse {
                                 fee_address: Some(Addr::unchecked("fee_address")),
                                 total_fee_bps: 30,
                                 maker_fee_bps: 1660,
@@ -102,7 +102,7 @@ impl WasmMockQuerier {
                                 SystemResult::Ok(ContractResult::Err("unknown pair".to_string()))
                             } else {
                                 SystemResult::Ok(
-                                    to_binary(&PairInfo {
+                                    to_json_binary(&PairInfo {
                                         asset_infos,
                                         contract_addr: Addr::unchecked("pair-x"),
                                         liquidity_token: Addr::unchecked("lp-x"),
@@ -119,7 +119,7 @@ impl WasmMockQuerier {
                         astroport::router::QueryMsg::SimulateSwapOperations {
                             ..
                         } => SystemResult::Ok(
-                            to_binary(&astroport::router::SimulateSwapOperationsResponse {
+                            to_json_binary(&astroport::router::SimulateSwapOperationsResponse {
                                 amount: Uint128::from(1000000u128),
                             })
                             .into(),
@@ -132,7 +132,7 @@ impl WasmMockQuerier {
                         Pair {
                             ..
                         } => SystemResult::Ok(
-                            to_binary(&PairInfo {
+                            to_json_binary(&PairInfo {
                                 asset_infos: vec![
                                     {
                                         AssetInfo::Token {
@@ -158,7 +158,7 @@ impl WasmMockQuerier {
                         Pair {
                             ..
                         } => SystemResult::Ok(
-                            to_binary(&PairInfo {
+                            to_json_binary(&PairInfo {
                                 asset_infos: vec![
                                     {
                                         AssetInfo::Token {
@@ -184,7 +184,7 @@ impl WasmMockQuerier {
                         Pair {
                             ..
                         } => SystemResult::Ok(
-                            to_binary(&PairInfo {
+                            to_json_binary(&PairInfo {
                                 asset_infos: vec![
                                     {
                                         AssetInfo::NativeToken {
@@ -210,7 +210,7 @@ impl WasmMockQuerier {
                         Pair {
                             ..
                         } => SystemResult::Ok(
-                            to_binary(&PairInfo {
+                            to_json_binary(&PairInfo {
                                 asset_infos: vec![
                                     {
                                         AssetInfo::NativeToken {
@@ -236,7 +236,7 @@ impl WasmMockQuerier {
                         Pair {
                             ..
                         } => SystemResult::Ok(
-                            to_binary(&PairInfo {
+                            to_json_binary(&PairInfo {
                                 asset_infos: vec![
                                     {
                                         AssetInfo::Token {
@@ -258,7 +258,7 @@ impl WasmMockQuerier {
                         Simulation {
                             ..
                         } => SystemResult::Ok(
-                            to_binary(&SimulationResponse {
+                            to_json_binary(&SimulationResponse {
                                 return_amount: Uint128::from(1000000u128),
                                 commission_amount: Uint128::zero(),
                                 spread_amount: Uint128::zero(),
@@ -285,7 +285,7 @@ impl WasmMockQuerier {
                             }
 
                             SystemResult::Ok(
-                                to_binary(&TokenInfoResponse {
+                                to_json_binary(&TokenInfoResponse {
                                     name: "mAPPL".to_string(),
                                     symbol: "mAPPL".to_string(),
                                     decimals: 6,
@@ -313,7 +313,7 @@ impl WasmMockQuerier {
                             };
 
                             SystemResult::Ok(
-                                to_binary(&BalanceResponse {
+                                to_json_binary(&BalanceResponse {
                                     balance: *balance,
                                 })
                                 .into(),

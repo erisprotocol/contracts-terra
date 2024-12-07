@@ -6,7 +6,7 @@ use astroport::asset::{Asset, AssetInfo, AssetInfoExt};
 
 use astroport::common::{claim_ownership, drop_ownership_proposal, propose_new_owner};
 use cosmwasm_std::{
-    attr, entry_point, to_binary, Binary, CosmosMsg, Decimal, Deps, DepsMut, Env, MessageInfo,
+    attr, entry_point, to_json_binary, Binary, CosmosMsg, Decimal, Deps, DepsMut, Env, MessageInfo,
     Order, Response, StdError, StdResult, Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
@@ -171,7 +171,7 @@ fn collect(
 
     let distribute_fee = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: env.contract.address.to_string(),
-        msg: to_binary(&ExecuteMsg::DistributeFees {})?,
+        msg: to_json_binary(&ExecuteMsg::DistributeFees {})?,
         funds: vec![],
     });
 
@@ -414,10 +414,10 @@ pub fn update_config(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
+        QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?),
         QueryMsg::Balances {
             assets,
-        } => to_binary(&query_get_balances(deps, env, assets)?),
+        } => to_json_binary(&query_get_balances(deps, env, assets)?),
     }
 }
 

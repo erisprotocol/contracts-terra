@@ -3,7 +3,7 @@ use astroport::asset::{
 };
 use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    coin, from_binary, to_binary, Addr, Coin, CosmosMsg, Decimal, StdError, StdResult, Uint128,
+    coin, from_binary, to_json_binary, Addr, Coin, CosmosMsg, Decimal, StdError, StdResult, Uint128,
     Uint256, WasmMsg,
 };
 use cw20::Cw20ExecuteMsg;
@@ -599,14 +599,14 @@ fn compound() -> Result<(), ContractError> {
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: env.contract.address.to_string(),
                 funds: vec![],
-                msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::OptimalSwap {
+                msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::OptimalSwap {
                     lp_token: "liquidity_token".to_string()
                 }))?,
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: env.contract.address.to_string(),
                 funds: vec![],
-                msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::ProvideLiquidity {
+                msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::ProvideLiquidity {
                     prev_balances: vec![token_amount(0), uluna_amount(0)],
                     receiver: "addr0000".to_string(),
                     slippage_tolerance: None,
@@ -653,7 +653,7 @@ fn compound() -> Result<(), ContractError> {
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: env.contract.address.to_string(),
             funds: vec![],
-            msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::ProvideLiquidity {
+            msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::ProvideLiquidity {
                 prev_balances: vec![
                     token_asset(Addr::unchecked("token"), Uint128::from(9u128)),
                     native_asset("uluna".to_string(), Uint128::from(8u128)),
@@ -720,7 +720,7 @@ fn compound_native_proxy() -> Result<(), ContractError> {
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: env.contract.address.to_string(),
                 funds: vec![],
-                msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::ProvideLiquidity {
+                msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::ProvideLiquidity {
                     prev_balances: vec![token_amount(9), uluna_amount(8)],
                     receiver: "addr0000".to_string(),
                     slippage_tolerance: Some(Decimal::percent(2)),
@@ -971,10 +971,10 @@ fn optimal_swap() -> Result<(), ContractError> {
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "token".to_string(),
             funds: vec![],
-            msg: to_binary(&Cw20ExecuteMsg::Send {
+            msg: to_json_binary(&Cw20ExecuteMsg::Send {
                 contract: "pair_contract".to_string(),
                 amount: Uint128::new(500626),
-                msg: to_binary(&CustomCw20HookMsg::Swap {
+                msg: to_json_binary(&CustomCw20HookMsg::Swap {
                     belief_price: None,
                     max_spread: Some(Decimal::percent(10)),
                     to: None,
@@ -1018,7 +1018,7 @@ fn provide_liquidity() -> Result<(), ContractError> {
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "pair_contract_2".to_string(),
             funds: vec![coin(2000000, "ibc/token"), coin(1000000, "uluna"),],
-            msg: to_binary(&CustomExecuteMsg::ProvideLiquidity {
+            msg: to_json_binary(&CustomExecuteMsg::ProvideLiquidity {
                 assets: vec![uluna_amount(1000000u128), ibc_amount(2000000u128)],
                 slippage_tolerance: Some(Decimal::percent(1)),
                 receiver: Some("sender".to_string()),
@@ -1040,7 +1040,7 @@ fn provide_liquidity() -> Result<(), ContractError> {
         vec![CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: "pair_contract_2".to_string(),
             funds: vec![coin(1000000, "uluna"),],
-            msg: to_binary(&CustomExecuteMsg::ProvideLiquidity {
+            msg: to_json_binary(&CustomExecuteMsg::ProvideLiquidity {
                 assets: vec![uluna_amount(1000000u128), ibc_amount(0u128)],
                 slippage_tolerance: Some(Decimal::percent(1)),
                 receiver: Some("sender".to_string()),

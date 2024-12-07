@@ -1,7 +1,7 @@
 use anyhow::Result;
 use astroport::{staking as xastro, token as astro};
 use cosmwasm_std::testing::{mock_env, MockApi, MockStorage};
-use cosmwasm_std::{attr, to_binary, Addr, QueryRequest, StdResult, Timestamp, Uint128, WasmQuery};
+use cosmwasm_std::{attr, to_json_binary, Addr, QueryRequest, StdResult, Timestamp, Uint128, WasmQuery};
 use cw20::{BalanceResponse, Cw20ExecuteMsg, Cw20QueryMsg, Logo, MinterResponse};
 use cw_multi_test::{App, AppBuilder, AppResponse, BankKeeper, ContractWrapper, Executor};
 use eris::governance_helper::EPOCH_START;
@@ -86,7 +86,7 @@ impl Helper {
             .wrap()
             .query::<xastro::ConfigResponse>(&QueryRequest::Wasm(WasmQuery::Smart {
                 contract_addr: staking_instance.to_string(),
-                msg: to_binary(&xastro::QueryMsg::Config {}).unwrap(),
+                msg: to_json_binary(&xastro::QueryMsg::Config {}).unwrap(),
             }))
             .unwrap();
 
@@ -148,7 +148,7 @@ impl Helper {
         let to_addr = Addr::unchecked(to);
         let msg = Cw20ExecuteMsg::Send {
             contract: self.staking_instance.to_string(),
-            msg: to_binary(&xastro::Cw20HookMsg::Enter {}).unwrap(),
+            msg: to_json_binary(&xastro::Cw20HookMsg::Enter {}).unwrap(),
             amount: Uint128::from(amount),
         };
         router.execute_contract(to_addr, self.astro_token.clone(), &msg, &[]).unwrap();
@@ -193,7 +193,7 @@ impl Helper {
         let cw20msg = Cw20ExecuteMsg::Send {
             contract: self.voting_instance.to_string(),
             amount: Uint128::from(amount),
-            msg: to_binary(&Cw20HookMsg::CreateLock {
+            msg: to_json_binary(&Cw20HookMsg::CreateLock {
                 time,
             })
             .unwrap(),
@@ -211,7 +211,7 @@ impl Helper {
         let cw20msg = Cw20ExecuteMsg::Send {
             contract: self.voting_instance.to_string(),
             amount: Uint128::from(amount),
-            msg: to_binary(&Cw20HookMsg::CreateLock {
+            msg: to_json_binary(&Cw20HookMsg::CreateLock {
                 time,
             })
             .unwrap(),
@@ -239,7 +239,7 @@ impl Helper {
         let cw20msg = Cw20ExecuteMsg::Send {
             contract: self.voting_instance.to_string(),
             amount: Uint128::from(amount),
-            msg: to_binary(&Cw20HookMsg::ExtendLockAmount {
+            msg: to_json_binary(&Cw20HookMsg::ExtendLockAmount {
                 extend_to_min_periods: extend_to_min,
             })
             .unwrap(),
@@ -258,7 +258,7 @@ impl Helper {
         let cw20msg = Cw20ExecuteMsg::Send {
             contract: self.voting_instance.to_string(),
             amount: Uint128::from(amount),
-            msg: to_binary(&Cw20HookMsg::DepositFor {
+            msg: to_json_binary(&Cw20HookMsg::DepositFor {
                 user: to.to_string(),
             })
             .unwrap(),

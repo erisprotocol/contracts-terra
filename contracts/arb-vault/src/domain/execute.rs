@@ -7,7 +7,7 @@ use crate::state::{BalanceCheckpoint, BalanceLocked, State, UnbondHistory};
 use astroport::asset::{native_asset, native_asset_info, Asset, AssetInfo};
 
 use cosmwasm_std::{
-    attr, from_binary, to_binary, Addr, Coin, CosmosMsg, Decimal, DepsMut, Env, MessageInfo, Order,
+    attr, from_binary, to_json_binary, Addr, Coin, CosmosMsg, Decimal, DepsMut, Env, MessageInfo, Order,
     QuerierWrapper, Response, StdResult, Storage, Uint128, WasmMsg,
 };
 
@@ -426,7 +426,7 @@ fn create_withdraw_msgs(
 fn create_burn_msg(config: &ValidatedConfig, amount: Uint128) -> Result<CosmosMsg, ContractError> {
     Ok(CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.lp_addr.to_string(),
-        msg: to_binary(&Cw20ExecuteMsg::Burn {
+        msg: to_json_binary(&Cw20ExecuteMsg::Burn {
             amount,
         })?,
         funds: vec![],
@@ -442,7 +442,7 @@ fn mint_liquidity_token_message(
 ) -> Result<CosmosMsg, ContractError> {
     Ok(CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.lp_addr.to_string(),
-        msg: to_binary(&Cw20ExecuteMsg::Mint {
+        msg: to_json_binary(&Cw20ExecuteMsg::Mint {
             recipient: recipient.to_string(),
             amount,
         })?,

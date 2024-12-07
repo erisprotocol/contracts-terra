@@ -13,7 +13,7 @@ use astroport::asset::{native_asset, token_asset_info};
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::testing::{mock_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    attr, coin, from_binary, to_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, Deps, OwnedDeps,
+    attr, coin, from_binary, to_json_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, Deps, OwnedDeps,
     Response, Uint128, WasmMsg,
 };
 use eris::arb_vault::{
@@ -387,7 +387,7 @@ fn throws_if_provided_profit_not_found() {
     let exec_msg = ExecuteMsg::ExecuteArbitrage {
         msg: ExecuteSubMsg {
             contract_addr: None,
-            msg: to_binary(&Empty {}).unwrap(),
+            msg: to_json_binary(&Empty {}).unwrap(),
             funds_amount: Uint128::new(100_000000u128),
         },
         result_token: token_asset_info(Addr::unchecked("eriscw")),
@@ -409,7 +409,7 @@ fn throws_if_not_whitelisted_executor() {
     let execute_msg = ExecuteMsg::ExecuteArbitrage {
         msg: ExecuteSubMsg {
             contract_addr: None,
-            msg: to_binary(&Empty {}).unwrap(),
+            msg: to_json_binary(&Empty {}).unwrap(),
             funds_amount: Uint128::new(100_000000u128),
         },
         result_token: token_asset_info(Addr::unchecked("eriscw")),
@@ -460,7 +460,7 @@ fn throws_if_not_whitelisted_executor() {
 //     let execute_msg = ExecuteMsg::ExecuteArbitrage {
 //         msg: ExecuteSubMsg {
 //             contract_addr: None,
-//             msg: to_binary(&Empty {}).unwrap(),
+//             msg: to_json_binary(&Empty {}).unwrap(),
 //             funds_amount: Uint128::new(100_000000u128),
 //         },
 //         result_token: token_asset_info(Addr::unchecked("eriscw")),
@@ -599,7 +599,7 @@ fn _unbonding_slow_120() -> (OwnedDeps<MockStorage, MockApi, CustomQuerier>, Res
     let withdraw = ExecuteMsg::Receive(Cw20ReceiveMsg {
         amount: Uint128::new(120_000000u128),
         sender: "user001".to_string(),
-        msg: to_binary(&Cw20HookMsg::Unbond {
+        msg: to_json_binary(&Cw20HookMsg::Unbond {
             immediate: Some(false),
         })
         .unwrap(),
@@ -747,7 +747,7 @@ fn _unbonding_slow_with_pool_unbonding(
     let unbond = ExecuteMsg::Receive(Cw20ReceiveMsg {
         amount: Uint128::new(120_000000u128),
         sender: "user001".to_string(),
-        msg: to_binary(&Cw20HookMsg::Unbond {
+        msg: to_json_binary(&Cw20HookMsg::Unbond {
             immediate: Some(false),
         })
         .unwrap(),
@@ -837,7 +837,7 @@ fn withdraw_liquidity_immediate_user_unbonding_no_liquidity_throws() {
     let withdraw = ExecuteMsg::Receive(Cw20ReceiveMsg {
         amount: Uint128::new(100_000000u128),
         sender: "user001".to_string(),
-        msg: to_binary(&Cw20HookMsg::Unbond {
+        msg: to_json_binary(&Cw20HookMsg::Unbond {
             immediate: Some(true),
         })
         .unwrap(),
@@ -863,7 +863,7 @@ fn withdraw_liquidity_immediate_tokens_unbonding_no_liquidity_throws() {
     let withdraw = ExecuteMsg::Receive(Cw20ReceiveMsg {
         amount: Uint128::new(120_000000u128),
         sender: "user001".to_string(),
-        msg: to_binary(&Cw20HookMsg::Unbond {
+        msg: to_json_binary(&Cw20HookMsg::Unbond {
             immediate: Some(true),
         })
         .unwrap(),
@@ -893,7 +893,7 @@ fn withdraw_liquidity_immediate_success() {
     let withdraw = ExecuteMsg::Receive(Cw20ReceiveMsg {
         amount: Uint128::new(100_000000u128),
         sender: "user001".to_string(),
-        msg: to_binary(&Cw20HookMsg::Unbond {
+        msg: to_json_binary(&Cw20HookMsg::Unbond {
             immediate: Some(true),
         })
         .unwrap(),
@@ -1003,7 +1003,7 @@ fn withdraw_liquidity_unbonding_query_requests_success() {
     let unbonding_again = ExecuteMsg::Receive(Cw20ReceiveMsg {
         amount: Uint128::new(10_000000u128),
         sender: "user001".to_string(),
-        msg: to_binary(&Cw20HookMsg::Unbond {
+        msg: to_json_binary(&Cw20HookMsg::Unbond {
             immediate: Some(false),
         })
         .unwrap(),
@@ -1280,7 +1280,7 @@ fn withdraw_liquidity_unbonded_all_success() {
     let unbonding_again = ExecuteMsg::Receive(Cw20ReceiveMsg {
         amount: Uint128::new(10_000000u128),
         sender: "user001".to_string(),
-        msg: to_binary(&Cw20HookMsg::Unbond {
+        msg: to_json_binary(&Cw20HookMsg::Unbond {
             immediate: Some(false),
         })
         .unwrap(),
@@ -1445,7 +1445,7 @@ fn withdraw_liquidity_unbonded_half_success() {
     let unbonding_again = ExecuteMsg::Receive(Cw20ReceiveMsg {
         amount: Uint128::new(10_000000u128),
         sender: "user001".to_string(),
-        msg: to_binary(&Cw20HookMsg::Unbond {
+        msg: to_json_binary(&Cw20HookMsg::Unbond {
             immediate: Some(false),
         })
         .unwrap(),
@@ -1790,7 +1790,7 @@ fn execute_arb_throws() {
         msg: ExecuteSubMsg {
             contract_addr: None,
             funds_amount: Uint128::new(1000_000000u128),
-            msg: to_binary("exec_any_swap").unwrap(),
+            msg: to_json_binary("exec_any_swap").unwrap(),
         },
         result_token: token_asset_info(Addr::unchecked("eriscw")),
         wanted_profit: Decimal::from_str("0.025").unwrap(),
@@ -1803,7 +1803,7 @@ fn execute_arb_throws() {
         msg: ExecuteSubMsg {
             contract_addr: None,
             funds_amount: Uint128::new(10_000000u128),
-            msg: to_binary("exec_any_swap").unwrap(),
+            msg: to_json_binary("exec_any_swap").unwrap(),
         },
         result_token: token_asset_info(Addr::unchecked("xxx")),
         wanted_profit: Decimal::from_str("0.025").unwrap(),
@@ -1816,7 +1816,7 @@ fn execute_arb_throws() {
         msg: ExecuteSubMsg {
             contract_addr: None,
             funds_amount: Uint128::zero(),
-            msg: to_binary("exec_any_swap").unwrap(),
+            msg: to_json_binary("exec_any_swap").unwrap(),
         },
         result_token: token_asset_info(Addr::unchecked("eriscw")),
         wanted_profit: Decimal::from_str("0.025").unwrap(),
@@ -1847,7 +1847,7 @@ fn execute_arb_throws() {
         msg: ExecuteSubMsg {
             contract_addr: Some("eris".to_string()),
             funds_amount: takeable,
-            msg: to_binary("exec_any_swap").unwrap(),
+            msg: to_json_binary("exec_any_swap").unwrap(),
         },
         result_token: token_asset_info(Addr::unchecked("eriscw")),
         wanted_profit,
@@ -1859,7 +1859,7 @@ fn execute_arb_throws() {
         msg: ExecuteSubMsg {
             contract_addr: Some("eriscw".to_string()),
             funds_amount: takeable,
-            msg: to_binary("exec_any_swap").unwrap(),
+            msg: to_json_binary("exec_any_swap").unwrap(),
         },
         result_token: token_asset_info(Addr::unchecked("eriscw")),
         wanted_profit,
@@ -1904,7 +1904,7 @@ fn execute_arb() {
         msg: ExecuteSubMsg {
             contract_addr: None,
             funds_amount: takeable,
-            msg: to_binary("exec_any_swap").unwrap(),
+            msg: to_json_binary("exec_any_swap").unwrap(),
         },
         result_token: token_asset_info(Addr::unchecked("eriscw")),
         wanted_profit,
@@ -1980,7 +1980,7 @@ fn execute_arb() {
         ExecuteMsg::ExecuteArbitrage {
             msg: ExecuteSubMsg {
                 contract_addr: None,
-                msg: to_binary(&Empty {}).unwrap(),
+                msg: to_json_binary(&Empty {}).unwrap(),
                 funds_amount: Uint128::new(100u128),
             },
             result_token: token_asset_info(Addr::unchecked("stadercw")),

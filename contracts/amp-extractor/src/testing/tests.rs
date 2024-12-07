@@ -6,7 +6,7 @@ use crate::math::{compute_mint_amount, compute_withdraw_amount};
 use crate::state::State;
 use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, to_binary, Addr, CosmosMsg, Decimal, Event, OwnedDeps, Reply, ReplyOn, StdError,
+    from_binary, to_json_binary, Addr, CosmosMsg, Decimal, Event, OwnedDeps, Reply, ReplyOn, StdError,
     SubMsg, SubMsgResponse, Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, MinterResponse};
@@ -54,7 +54,7 @@ fn setup_test() -> OwnedDeps<MockStorage, MockApi, CustomQuerier> {
             CosmosMsg::Wasm(WasmMsg::Instantiate {
                 admin: Some("owner".to_string()),
                 code_id: 69420,
-                msg: to_binary(&Cw20InstantiateMsg {
+                msg: to_json_binary(&Cw20InstantiateMsg {
                     name: "ErisLP".to_string(),
                     symbol: "LP".to_string(),
                     decimals: 6,
@@ -159,7 +159,7 @@ fn deposit() {
         ExecuteMsg::Receive(cw20::Cw20ReceiveMsg {
             sender: "hacker".to_string(),
             amount: Uint128::new(69420),
-            msg: to_binary(&ReceiveMsg::Deposit {}).unwrap(),
+            msg: to_json_binary(&ReceiveMsg::Deposit {}).unwrap(),
         }),
     )
     .unwrap_err();
@@ -175,7 +175,7 @@ fn deposit() {
         ExecuteMsg::Receive(cw20::Cw20ReceiveMsg {
             sender: "user_1".to_string(),
             amount: Uint128::new(100),
-            msg: to_binary(&ReceiveMsg::Deposit {}).unwrap(),
+            msg: to_json_binary(&ReceiveMsg::Deposit {}).unwrap(),
         }),
     )
     .unwrap();
@@ -187,7 +187,7 @@ fn deposit() {
             id: 0,
             msg: CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "lp_token".to_string(),
-                msg: to_binary(&Cw20ExecuteMsg::Mint {
+                msg: to_json_binary(&Cw20ExecuteMsg::Mint {
                     recipient: "user_1".to_string(),
                     amount: Uint128::new(100)
                 })
@@ -214,7 +214,7 @@ fn deposit_withdraw_same() {
         ExecuteMsg::Receive(cw20::Cw20ReceiveMsg {
             sender: "user_1".to_string(),
             amount: Uint128::new(100),
-            msg: to_binary(&ReceiveMsg::Deposit {}).unwrap(),
+            msg: to_json_binary(&ReceiveMsg::Deposit {}).unwrap(),
         }),
     )
     .unwrap();
@@ -226,7 +226,7 @@ fn deposit_withdraw_same() {
             id: 0,
             msg: CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "lp_token".to_string(),
-                msg: to_binary(&Cw20ExecuteMsg::Mint {
+                msg: to_json_binary(&Cw20ExecuteMsg::Mint {
                     recipient: "user_1".to_string(),
                     amount: Uint128::new(100)
                 })
@@ -248,7 +248,7 @@ fn deposit_withdraw_same() {
         ExecuteMsg::Receive(cw20::Cw20ReceiveMsg {
             sender: "user_2".to_string(),
             amount: Uint128::new(50),
-            msg: to_binary(&ReceiveMsg::Deposit {}).unwrap(),
+            msg: to_json_binary(&ReceiveMsg::Deposit {}).unwrap(),
         }),
     )
     .unwrap();
@@ -286,7 +286,7 @@ fn deposit_withdraw_same() {
         ExecuteMsg::Receive(cw20::Cw20ReceiveMsg {
             sender: "hacker".to_string(),
             amount: Uint128::new(69420),
-            msg: to_binary(&ReceiveMsg::Withdraw {}).unwrap(),
+            msg: to_json_binary(&ReceiveMsg::Withdraw {}).unwrap(),
         }),
     )
     .unwrap_err();
@@ -304,7 +304,7 @@ fn deposit_withdraw_same() {
         ExecuteMsg::Receive(cw20::Cw20ReceiveMsg {
             sender: "user_1".to_string(),
             amount: Uint128::new(50),
-            msg: to_binary(&ReceiveMsg::Withdraw {}).unwrap(),
+            msg: to_json_binary(&ReceiveMsg::Withdraw {}).unwrap(),
         }),
     )
     .unwrap();
@@ -316,7 +316,7 @@ fn deposit_withdraw_same() {
             id: 0,
             msg: CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "lp_token".to_string(),
-                msg: to_binary(&Cw20ExecuteMsg::Burn {
+                msg: to_json_binary(&Cw20ExecuteMsg::Burn {
                     amount: Uint128::new(50)
                 })
                 .unwrap(),
@@ -365,7 +365,7 @@ fn deposit_extract_withdraw() {
         ExecuteMsg::Receive(cw20::Cw20ReceiveMsg {
             sender: "user_1".to_string(),
             amount: Uint128::new(100_000000),
-            msg: to_binary(&ReceiveMsg::Deposit {}).unwrap(),
+            msg: to_json_binary(&ReceiveMsg::Deposit {}).unwrap(),
         }),
     )
     .unwrap();
@@ -377,7 +377,7 @@ fn deposit_extract_withdraw() {
             id: 0,
             msg: CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "lp_token".to_string(),
-                msg: to_binary(&Cw20ExecuteMsg::Mint {
+                msg: to_json_binary(&Cw20ExecuteMsg::Mint {
                     recipient: "user_1".to_string(),
                     amount: Uint128::new(100_000000)
                 })
@@ -400,7 +400,7 @@ fn deposit_extract_withdraw() {
         ExecuteMsg::Receive(cw20::Cw20ReceiveMsg {
             sender: "user_2".to_string(),
             amount: Uint128::new(50_000000),
-            msg: to_binary(&ReceiveMsg::Deposit {}).unwrap(),
+            msg: to_json_binary(&ReceiveMsg::Deposit {}).unwrap(),
         }),
     )
     .unwrap();
@@ -463,7 +463,7 @@ fn deposit_extract_withdraw() {
         ExecuteMsg::Receive(cw20::Cw20ReceiveMsg {
             sender: "user_1".to_string(),
             amount: Uint128::new(50_000000),
-            msg: to_binary(&ReceiveMsg::Withdraw {}).unwrap(),
+            msg: to_json_binary(&ReceiveMsg::Withdraw {}).unwrap(),
         }),
     )
     .unwrap();
@@ -475,7 +475,7 @@ fn deposit_extract_withdraw() {
             id: 0,
             msg: CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "lp_token".to_string(),
-                msg: to_binary(&Cw20ExecuteMsg::Burn {
+                msg: to_json_binary(&Cw20ExecuteMsg::Burn {
                     amount: Uint128::new(50_000000)
                 })
                 .unwrap(),
@@ -583,7 +583,7 @@ fn deposit_extract_withdraw() {
             id: 0,
             msg: CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "stake".to_string(),
-                msg: to_binary(&Cw20ExecuteMsg::Transfer {
+                msg: to_json_binary(&Cw20ExecuteMsg::Transfer {
                     amount: total_extracted,
                     recipient: "yield".to_string()
                 })
@@ -703,7 +703,7 @@ fn test_query_state() {
         ExecuteMsg::Receive(cw20::Cw20ReceiveMsg {
             sender: "user_1".to_string(),
             amount: Uint128::new(100_000000),
-            msg: to_binary(&ReceiveMsg::Deposit {}).unwrap(),
+            msg: to_json_binary(&ReceiveMsg::Deposit {}).unwrap(),
         }),
     )
     .unwrap();
@@ -819,7 +819,7 @@ fn deposit_test_real() {
         ExecuteMsg::Receive(cw20::Cw20ReceiveMsg {
             sender: "user_1".to_string(),
             amount: Uint128::new(100_000000),
-            msg: to_binary(&ReceiveMsg::Deposit {}).unwrap(),
+            msg: to_json_binary(&ReceiveMsg::Deposit {}).unwrap(),
         }),
     )
     .unwrap();
@@ -898,7 +898,7 @@ fn deposit_test_real() {
         ExecuteMsg::Receive(cw20::Cw20ReceiveMsg {
             sender: "user_2".to_string(),
             amount: Uint128::new(100_000000),
-            msg: to_binary(&ReceiveMsg::Deposit {}).unwrap(),
+            msg: to_json_binary(&ReceiveMsg::Deposit {}).unwrap(),
         }),
     )
     .unwrap();

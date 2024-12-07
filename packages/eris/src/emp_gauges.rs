@@ -1,6 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{
-    to_binary, Addr, CosmosMsg, QuerierWrapper, StdError, StdResult, Uint128, WasmMsg,
+    to_json_binary, Addr, CosmosMsg, QuerierWrapper, StdError, StdResult, Uint128, WasmMsg,
 };
 
 /// The maximum amount of voters that can be kicked at once from
@@ -145,7 +145,7 @@ pub struct GaugeInfoResponse {
 pub fn get_tune_msg(contract_addr: impl Into<String>) -> StdResult<CosmosMsg> {
     Ok(CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: contract_addr.into(),
-        msg: to_binary(&ExecuteMsg::TuneEmps {})?,
+        msg: to_json_binary(&ExecuteMsg::TuneEmps {})?,
         funds: vec![],
     }))
 }

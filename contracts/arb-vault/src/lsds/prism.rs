@@ -2,7 +2,7 @@ use astroport::asset::{token_asset_info, AssetInfo};
 use cw20::Cw20ExecuteMsg;
 
 use cosmwasm_std::{
-    to_binary, Addr, CosmosMsg, Decimal, Deps, QueryRequest, Uint128, WasmMsg, WasmQuery,
+    to_json_binary, Addr, CosmosMsg, Decimal, Deps, QueryRequest, Uint128, WasmMsg, WasmQuery,
 };
 use prism::hub::{
     AllHistoryResponse, Cw20HookMsg, ExecuteMsg, QueryMsg, StateResponse, UnbondRequestsResponse,
@@ -27,7 +27,7 @@ impl Prism {
         deps.querier
             .query(&QueryRequest::Wasm(WasmQuery::Smart {
                 contract_addr: self.addr.to_string(),
-                msg: to_binary(&QueryMsg::AllHistory {
+                msg: to_json_binary(&QueryMsg::AllHistory {
                     limit: Some(1u32),
                     start_from: id.checked_sub(1).or(None),
                 })
@@ -40,7 +40,7 @@ impl Prism {
         deps.querier
             .query(&QueryRequest::Wasm(WasmQuery::Smart {
                 contract_addr: self.addr.to_string(),
-                msg: to_binary(&QueryMsg::UnbondRequests {
+                msg: to_json_binary(&QueryMsg::UnbondRequests {
                     address: self.wallet.to_string(),
                 })
                 .unwrap(),
@@ -55,7 +55,7 @@ impl Prism {
         deps.querier
             .query(&QueryRequest::Wasm(WasmQuery::Smart {
                 contract_addr: self.addr.to_string(),
-                msg: to_binary(&QueryMsg::WithdrawableUnbonded {
+                msg: to_json_binary(&QueryMsg::WithdrawableUnbonded {
                     address: self.wallet.to_string(),
                 })
                 .unwrap(),
@@ -68,7 +68,7 @@ impl Prism {
             .querier
             .query(&QueryRequest::Wasm(WasmQuery::Smart {
                 contract_addr: self.addr.to_string(),
-                msg: to_binary(&QueryMsg::State {}).unwrap(),
+                msg: to_json_binary(&QueryMsg::State {}).unwrap(),
             }))
             .map_err(|a| adapter_error("prism", "query_state", a))?;
         Ok(result)
@@ -78,10 +78,10 @@ impl Prism {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: self.cw20.to_string(),
             funds: vec![],
-            msg: to_binary(&Cw20ExecuteMsg::Send {
+            msg: to_json_binary(&Cw20ExecuteMsg::Send {
                 contract: self.addr.to_string(),
                 amount,
-                msg: to_binary(&Cw20HookMsg::Unbond {})?,
+                msg: to_json_binary(&Cw20HookMsg::Unbond {})?,
             })?,
         }))
     }
@@ -90,7 +90,7 @@ impl Prism {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: self.addr.to_string(),
             funds: vec![],
-            msg: to_binary(&ExecuteMsg::WithdrawUnbonded {})?,
+            msg: to_json_binary(&ExecuteMsg::WithdrawUnbonded {})?,
         }))
     }
 

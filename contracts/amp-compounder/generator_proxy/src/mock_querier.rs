@@ -1,6 +1,6 @@
 use cosmwasm_std::testing::{MockApi, MockStorage};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Addr, BalanceResponse, BankQuery, Binary, Coin,
+    from_binary, from_slice, to_json_binary, Addr, BalanceResponse, BankQuery, Binary, Coin,
     ContractResult, Empty, OwnedDeps, Querier, QuerierResult, QueryRequest, StdResult, SystemError,
     SystemResult, Uint128, WasmQuery,
 };
@@ -62,35 +62,35 @@ impl WasmMockQuerier {
         user_info: &UserInfoV2,
     ) -> StdResult<()> {
         let key = Binary::from(USER_INFO.key((lp_token, user)).deref());
-        self.raw.insert((GENERATOR.to_string(), key), to_binary(user_info)?);
+        self.raw.insert((GENERATOR.to_string(), key), to_json_binary(user_info)?);
 
         Ok(())
     }
 
     pub fn set_reward_proxy(&mut self, proxy_addr: &Addr, token: &Addr) -> StdResult<()> {
         let key = Binary::from(PROXY_REWARD_ASSET.key(proxy_addr).deref());
-        self.raw.insert((GENERATOR.to_string(), key), to_binary(&token_asset_info(token.clone()))?);
+        self.raw.insert((GENERATOR.to_string(), key), to_json_binary(&token_asset_info(token.clone()))?);
 
         Ok(())
     }
 
     pub fn set_lock(&mut self, user: Addr, lock: &Lock) -> StdResult<()> {
         let key = Binary::from(LOCK.key(user).deref());
-        self.raw.insert((VOTING_ESCROW.to_string(), key), to_binary(lock)?);
+        self.raw.insert((VOTING_ESCROW.to_string(), key), to_json_binary(lock)?);
 
         Ok(())
     }
 
     pub fn set_last_claim_period(&mut self, user: Addr, period: u64) -> StdResult<()> {
         let key = Binary::from(LAST_CLAIM_PERIOD.key(user).deref());
-        self.raw.insert((FEE_DISTRIBUTOR.to_string(), key), to_binary(&period)?);
+        self.raw.insert((FEE_DISTRIBUTOR.to_string(), key), to_json_binary(&period)?);
 
         Ok(())
     }
 
     pub fn set_rewards_per_week(&mut self, period: u64, amount: Uint128) -> StdResult<()> {
         let key = Binary::from(REWARDS_PER_WEEK.key(period).deref());
-        self.raw.insert((FEE_DISTRIBUTOR.to_string(), key), to_binary(&amount)?);
+        self.raw.insert((FEE_DISTRIBUTOR.to_string(), key), to_json_binary(&amount)?);
 
         Ok(())
     }
@@ -106,7 +106,7 @@ impl WasmMockQuerier {
                 denom,
             }) => {
                 let amount = self.get_balance(denom.clone(), address.clone());
-                to_binary(&BalanceResponse {
+                to_json_binary(&BalanceResponse {
                     amount: Coin {
                         denom: denom.clone(),
                         amount,
@@ -139,7 +139,7 @@ impl WasmMockQuerier {
                 address,
             } => {
                 let balance = self.get_balance(contract_addr.to_string(), address);
-                to_binary(&cw20::BalanceResponse {
+                to_json_binary(&cw20::BalanceResponse {
                     balance,
                 })
             },
@@ -148,14 +148,14 @@ impl WasmMockQuerier {
                 ..
             } => {
                 let balance = self.get_balance(contract_addr.to_string(), lp_token);
-                to_binary(&balance)
+                to_json_binary(&balance)
             },
             MockQueryMsg::PendingToken {
                 ..
             } => {
                 let pending = self.get_balance(contract_addr.to_string(), ASTRO_TOKEN.to_string());
                 let reward = self.get_balance(contract_addr.to_string(), REWARD_TOKEN.to_string());
-                to_binary(&PendingTokenResponse {
+                to_json_binary(&PendingTokenResponse {
                     pending,
                     pending_on_proxy: Some(vec![token_asset(
                         Addr::unchecked(REWARD_TOKEN),
@@ -173,7 +173,7 @@ impl WasmMockQuerier {
                 } else {
                     Lock::default()
                 };
-                to_binary(&LockInfoResponse {
+                to_json_binary(&LockInfoResponse {
                     amount: lock.amount,
                     coefficient: Default::default(),
                     start: lock.start,
@@ -186,7 +186,7 @@ impl WasmMockQuerier {
                 ..
             } => {
                 let voting_power = self.get_balance(contract_addr.to_string(), user);
-                to_binary(&VotingPowerResponse {
+                to_json_binary(&VotingPowerResponse {
                     voting_power,
                 })
             },
@@ -195,7 +195,7 @@ impl WasmMockQuerier {
             } => {
                 let voting_power =
                     self.get_balance(contract_addr.to_string(), contract_addr.to_string());
-                to_binary(&VotingPowerResponse {
+                to_json_binary(&VotingPowerResponse {
                     voting_power,
                 })
             },

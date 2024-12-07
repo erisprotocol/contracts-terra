@@ -13,7 +13,7 @@ use crate::query::{
     query_user_info,
 };
 use cosmwasm_std::{
-    entry_point, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response,
+    entry_point, to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response,
 };
 use cw2::{get_contract_version, set_contract_version};
 
@@ -111,27 +111,27 @@ pub fn execute(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> CustomResult<Binary> {
     let res = match msg {
-        QueryMsg::Config {} => to_binary(&query_config(deps)?)?,
+        QueryMsg::Config {} => to_json_binary(&query_config(deps)?)?,
         QueryMsg::State {
             details,
-        } => to_binary(&query_state(deps, env, details)?)?,
+        } => to_json_binary(&query_state(deps, env, details)?)?,
         QueryMsg::UserInfo {
             address,
-        } => to_binary(&query_user_info(deps, env, address)?)?,
+        } => to_json_binary(&query_user_info(deps, env, address)?)?,
         QueryMsg::Takeable {
             wanted_profit,
-        } => to_binary(&query_takeable(deps, env, wanted_profit)?)?,
+        } => to_json_binary(&query_takeable(deps, env, wanted_profit)?)?,
 
         QueryMsg::UnbondRequests {
             address,
             limit,
             start_after,
-        } => to_binary(&query_unbond_requests(deps, env, address, start_after, limit)?)?,
+        } => to_json_binary(&query_unbond_requests(deps, env, address, start_after, limit)?)?,
 
         QueryMsg::ExchangeRates {
             start_after_d,
             limit,
-        } => to_binary(&query_exchange_rates(deps, env, start_after_d, limit)?)?,
+        } => to_json_binary(&query_exchange_rates(deps, env, start_after_d, limit)?)?,
     };
     Ok(res)
 }

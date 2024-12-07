@@ -1,6 +1,6 @@
 use astroport::asset::Asset;
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{to_binary, Addr, Coin, CosmosMsg, StdResult, WasmMsg};
+use cosmwasm_std::{to_json_binary, Addr, Coin, CosmosMsg, StdResult, WasmMsg};
 
 use crate::astroport_farm::ExecuteMsg;
 
@@ -17,7 +17,7 @@ impl Farm {
         funds.sort_by(|a, b| a.denom.cmp(&b.denom));
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: self.0.to_string(),
-            msg: to_binary(&ExecuteMsg::BondAssets {
+            msg: to_json_binary(&ExecuteMsg::BondAssets {
                 assets,
                 minimum_receive: None,
                 no_swap: None,

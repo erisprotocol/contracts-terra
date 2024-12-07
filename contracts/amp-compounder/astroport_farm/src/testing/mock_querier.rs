@@ -1,6 +1,6 @@
 use cosmwasm_std::testing::{MockApi, MockStorage};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Addr, BalanceResponse, BankQuery, Binary, Coin,
+    from_binary, from_slice, to_json_binary, Addr, BalanceResponse, BankQuery, Binary, Coin,
     ContractResult, Empty, OwnedDeps, Querier, QuerierResult, QueryRequest, StdResult, SystemError,
     SystemResult, Uint128, WasmQuery,
 };
@@ -94,7 +94,7 @@ impl WasmMockQuerier {
                 denom,
             }) => {
                 let amount = self.get_balance(denom.clone(), address.clone());
-                to_binary(&BalanceResponse {
+                to_json_binary(&BalanceResponse {
                     amount: Coin {
                         denom: denom.clone(),
                         amount,
@@ -134,7 +134,7 @@ impl WasmMockQuerier {
             //     address,
             // } => {
             //     let balance = self.get_balance(contract_addr.clone(), address);
-            //     to_binary(&cw20::BalanceResponse {
+            //     to_json_binary(&cw20::BalanceResponse {
             //         balance,
             //     })
             // },
@@ -143,14 +143,14 @@ impl WasmMockQuerier {
                 ..
             } => {
                 let balance = self.get_balance(contract_addr.to_string(), lp_token);
-                to_binary(&balance)
+                to_json_binary(&balance)
             },
             MockQueryMsg::PendingToken {
                 ..
             } => {
                 let pending = self.get_balance(contract_addr.to_string(), ASTRO_TOKEN.to_string());
                 let reward = self.get_balance(contract_addr.to_string(), REWARD_TOKEN.to_string());
-                to_binary(&PendingTokenResponse {
+                to_json_binary(&PendingTokenResponse {
                     pending,
                     pending_on_proxy: Some(vec![token_asset(
                         Addr::unchecked(REWARD_TOKEN),
@@ -160,7 +160,7 @@ impl WasmMockQuerier {
             },
             MockQueryMsg::GetLpState {
                 lp_addr,
-            } => to_binary(&LpStateResponse {
+            } => to_json_binary(&LpStateResponse {
                 contract_addr: Addr::unchecked("pair"),
                 liquidity_token: Addr::unchecked(lp_addr),
                 assets: vec![

@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    attr, to_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, DepsMut, DistributionMsg, Env, Event,
+    attr, to_json_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal, DepsMut, DistributionMsg, Env, Event,
     Order, Response, StdResult, SubMsg, SubMsgResponse, Uint128, WasmMsg,
 };
 
@@ -90,7 +90,7 @@ pub fn instantiate(deps: DepsMut, env: Env, msg: InstantiateMsg) -> ContractResu
         CosmosMsg::Wasm(WasmMsg::Instantiate {
             admin: Some(msg.owner), // use the owner as admin for now; can be changed later by a `MsgUpdateAdmin`
             code_id: msg.cw20_code_id,
-            msg: to_binary(&Cw20InstantiateMsg {
+            msg: to_json_binary(&Cw20InstantiateMsg {
                 name: msg.name,
                 symbol: msg.symbol,
                 decimals: msg.decimals,
@@ -179,7 +179,7 @@ pub fn bond(
     } else {
         Some(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: stake_token.into(),
-            msg: to_binary(&Cw20ExecuteMsg::Mint {
+            msg: to_json_binary(&Cw20ExecuteMsg::Mint {
                 recipient: receiver.to_string(),
                 amount: ustake_to_mint,
             })?,
@@ -439,7 +439,7 @@ pub fn queue_unbond(
         start_time = "immediate".to_string();
         msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: env.contract.address.into(),
-            msg: to_binary(&ExecuteMsg::SubmitBatch {})?,
+            msg: to_json_binary(&ExecuteMsg::SubmitBatch {})?,
             funds: vec![],
         }));
     }
@@ -502,7 +502,7 @@ pub fn submit_batch(deps: DepsMut, env: Env) -> ContractResult {
 
     let burn_msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: stake_token.into(),
-        msg: to_binary(&Cw20ExecuteMsg::Burn {
+        msg: to_json_binary(&Cw20ExecuteMsg::Burn {
             amount: pending_batch.ustake_to_burn,
         })?,
         funds: vec![],

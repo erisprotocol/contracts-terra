@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    entry_point, from_binary, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response,
+    entry_point, from_binary, to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response,
     StdResult,
 };
 use cw2::set_contract_version;
@@ -159,43 +159,43 @@ pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> ContractResult {
 #[entry_point]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::Config {} => to_binary(&queries::config(deps)?),
-        QueryMsg::State {} => to_binary(&queries::state(deps, env)?),
-        QueryMsg::PendingBatch {} => to_binary(&queries::pending_batch(deps)?),
-        QueryMsg::PreviousBatch(id) => to_binary(&queries::previous_batch(deps, id)?),
+        QueryMsg::Config {} => to_json_binary(&queries::config(deps)?),
+        QueryMsg::State {} => to_json_binary(&queries::state(deps, env)?),
+        QueryMsg::PendingBatch {} => to_json_binary(&queries::pending_batch(deps)?),
+        QueryMsg::PreviousBatch(id) => to_json_binary(&queries::previous_batch(deps, id)?),
         QueryMsg::PreviousBatches {
             start_after,
             limit,
-        } => to_binary(&queries::previous_batches(deps, start_after, limit)?),
+        } => to_json_binary(&queries::previous_batches(deps, start_after, limit)?),
         QueryMsg::UnbondRequestsByBatch {
             id,
             start_after,
             limit,
-        } => to_binary(&queries::unbond_requests_by_batch(deps, id, start_after, limit)?),
+        } => to_json_binary(&queries::unbond_requests_by_batch(deps, id, start_after, limit)?),
         QueryMsg::UnbondRequestsByUser {
             user,
             start_after,
             limit,
-        } => to_binary(&queries::unbond_requests_by_user(deps, user, start_after, limit)?),
+        } => to_json_binary(&queries::unbond_requests_by_user(deps, user, start_after, limit)?),
         QueryMsg::UnbondRequestsByUserDetails {
             user,
             start_after,
             limit,
-        } => to_binary(&queries::unbond_requests_by_user_details(
+        } => to_json_binary(&queries::unbond_requests_by_user_details(
             deps,
             user,
             start_after,
             limit,
             env,
         )?),
-        QueryMsg::WantedDelegations {} => to_binary(&queries::wanted_delegations(deps, env)?),
+        QueryMsg::WantedDelegations {} => to_json_binary(&queries::wanted_delegations(deps, env)?),
         QueryMsg::SimulateWantedDelegations {
             period,
-        } => to_binary(&queries::simulate_wanted_delegations(deps, env, period)?),
+        } => to_json_binary(&queries::simulate_wanted_delegations(deps, env, period)?),
         QueryMsg::ExchangeRates {
             start_after,
             limit,
-        } => to_binary(&queries::query_exchange_rates(deps, env, start_after, limit)?),
+        } => to_json_binary(&queries::query_exchange_rates(deps, env, start_after, limit)?),
     }
 }
 

@@ -1,6 +1,6 @@
 use astroport::asset::Asset;
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{to_binary, Addr, CosmosMsg, Decimal, StdResult, Uint128, WasmMsg};
+use cosmwasm_std::{to_json_binary, Addr, CosmosMsg, Decimal, StdResult, Uint128, WasmMsg};
 use cw20::Cw20ReceiveMsg;
 
 /// This structure describes the parameters for creating a contract.
@@ -119,7 +119,7 @@ impl CallbackMsg {
     pub fn into_cosmos_msg(&self, contract_addr: &Addr) -> StdResult<CosmosMsg> {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: String::from(contract_addr),
-            msg: to_binary(&ExecuteMsg::Callback(self.clone()))?,
+            msg: to_json_binary(&ExecuteMsg::Callback(self.clone()))?,
             funds: vec![],
         }))
     }

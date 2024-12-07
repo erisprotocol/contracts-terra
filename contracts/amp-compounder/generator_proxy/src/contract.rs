@@ -22,7 +22,7 @@ use crate::state::{CONFIG, OWNERSHIP_PROPOSAL, STAKING_STATE};
 use astroport::common::{claim_ownership, drop_ownership_proposal, propose_new_owner};
 use astroport_governance::utils::get_period;
 use cosmwasm_std::{
-    entry_point, from_binary, to_binary, Binary, Decimal, Deps, DepsMut, Empty, Env, MessageInfo,
+    entry_point, from_binary, to_json_binary, Binary, Decimal, Deps, DepsMut, Empty, Env, MessageInfo,
     Response, StdError, Uint128,
 };
 use cw2::set_contract_version;
@@ -210,26 +210,26 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> Result<Binary, ContractErro
         QueryMsg::PendingToken {
             lp_token,
             user,
-        } => to_binary(&query_pending_token(deps, env, lp_token, user)?),
+        } => to_json_binary(&query_pending_token(deps, env, lp_token, user)?),
         QueryMsg::Deposit {
             lp_token,
             user,
-        } => to_binary(&query_deposit(deps, env, lp_token, user)?),
-        QueryMsg::Config {} => to_binary(&query_config(deps, env)?),
+        } => to_json_binary(&query_deposit(deps, env, lp_token, user)?),
+        QueryMsg::Config {} => to_json_binary(&query_config(deps, env)?),
         QueryMsg::PoolInfo {
             lp_token,
-        } => to_binary(&query_pool_info(deps, env, lp_token)?),
+        } => to_json_binary(&query_pool_info(deps, env, lp_token)?),
         QueryMsg::UserInfo {
             lp_token,
             user,
-        } => to_binary(&query_user_info(deps, env, lp_token, user)?),
+        } => to_json_binary(&query_user_info(deps, env, lp_token, user)?),
         QueryMsg::RewardInfo {
             token,
-        } => to_binary(&query_reward_info(deps, env, token)?),
-        QueryMsg::StakingState {} => to_binary(&query_staking_state(deps, env)?),
+        } => to_json_binary(&query_reward_info(deps, env, token)?),
+        QueryMsg::StakingState {} => to_json_binary(&query_staking_state(deps, env)?),
         QueryMsg::StakerInfo {
             user,
-        } => to_binary(&query_staker_info(deps, env, user)?),
+        } => to_json_binary(&query_staker_info(deps, env, user)?),
     }?;
     Ok(result)
 }

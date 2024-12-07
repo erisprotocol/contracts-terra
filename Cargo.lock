@@ -1090,7 +1090,7 @@ dependencies = [
 
 [[package]]
 name = "eris-ampz"
-version = "1.8.0"
+version = "1.9.0"
 dependencies = [
  "anyhow",
  "astroport 2.0.0 (git+https://github.com/astroport-fi/astroport-core.git?rev=bc68bb65cc2f7d5916c1f0ea41de3b19b5b63b62)",

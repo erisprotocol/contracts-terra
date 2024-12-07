@@ -1,5 +1,5 @@
 use astroport::asset::{token_asset, token_asset_info};
-use cosmwasm_std::{attr, coin, to_binary, Decimal, StdResult, Uint128};
+use cosmwasm_std::{attr, coin, to_json_binary, Decimal, StdResult, Uint128};
 use eris::constants::DAY;
 use eris_tests::gov_helper::EscrowHelper;
 use eris_tests::{mock_app, EventChecker, TerraAppExtension};
@@ -499,7 +499,7 @@ fn return_msg(
 ) -> eris::arb_vault::ExecuteSubMsg {
     eris::arb_vault::ExecuteSubMsg {
         contract_addr: Some(helper.base.arb_fake_contract.get_address_string()),
-        msg: to_binary(&eris_tests::arb_contract::ExecuteMsg::ReturnAsset {
+        msg: to_json_binary(&eris_tests::arb_contract::ExecuteMsg::ReturnAsset {
             asset: token_asset(helper.get_ustake_addr(), return_amount),
             received: vec![coin(amount.u128(), "uluna")],
         })

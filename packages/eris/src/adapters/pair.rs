@@ -2,7 +2,7 @@ use astroport::asset::{Asset, AssetInfo, AssetInfoExt};
 use astroport::pair::{ConfigResponse, PoolResponse, QueryMsg, SimulationResponse};
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
-    to_binary, Addr, Coin, CosmosMsg, Decimal, QuerierWrapper, StdError, StdResult, WasmMsg,
+    to_json_binary, Addr, Coin, CosmosMsg, Decimal, QuerierWrapper, StdError, StdResult, WasmMsg,
 };
 use cw20::Cw20ExecuteMsg;
 use schemars::JsonSchema;
@@ -127,10 +127,10 @@ impl Pair {
                 contract_addr,
             } => WasmMsg::Execute {
                 contract_addr: contract_addr.to_string(),
-                msg: to_binary(&Cw20ExecuteMsg::Send {
+                msg: to_json_binary(&Cw20ExecuteMsg::Send {
                     contract: self.0.to_string(),
                     amount: asset.amount,
-                    msg: to_binary(&CustomCw20HookMsg::Swap {
+                    msg: to_json_binary(&CustomCw20HookMsg::Swap {
                         belief_price,
                         max_spread,
                         to,
@@ -143,7 +143,7 @@ impl Pair {
                 denom,
             } => WasmMsg::Execute {
                 contract_addr: self.0.to_string(),
-                msg: to_binary(&CustomExecuteMsg::Swap {
+                msg: to_json_binary(&CustomExecuteMsg::Swap {
                     offer_asset: asset.clone(),
                     belief_price,
                     max_spread,
@@ -169,7 +169,7 @@ impl Pair {
         funds.sort_by(|a, b| a.denom.cmp(&b.denom));
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: self.0.to_string(),
-            msg: to_binary(&CustomExecuteMsg::ProvideLiquidity {
+            msg: to_json_binary(&CustomExecuteMsg::ProvideLiquidity {
                 assets,
                 slippage_tolerance,
                 receiver,

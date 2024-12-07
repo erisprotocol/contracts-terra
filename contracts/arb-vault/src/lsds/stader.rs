@@ -1,7 +1,7 @@
 use astroport::asset::{token_asset_info, AssetInfo};
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
-    to_binary, Addr, CosmosMsg, Decimal, Deps, QueryRequest, Timestamp, Uint128, WasmMsg, WasmQuery,
+    to_json_binary, Addr, CosmosMsg, Decimal, Deps, QueryRequest, Timestamp, Uint128, WasmMsg, WasmQuery,
 };
 use cw20::Cw20ExecuteMsg;
 use stader::{
@@ -49,7 +49,7 @@ impl Stader {
         deps.querier
             .query(&QueryRequest::Wasm(WasmQuery::Smart {
                 contract_addr: self.addr.to_string(),
-                msg: to_binary(&QueryMsg::State {}).unwrap(),
+                msg: to_json_binary(&QueryMsg::State {}).unwrap(),
             }))
             .map_err(|a| adapter_error("stader", "query_state", a))
     }
@@ -61,7 +61,7 @@ impl Stader {
         deps.querier
             .query(&QueryRequest::Wasm(WasmQuery::Smart {
                 contract_addr: self.addr.to_string(),
-                msg: to_binary(&QueryMsg::GetUserUndelegationRecords {
+                msg: to_json_binary(&QueryMsg::GetUserUndelegationRecords {
                     user_addr: self.wallet.to_string(),
                     limit: Some(20),
                     start_after: None,
@@ -80,7 +80,7 @@ impl Stader {
             .querier
             .query(&QueryRequest::Wasm(WasmQuery::Smart {
                 contract_addr: self.addr.to_string(),
-                msg: to_binary(&QueryMsg::BatchUndelegation {
+                msg: to_json_binary(&QueryMsg::BatchUndelegation {
                     batch_id,
                 })
                 .unwrap(),
@@ -93,10 +93,10 @@ impl Stader {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: self.cw20.to_string(),
             funds: vec![],
-            msg: to_binary(&Cw20ExecuteMsg::Send {
+            msg: to_json_binary(&Cw20ExecuteMsg::Send {
                 contract: self.addr.to_string(),
                 amount,
-                msg: to_binary(&Cw20HookMsg::QueueUndelegate {})?,
+                msg: to_json_binary(&Cw20HookMsg::QueueUndelegate {})?,
             })?,
         }))
     }
@@ -105,7 +105,7 @@ impl Stader {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: self.addr.to_string(),
             funds: vec![],
-            msg: to_binary(&ExecuteMsg::WithdrawFundsToWallet {
+            msg: to_json_binary(&ExecuteMsg::WithdrawFundsToWallet {
                 batch_id,
             })?,
         }))
@@ -194,7 +194,7 @@ impl LsdAdapter for Stader {
                 Ok(CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: contract.clone(),
                     funds: vec![],
-                    msg: to_binary(&ExecuteMsg::WithdrawFundsToWallet {
+                    msg: to_json_binary(&ExecuteMsg::WithdrawFundsToWallet {
                         batch_id: a.batch_id,
                     })?,
                 }))

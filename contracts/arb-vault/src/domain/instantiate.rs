@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    to_binary, Addr, CosmosMsg, DepsMut, Env, Response, StdResult, SubMsg, SubMsgResponse, Uint128,
+    to_json_binary, Addr, CosmosMsg, DepsMut, Env, Response, StdResult, SubMsg, SubMsgResponse, Uint128,
     WasmMsg,
 };
 use cw2::set_contract_version;
@@ -57,7 +57,7 @@ pub fn instantiate(deps: DepsMut, env: Env, msg: InstantiateMsg) -> ContractResu
         CosmosMsg::Wasm(WasmMsg::Instantiate {
             admin: Some(msg.owner), // use the owner as admin for now; can be changed later by a `MsgUpdateAdmin`
             code_id: msg.cw20_code_id,
-            msg: to_binary(&Cw20InstantiateMsg {
+            msg: to_json_binary(&Cw20InstantiateMsg {
                 name: msg.name,
                 symbol: msg.symbol,
                 decimals: msg.decimals,

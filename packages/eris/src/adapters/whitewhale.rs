@@ -1,6 +1,6 @@
 use astroport::asset::Asset;
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{to_binary, Addr, CosmosMsg, Decimal, StdResult, WasmMsg};
+use cosmwasm_std::{to_json_binary, Addr, CosmosMsg, Decimal, StdResult, WasmMsg};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -28,7 +28,7 @@ impl WhiteWhale {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: self.0.to_string(),
             funds: vec![],
-            msg: to_binary(&ExecuteMsg::Claim {})?,
+            msg: to_json_binary(&ExecuteMsg::Claim {})?,
         }))
     }
 
@@ -42,7 +42,7 @@ impl WhiteWhale {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: self.0.to_string(),
             funds: vec![],
-            msg: to_binary(&ExecuteMsg::Deposit {
+            msg: to_json_binary(&ExecuteMsg::Deposit {
                 pair_address,
                 assets,
                 slippage_tolerance,

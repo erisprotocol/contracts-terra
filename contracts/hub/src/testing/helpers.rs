@@ -1,6 +1,6 @@
 use cosmwasm_std::testing::{mock_env, mock_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, to_binary, Addr, BlockInfo, ContractInfo, CosmosMsg, Decimal, Deps, Env, Event,
+    from_binary, to_json_binary, Addr, BlockInfo, ContractInfo, CosmosMsg, Decimal, Deps, Env, Event,
     OwnedDeps, QuerierResult, Reply, SubMsg, SubMsgResponse, SystemError, SystemResult, Timestamp,
     WasmMsg,
 };
@@ -95,7 +95,7 @@ pub(super) fn setup_test() -> OwnedDeps<MockStorage, MockApi, CustomQuerier> {
             CosmosMsg::Wasm(WasmMsg::Instantiate {
                 admin: Some("owner".to_string()),
                 code_id: 69420,
-                msg: to_binary(&Cw20InstantiateMsg {
+                msg: to_json_binary(&Cw20InstantiateMsg {
                     name: "Stake Token".to_string(),
                     symbol: "STAKE".to_string(),
                     decimals: 6,

@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{to_binary, CosmosMsg, DepsMut, Env, MessageInfo, Response, StdResult, WasmMsg};
+use cosmwasm_std::{to_json_binary, CosmosMsg, DepsMut, Env, MessageInfo, Response, StdResult, WasmMsg};
 use eris::hub::ClaimType;
 
 use crate::{
@@ -16,7 +16,7 @@ impl ClaimExecuteMsg {
     pub fn into_msg(&self, contract_addr: String) -> StdResult<CosmosMsg> {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr,
-            msg: to_binary(&self)?,
+            msg: to_json_binary(&self)?,
             funds: vec![],
         }))
     }

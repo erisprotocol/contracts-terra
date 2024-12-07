@@ -1,5 +1,5 @@
 use astroport::querier::{query_supply, query_token_balance};
-use cosmwasm_std::{to_binary, Addr, CosmosMsg, QuerierWrapper, StdResult, Uint128, WasmMsg};
+use cosmwasm_std::{to_json_binary, Addr, CosmosMsg, QuerierWrapper, StdResult, Uint128, WasmMsg};
 use cw20::{Cw20ExecuteMsg, MinterResponse};
 use cw20_base::msg::InstantiateMsg as Cw20InstantiateMsg;
 use schemars::JsonSchema;
@@ -12,7 +12,7 @@ impl TokenInit {
         Ok(CosmosMsg::Wasm(WasmMsg::Instantiate {
             admin: Some(owner), // use the owner as admin for now; can be changed later by a `MsgUpdateAdmin`
             code_id: self.cw20_code_id,
-            msg: to_binary(&Cw20InstantiateMsg {
+            msg: to_json_binary(&Cw20InstantiateMsg {
                 name: self.name.clone(),
                 symbol: self.symbol.clone(),
                 decimals: self.decimals,
@@ -36,7 +36,7 @@ impl Token {
     pub fn mint(&self, amount: Uint128, receiver: Addr) -> StdResult<CosmosMsg> {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: self.0.to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Mint {
+            msg: to_json_binary(&Cw20ExecuteMsg::Mint {
                 recipient: receiver.to_string(),
                 amount,
             })?,
@@ -47,7 +47,7 @@ impl Token {
     pub fn burn(&self, amount: Uint128) -> StdResult<CosmosMsg> {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: self.0.to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Burn {
+            msg: to_json_binary(&Cw20ExecuteMsg::Burn {
                 amount,
             })?,
             funds: vec![],

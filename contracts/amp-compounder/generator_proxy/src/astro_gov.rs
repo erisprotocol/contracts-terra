@@ -5,7 +5,7 @@ use astroport_governance::voting_escrow::{
     QueryMsg as VotingQueryMsg, VotingPowerResponse,
 };
 use cosmwasm_std::{
-    to_binary, Addr, Api, CosmosMsg, QuerierWrapper, StdError, StdResult, Uint128, WasmMsg,
+    to_json_binary, Addr, Api, CosmosMsg, QuerierWrapper, StdError, StdResult, Uint128, WasmMsg,
 };
 use cw20::Cw20ExecuteMsg;
 use cw_storage_plus::Map;
@@ -72,7 +72,7 @@ impl AstroGov {
     pub fn claim_msg(&self) -> StdResult<CosmosMsg> {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: self.fee_distributor.to_string(),
-            msg: to_binary(&FeeExecuteMsg::Claim {
+            msg: to_json_binary(&FeeExecuteMsg::Claim {
                 recipient: None,
                 max_periods: None,
             })?,
@@ -83,7 +83,7 @@ impl AstroGov {
     pub fn controller_vote_msg(&self, votes: Vec<(String, u16)>) -> StdResult<CosmosMsg> {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: self.generator_controller.to_string(),
-            msg: to_binary(&ControllerExecuteMsg::Vote {
+            msg: to_json_binary(&ControllerExecuteMsg::Vote {
                 votes,
             })?,
             funds: vec![],
@@ -93,10 +93,10 @@ impl AstroGov {
     pub fn create_lock_msg(&self, amount: Uint128, time: u64) -> StdResult<CosmosMsg> {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: self.xastro_token.to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Send {
+            msg: to_json_binary(&Cw20ExecuteMsg::Send {
                 contract: self.voting_escrow.to_string(),
                 amount,
-                msg: to_binary(&VotingCw20HookMsg::CreateLock {
+                msg: to_json_binary(&VotingCw20HookMsg::CreateLock {
                     time,
                 })?,
             })?,
@@ -107,10 +107,10 @@ impl AstroGov {
     pub fn extend_lock_amount_msg(&self, amount: Uint128) -> StdResult<CosmosMsg> {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: self.xastro_token.to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::Send {
+            msg: to_json_binary(&Cw20ExecuteMsg::Send {
                 contract: self.voting_escrow.to_string(),
                 amount,
-                msg: to_binary(&VotingCw20HookMsg::ExtendLockAmount {})?,
+                msg: to_json_binary(&VotingCw20HookMsg::ExtendLockAmount {})?,
             })?,
             funds: vec![],
         }))
@@ -119,7 +119,7 @@ impl AstroGov {
     pub fn extend_lock_time_msg(&self, time: u64) -> StdResult<CosmosMsg> {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: self.voting_escrow.to_string(),
-            msg: to_binary(&VotingExecuteMsg::ExtendLockTime {
+            msg: to_json_binary(&VotingExecuteMsg::ExtendLockTime {
                 time,
             })?,
             funds: vec![],
@@ -129,7 +129,7 @@ impl AstroGov {
     pub fn withdraw_msg(&self) -> StdResult<CosmosMsg> {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: self.voting_escrow.to_string(),
-            msg: to_binary(&VotingExecuteMsg::Withdraw {})?,
+            msg: to_json_binary(&VotingExecuteMsg::Withdraw {})?,
             funds: vec![],
         }))
     }

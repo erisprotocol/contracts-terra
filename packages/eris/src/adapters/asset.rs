@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use astroport::asset::{Asset, AssetInfo};
 use cosmwasm_std::{
-    coin, to_binary, to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Env, IbcTimeout,
-    MessageInfo, QuerierWrapper, StdError, StdResult, Uint128, WasmMsg,
+    coin, to_json_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Env, IbcTimeout, MessageInfo,
+    QuerierWrapper, StdError, StdResult, Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, Expiration};
 use schemars::JsonSchema;
@@ -129,7 +129,7 @@ impl AssetEx for Asset {
                 contract_addr,
             } => Ok(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: contract_addr.to_string(),
-                msg: to_binary(&Cw20ExecuteMsg::Transfer {
+                msg: to_json_binary(&Cw20ExecuteMsg::Transfer {
                     recipient: to.to_string(),
                     amount: self.amount,
                 })?,
@@ -154,7 +154,7 @@ impl AssetEx for Asset {
                     contract_addr,
                 } => Ok(CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: contract_addr.to_string(),
-                    msg: to_binary(&Cw20ExecuteMsg::Send {
+                    msg: to_json_binary(&Cw20ExecuteMsg::Send {
                         contract: to_addr.to_string(),
                         amount: self.amount,
                         msg,
@@ -191,10 +191,10 @@ impl AssetEx for Asset {
                 if let Some(ics20) = ics20 {
                     Ok(CosmosMsg::Wasm(WasmMsg::Execute {
                         contract_addr: contract_addr.to_string(),
-                        msg: to_binary(&Cw20ExecuteMsg::Send {
+                        msg: to_json_binary(&Cw20ExecuteMsg::Send {
                             contract: ics20,
                             amount: self.amount,
-                            msg: to_binary(&Ics20TransferMsg {
+                            msg: to_json_binary(&Ics20TransferMsg {
                                 channel,
                                 remote_address: to_addr,
                             })?,
@@ -223,7 +223,7 @@ impl AssetEx for Asset {
                 contract_addr,
             } => Ok(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: contract_addr.to_string(),
-                msg: to_binary(&Cw20ExecuteMsg::TransferFrom {
+                msg: to_json_binary(&Cw20ExecuteMsg::TransferFrom {
                     owner: from.to_string(),
                     recipient: to.to_string(),
                     amount: self.amount,
@@ -243,7 +243,7 @@ impl AssetEx for Asset {
     ) -> StdResult<CosmosMsg> {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: self.info.to_string(),
-            msg: to_binary(&Cw20ExecuteMsg::IncreaseAllowance {
+            msg: to_json_binary(&Cw20ExecuteMsg::IncreaseAllowance {
                 spender,
                 amount: self.amount,
                 expires,

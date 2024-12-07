@@ -1,5 +1,5 @@
 use astroport::token as astro;
-use cosmwasm_std::{attr, to_binary, Addr, Fraction, StdError, Uint128};
+use cosmwasm_std::{attr, to_json_binary, Addr, Fraction, StdError, Uint128};
 use cw20::{Cw20ExecuteMsg, Logo, LogoInfo, MarketingInfoResponse, MinterResponse};
 use cw_multi_test::{next_block, ContractWrapper, Executor};
 
@@ -172,7 +172,7 @@ fn random_token_lock() {
     let cw20msg = Cw20ExecuteMsg::Send {
         contract: helper.voting_instance.to_string(),
         amount: Uint128::from(10_u128),
-        msg: to_binary(&Cw20HookMsg::CreateLock {
+        msg: to_json_binary(&Cw20HookMsg::CreateLock {
             time: WEEK,
         })
         .unwrap(),

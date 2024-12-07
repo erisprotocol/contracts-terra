@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    to_binary, Addr, Api, Coin, CosmosMsg, Decimal, Empty, QuerierWrapper, StdResult, Timestamp,
-    Uint128, VoteOption, WasmMsg,
+    to_json_binary, Addr, Api, Coin, CosmosMsg, Decimal, Empty, QuerierWrapper, StdResult,
+    Timestamp, Uint128, VoteOption, WasmMsg,
 };
 use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
@@ -198,7 +198,7 @@ impl CallbackMsg {
     pub fn into_cosmos_msg(&self, contract_addr: &Addr) -> StdResult<CosmosMsg> {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: contract_addr.to_string(),
-            msg: to_binary(&ExecuteMsg::Callback(self.clone()))?,
+            msg: to_json_binary(&ExecuteMsg::Callback(self.clone()))?,
             funds: vec![],
         }))
     }

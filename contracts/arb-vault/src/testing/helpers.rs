@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use cosmwasm_std::testing::{mock_info, MockApi, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, to_binary, Addr, BlockInfo, ContractInfo, Decimal, Deps, DepsMut, Env, Event,
+    from_binary, to_json_binary, Addr, BlockInfo, ContractInfo, Decimal, Deps, DepsMut, Env, Event,
     OwnedDeps, QuerierResult, Reply, ReplyOn, SubMsg, SubMsgResponse, SystemError, SystemResult,
     Timestamp, WasmMsg,
 };
@@ -172,7 +172,7 @@ pub fn mock_env() -> Env {
 // }
 
 // fn create_init_params() -> Option<Binary> {
-//     Some(to_binary(&create_default_lsd_configs()).unwrap())
+//     Some(to_json_binary(&create_default_lsd_configs()).unwrap())
 // }
 
 pub fn create_default_init() -> InstantiateMsg {
@@ -229,7 +229,7 @@ pub(super) fn setup_test() -> OwnedDeps<MockStorage, MockApi, CustomQuerier> {
         vec![SubMsg {
             msg: WasmMsg::Instantiate {
                 code_id: 10u64,
-                msg: to_binary(&Cw20InstantiateMsg {
+                msg: to_json_binary(&Cw20InstantiateMsg {
                     name: "arbname".to_string(),
                     symbol: "arbsymbol".to_string(),
                     decimals: 6,

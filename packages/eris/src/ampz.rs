@@ -3,7 +3,7 @@ use std::fmt;
 use astroport::asset::{Asset, AssetInfo};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{
-    to_binary, Addr, Api, Binary, Coin, CosmosMsg, StdError, StdResult, Uint128, WasmMsg,
+    to_json_binary, Addr, Api, Binary, Coin, CosmosMsg, StdError, StdResult, Uint128, WasmMsg,
 };
 
 use crate::{adapters::generator::Generator, helpers::bps::BasicPoints};
@@ -44,6 +44,9 @@ pub enum Source {
     Wallet {
         over: Asset,
         max_amount: Option<Uint128>,
+    },
+    LiquidityAlliance {
+        assets: Vec<String>,
     },
 }
 
@@ -96,6 +99,9 @@ impl Source {
                 ..
             } => Some("whitewhale_rewards".to_string()),
             Source::Wallet {
+                ..
+            }
+            | Source::LiquidityAlliance {
                 ..
             } => {
                 // wallet is allowed to be defined multiple times
@@ -311,6 +317,11 @@ pub enum DestinationState {
         contract: Addr,
         msg: Binary,
     },
+    LiquidityAlliance {
+        gauge: String,
+        lp_info: AssetInfo,
+        compounding: bool,
+    },
 }
 
 #[cw_serde]
@@ -356,6 +367,13 @@ pub enum DestinationRuntime {
         contract: Addr,
         msg: Binary,
         asset_info: AssetInfo,
+    },
+    LiquidityAlliance {
+        asset_infos: Vec<AssetInfo>,
+
+        gauge: String,
+        lp_info: AssetInfo,
+        compounding: bool,
     },
 }
 
@@ -407,7 +425,7 @@ impl CallbackMsg {
     ) -> StdResult<CosmosMsg> {
         Ok(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: String::from(contract_addr),
-            msg: to_binary(&ExecuteMsg::Callback(self.into_callback_wrapper(id, user)))?,
+            msg: to_json_binary(&ExecuteMsg::Callback(self.into_callback_wrapper(id, user)))?,
             funds: vec![],
         }))
     }

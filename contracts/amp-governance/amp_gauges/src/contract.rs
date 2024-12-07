@@ -5,7 +5,7 @@ use astroport::common::{claim_ownership, drop_ownership_proposal, propose_new_ow
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    attr, to_binary, Addr, Attribute, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response,
+    attr, to_json_binary, Addr, Attribute, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response,
     StdError, StdResult, Storage, Uint128,
 };
 use cw2::{get_contract_version, set_contract_version};
@@ -486,24 +486,24 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::UserInfo {
             user,
-        } => to_binary(&user_info(deps, env, user)?),
+        } => to_json_binary(&user_info(deps, env, user)?),
         QueryMsg::UserInfos {
             start_after,
             limit,
-        } => to_binary(&user_infos(deps, env, start_after, limit)?),
-        QueryMsg::TuneInfo {} => to_binary(&TUNE_INFO.load(deps.storage)?),
-        QueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
+        } => to_json_binary(&user_infos(deps, env, start_after, limit)?),
+        QueryMsg::TuneInfo {} => to_json_binary(&TUNE_INFO.load(deps.storage)?),
+        QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?),
         QueryMsg::ValidatorInfo {
             validator_addr,
-        } => to_binary(&validator_info(deps, env, validator_addr, None)?),
+        } => to_json_binary(&validator_info(deps, env, validator_addr, None)?),
         QueryMsg::ValidatorInfos {
             period,
             validator_addrs,
-        } => to_binary(&validator_infos(deps, env, validator_addrs, period)?),
+        } => to_json_binary(&validator_infos(deps, env, validator_addrs, period)?),
         QueryMsg::ValidatorInfoAtPeriod {
             validator_addr,
             period,
-        } => to_binary(&validator_info(deps, env, validator_addr, Some(period))?),
+        } => to_json_binary(&validator_info(deps, env, validator_addr, Some(period))?),
     }
 }
 

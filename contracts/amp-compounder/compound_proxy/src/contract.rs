@@ -11,7 +11,7 @@ use crate::state::{Config, State};
 use astroport::asset::addr_opt_validate;
 use astroport::common::{claim_ownership, drop_ownership_proposal, propose_new_owner};
 use cosmwasm_std::{
-    entry_point, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
+    entry_point, to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
 };
 use cw2::set_contract_version;
 use eris::adapters::factory::Factory;
@@ -151,33 +151,33 @@ pub fn execute(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::Config {} => to_binary(&query_config(deps)?),
+        QueryMsg::Config {} => to_json_binary(&query_config(deps)?),
         QueryMsg::GetLp {
             lp_addr,
-        } => to_binary(&get_lp(deps, lp_addr)?),
+        } => to_json_binary(&get_lp(deps, lp_addr)?),
         QueryMsg::GetLpState {
             lp_addr,
-        } => to_binary(&get_lp_state(deps, lp_addr)?),
+        } => to_json_binary(&get_lp_state(deps, lp_addr)?),
         QueryMsg::GetLps {
             start_after,
             limit,
-        } => to_binary(&get_lps(deps, start_after, limit)?),
+        } => to_json_binary(&get_lps(deps, start_after, limit)?),
         QueryMsg::GetRoutes {
             start_after,
             limit,
-        } => to_binary(&get_routes(deps, start_after, limit)?),
+        } => to_json_binary(&get_routes(deps, start_after, limit)?),
         QueryMsg::GetRoute {
             from,
             to,
-        } => to_binary(&get_route(deps, from, to)?),
+        } => to_json_binary(&get_route(deps, from, to)?),
         QueryMsg::CompoundSimulation {
             rewards,
             lp_token,
-        } => to_binary(&query_compound_simulation(deps, rewards, lp_token)?),
+        } => to_json_binary(&query_compound_simulation(deps, rewards, lp_token)?),
         QueryMsg::SupportsSwap {
             from,
             to,
-        } => to_binary(&query_supports_swap(deps, from, to)?),
+        } => to_json_binary(&query_supports_swap(deps, from, to)?),
     }
 }
 

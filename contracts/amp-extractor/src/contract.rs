@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    entry_point, from_binary, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response,
+    entry_point, from_binary, to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response,
     StdError, StdResult,
 };
 use cw2::{get_contract_version, set_contract_version};
@@ -87,13 +87,13 @@ pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> StdResult<Response> {
 #[entry_point]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::Config {} => to_binary(&queries::config(deps)?),
+        QueryMsg::Config {} => to_json_binary(&queries::config(deps)?),
         QueryMsg::State {
             addr,
-        } => to_binary(&queries::state(deps, env, addr)?),
+        } => to_json_binary(&queries::state(deps, env, addr)?),
         QueryMsg::Share {
             addr,
-        } => to_binary(&queries::share(deps, env, addr)?),
+        } => to_json_binary(&queries::share(deps, env, addr)?),
     }
 }
 

@@ -3,7 +3,7 @@ use std::str::FromStr;
 use anyhow::Result;
 use astroport::asset::native_asset;
 use cosmwasm_std::{
-    attr, coin, to_binary, Addr, Delegation, FullDelegation, StdResult, Uint128, VoteOption,
+    attr, coin, to_json_binary, Addr, Delegation, FullDelegation, StdResult, Uint128, VoteOption,
 };
 use cw20::Cw20ExecuteMsg;
 use cw_multi_test::{App, AppResponse, Executor};
@@ -245,7 +245,7 @@ impl EscrowHelper {
         let cw20msg = Cw20ExecuteMsg::Send {
             contract: self.base.voting_escrow.get_address_string(),
             amount: Uint128::from(amount),
-            msg: to_binary(&eris::voting_escrow::Cw20HookMsg::CreateLock {
+            msg: to_json_binary(&eris::voting_escrow::Cw20HookMsg::CreateLock {
                 time: lock_time,
             })
             .unwrap(),
@@ -271,7 +271,7 @@ impl EscrowHelper {
         let cw20msg = Cw20ExecuteMsg::Send {
             contract: self.base.voting_escrow.get_address_string(),
             amount: Uint128::from(amount),
-            msg: to_binary(&eris::voting_escrow::Cw20HookMsg::ExtendLockAmount {
+            msg: to_json_binary(&eris::voting_escrow::Cw20HookMsg::ExtendLockAmount {
                 extend_to_min_periods,
             })
             .unwrap(),
@@ -297,7 +297,7 @@ impl EscrowHelper {
         let cw20msg = Cw20ExecuteMsg::Send {
             contract: self.base.voting_escrow.get_address_string(),
             amount: Uint128::from(amount),
-            msg: to_binary(&eris::voting_escrow::Cw20HookMsg::DepositFor {
+            msg: to_json_binary(&eris::voting_escrow::Cw20HookMsg::DepositFor {
                 user: user.into(),
             })
             .unwrap(),
@@ -834,7 +834,7 @@ impl EscrowHelper {
         let cw20msg = Cw20ExecuteMsg::Send {
             contract: self.base.arb_vault.get_address_string(),
             amount: Uint128::new(amount),
-            msg: to_binary(&eris::arb_vault::Cw20HookMsg::Unbond {
+            msg: to_json_binary(&eris::arb_vault::Cw20HookMsg::Unbond {
                 immediate,
             })
             .unwrap(),

@@ -3,7 +3,7 @@ use astroport::common::{claim_ownership, drop_ownership_proposal, propose_new_ow
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult, Uint128,
+    to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult, Uint128,
     VoteOption,
 };
 use cw2::{get_contract_version, set_contract_version};
@@ -390,29 +390,29 @@ fn update_config(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::Config {} => to_binary(&State::default().config.load(deps.storage)?),
+        QueryMsg::Config {} => to_json_binary(&State::default().config.load(deps.storage)?),
         QueryMsg::ActiveProps {
             start_after,
             limit,
-        } => to_binary(&get_active_props(deps, env, start_after, limit)?),
+        } => to_json_binary(&get_active_props(deps, env, start_after, limit)?),
         QueryMsg::FinishedProps {
             start_after,
             limit,
-        } => to_binary(&get_finished_props(deps, env, start_after, limit)?),
+        } => to_json_binary(&get_finished_props(deps, env, start_after, limit)?),
         QueryMsg::PropDetail {
             user,
             proposal_id,
-        } => to_binary(&get_prop_detail(deps, env, user, proposal_id)?),
+        } => to_json_binary(&get_prop_detail(deps, env, user, proposal_id)?),
         QueryMsg::PropVoters {
             proposal_id,
             start_after,
             limit,
-        } => to_binary(&get_prop_voters(deps, env, proposal_id, start_after, limit)?),
+        } => to_json_binary(&get_prop_voters(deps, env, proposal_id, start_after, limit)?),
         QueryMsg::UserVotes {
             user,
             limit,
             start_after,
-        } => to_binary(&get_user_votes(deps, env, user, start_after, limit)?),
+        } => to_json_binary(&get_user_votes(deps, env, user, start_after, limit)?),
     }
 }
 

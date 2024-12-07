@@ -1,6 +1,6 @@
 use astroport::asset::{Asset, AssetInfo};
 use cosmwasm_std::{
-    to_binary, Addr, Coin, CosmosMsg, Decimal, QuerierWrapper, StdError, StdResult, Uint128,
+    to_json_binary, Addr, Coin, CosmosMsg, Decimal, QuerierWrapper, StdError, StdResult, Uint128,
     WasmMsg,
 };
 use cw20::Cw20ExecuteMsg;
@@ -211,14 +211,14 @@ impl Router {
                 contract_addr,
             } => WasmMsg::Execute {
                 contract_addr: contract_addr.to_string(),
-                msg: to_binary(&Cw20ExecuteMsg::Send {
+                msg: to_json_binary(&Cw20ExecuteMsg::Send {
                     contract: self.0.to_string(),
                     amount: offer_asset.amount,
 
                     msg: match router_type {
                         RouterType::TFM {
                             ..
-                        } => to_binary(&TfmCw20HookMsg::ExecuteSwapOperations {
+                        } => to_json_binary(&TfmCw20HookMsg::ExecuteSwapOperations {
                             minimum_receive,
                             to,
                             max_spread,
@@ -229,7 +229,7 @@ impl Router {
                                 operations,
                             }],
                         })?,
-                        _ => to_binary(&Cw20HookMsg::ExecuteSwapOperations {
+                        _ => to_json_binary(&Cw20HookMsg::ExecuteSwapOperations {
                             operations,
                             minimum_receive,
                             to,
@@ -246,7 +246,7 @@ impl Router {
                 msg: match router_type {
                     RouterType::TFM {
                         ..
-                    } => to_binary(&TfmExecuteMsg::ExecuteSwapOperations {
+                    } => to_json_binary(&TfmExecuteMsg::ExecuteSwapOperations {
                         minimum_receive,
                         to,
                         max_spread,
@@ -257,7 +257,7 @@ impl Router {
                             operations,
                         }],
                     })?,
-                    _ => to_binary(&ExecuteMsg::ExecuteSwapOperations {
+                    _ => to_json_binary(&ExecuteMsg::ExecuteSwapOperations {
                         operations,
                         minimum_receive,
                         to,
