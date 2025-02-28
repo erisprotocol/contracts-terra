@@ -123,6 +123,12 @@ impl ExecutionExt for Execution {
                 validate_receiver(deps.api, receiver)?;
                 self.check_path_to(deps, state, asset_info.clone())?;
             },
+
+            DestinationState::LiquidityAlliance {
+                gauge,
+                lp_info,
+                compounding,
+            } => todo!(),
         }
 
         Ok(())
@@ -194,6 +200,10 @@ impl ExecutionExt for Execution {
             Source::WhiteWhaleRewards {
                 ..
             } => state.whitewhale.load(deps.storage)?.coins,
+
+            Source::LiquidityAlliance {
+                assets,
+            } => todo!(),
         };
         Ok(from_assets)
     }

@@ -23,7 +23,7 @@
 
 /// Generated files are compatible only with the same version
 /// of protobuf runtime.
-const _PROTOBUF_VERSION_CHECK: () = ::protobuf::VERSION_3_2_0;
+// const _PROTOBUF_VERSION_CHECK: () = ::protobuf::VERSION_3_2_0;
 
 #[derive(PartialEq,Clone,Default,Debug)]
 // @@protoc_insertion_point(message:WeightedVoteOption)
@@ -467,6 +467,17 @@ impl ::protobuf::Enum for VoteOption {
         VoteOption::VOTE_OPTION_NO,
         VoteOption::VOTE_OPTION_NO_WITH_VETO,
     ];
+    
+    fn from_str(s: &str) -> Option<Self> {
+        match s.to_uppercase().as_str() {
+            "VOTE_OPTION_UNSPECIFIED" => Some(VoteOption::VOTE_OPTION_UNSPECIFIED),
+            "VOTE_OPTION_YES" => Some(VoteOption::VOTE_OPTION_YES),
+            "VOTE_OPTION_ABSTAIN" => Some(VoteOption::VOTE_OPTION_ABSTAIN),
+            "VOTE_OPTION_NO" => Some(VoteOption::VOTE_OPTION_NO),
+            "VOTE_OPTION_NO_WITH_VETO" => Some(VoteOption::VOTE_OPTION_NO_WITH_VETO),
+            _ => None,
+        }
+    }
 }
 
 impl ::protobuf::EnumFull for VoteOption {

@@ -161,6 +161,9 @@ pub fn execute_id(deps: DepsMut, env: Env, info: MessageInfo, id: u128) -> Contr
 
             msgs.append(&mut claim_msgs);
         },
+        Source::LiquidityAlliance {
+            assets,
+        } => todo!(),
     }
 
     state.last_execution.save(deps.storage, id, &env.block.time.seconds())?;
@@ -213,7 +216,6 @@ fn get_swap_asset(
     deps: &DepsMut,
 ) -> Result<Option<AssetInfo>, ContractError> {
     Ok(match &execution.destination {
-        // if we deposit into the amplifier we need to swap to luna
         DestinationState::DepositAmplifier {
             ..
         } => {
@@ -269,5 +271,10 @@ fn get_swap_asset(
             asset_info,
             ..
         } => Some(asset_info.clone()),
+        DestinationState::LiquidityAlliance {
+            gauge,
+            lp_info,
+            compounding,
+        } => todo!(),
     })
 }

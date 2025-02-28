@@ -183,7 +183,6 @@ pub fn callback(
                         hub.bond_msg(CONTRACT_DENOM, balance.amount.u128(), Some(receiver))?;
                     msgs.push(bond_msg);
                 },
-
                 DestinationRuntime::DepositTAmplifier {
                     receiver,
                     asset_info,
@@ -234,7 +233,6 @@ pub fn callback(
                         return Err(ContractError::TAssetNotSupported(asset_info));
                     }
                 },
-
                 DestinationRuntime::DepositArbVault {
                     receiver,
                 } => {
@@ -262,7 +260,6 @@ pub fn callback(
                     )?;
                     msgs.push(deposit_msg);
                 },
-
                 DestinationRuntime::DepositFarm {
                     asset_infos,
                     farm,
@@ -337,7 +334,6 @@ pub fn callback(
                         &receiver,
                     )?;
                 },
-
                 DestinationRuntime::Repay {
                     market,
                 } => {
@@ -428,6 +424,12 @@ pub fn callback(
                     let msg = balances[0].send_or_execute_msg_binary(contract, msg)?;
                     msgs.push(msg);
                 },
+                DestinationRuntime::LiquidityAlliance {
+                    asset_infos,
+                    gauge,
+                    lp_info,
+                    compounding,
+                } => todo!(),
             };
 
             state.is_executing.remove(deps.storage);
