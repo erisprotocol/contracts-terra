@@ -9,8 +9,8 @@ use crate::domain::execute::{
 use crate::domain::ownership::{claim_ownership, drop_ownership_proposal, propose_new_owner};
 use crate::error::{ContractError, ContractResult, CustomResult};
 use crate::query::{
-    query_config, query_exchange_rates, query_state, query_takeable, query_unbond_requests,
-    query_user_info,
+    query_config, query_exchange_rates, query_pair, query_state, query_takeable,
+    query_unbond_requests, query_user_info,
 };
 use cosmwasm_std::{
     entry_point, to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response,
@@ -77,22 +77,12 @@ pub fn execute(
             id,
         } => execute_withdraw_unbonding_immediate(deps, env, info, id),
 
-        // ExecuteMsg::Swap {
-        //     offer_asset,
-        //     ask_asset_info,
-        //     belief_price,
-        //     max_spread,
-        //     to,
-        // } => domain::swap::execute_swap_native(
-        //     deps,
-        //     env,
-        //     info,
-        //     offer_asset,
-        //     ask_asset_info,
-        //     belief_price,
-        //     max_spread,
-        //     to,
-        // ),
+        ExecuteMsg::Swap {
+            offer_asset,
+            belief_price,
+            max_spread,
+            to,
+        } => execute_deposit(deps, env, info, offer_asset, to),
         // Allowed by Owner
         ExecuteMsg::UpdateConfig {
             ..
@@ -132,6 +122,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> CustomResult<Binary> {
             start_after_d,
             limit,
         } => to_json_binary(&query_exchange_rates(deps, env, start_after_d, limit)?)?,
+        QueryMsg::Pair {} => to_json_binary(&query_pair(deps, env)?)?,
     };
     Ok(res)
 }

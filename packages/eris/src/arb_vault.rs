@@ -159,14 +159,12 @@ pub enum ExecuteMsg {
         id: u64,
     },
 
-    // /// Swap is allowed between the [TOKEN] and the arb[TOKEN]
-    // Swap {
-    //     offer_asset: Asset,
-    //     ask_asset_info: Option<AssetInfo>,
-    //     belief_price: Option<Decimal>,
-    //     max_spread: Option<Decimal>,
-    //     to: Option<String>,
-    // },
+    Swap {
+        offer_asset: Asset,
+        belief_price: Option<Decimal>,
+        max_spread: Option<Decimal>,
+        to: Option<String>,
+    },
 
     // Admin User: Update config
     UpdateConfig {
@@ -301,6 +299,33 @@ pub enum QueryMsg {
         start_after_d: Option<u64>,
         limit: Option<u32>,
     },
+
+    /// Returns information about a pair in an object of type [`super::asset::PairInfo`].
+    #[returns(PairInfo)]
+    Pair {},
+}
+
+/// This structure stores the main parameters for an Astroport pair
+#[cw_serde]
+pub struct PairInfo {
+    /// Asset information for the assets in the pool
+    pub asset_infos: Vec<AssetInfo>,
+    /// Pair contract address
+    pub contract_addr: Addr,
+    /// Pair LP token address
+    pub liquidity_token: Addr,
+    /// The pool type (xyk, stableswap etc) available in [`PairType`]
+    pub pair_type: PairType,
+}
+
+#[cw_serde]
+pub enum PairType {
+    /// XYK pair type
+    Xyk {},
+    /// Stable pair type
+    Stable {},
+    /// Custom pair type
+    Custom(String),
 }
 
 #[cw_serde]

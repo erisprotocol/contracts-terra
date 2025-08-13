@@ -5,13 +5,14 @@ use crate::extensions::{BalancesEx, ConfigEx};
 use crate::helpers::calc_fees;
 use crate::state::{State, UnbondHistory};
 
-use astroport::asset::token_asset_info;
+use astroport::asset::{native_asset_info, token_asset_info};
 use cosmwasm_std::{Decimal, Deps, Env, Order, StdResult, Uint128};
 
 use cw_storage_plus::Bound;
 use eris::arb_vault::{
-    BalancesOptionalDetails, ConfigResponse, ExchangeHistory, ExchangeRatesResponse, StateDetails,
-    StateResponse, TakeableResponse, UnbondItem, UnbondRequestsResponse, UserInfoResponse,
+    BalancesOptionalDetails, ConfigResponse, ExchangeHistory, ExchangeRatesResponse, PairInfo,
+    PairType, StateDetails, StateResponse, TakeableResponse, UnbondItem, UnbondRequestsResponse,
+    UserInfoResponse,
 };
 use eris::constants::DAY;
 use eris::voting_escrow::{DEFAULT_LIMIT, MAX_LIMIT};
@@ -208,5 +209,17 @@ pub fn query_exchange_rates(
     Ok(ExchangeRatesResponse {
         exchange_rates,
         apr,
+    })
+}
+
+pub fn query_pair(deps: Deps, env: Env) -> StdResult<PairInfo> {
+    let state = State::default();
+    let config = state.config.load(deps.storage)?;
+
+    Ok(PairInfo {
+        asset_infos: vec![native_asset_info(config.utoken), token_asset_info(config.lp_addr)],
+        contract_addr: env.contract.address.clone(),
+        liquidity_token: env.contract.address,
+        pair_type: PairType::Custom("virtual".to_string()),
     })
 }
