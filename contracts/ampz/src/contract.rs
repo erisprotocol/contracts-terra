@@ -107,51 +107,49 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
 pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-    let state = State::default();
-    let mut attrs = vec![];
-    let mut removed_count = 0u32;
+    // let state = State::default();
+    // let mut attrs = vec![];
+    // let mut removed_count = 0u32;
 
-    // Iterate through all executions and remove alliance/whitewhale rewards
-    let all_executions: Vec<(u128, Execution)> = state
-        .executions
-        .range(deps.storage, None, None, Order::Ascending)
-        .collect::<StdResult<Vec<_>>>()?;
+    // // Iterate through all executions and remove alliance/whitewhale rewards
+    // let all_executions: Vec<(u128, Execution)> = state
+    //     .executions
+    //     .range(deps.storage, None, None, Order::Ascending)
+    //     .collect::<StdResult<Vec<_>>>()?;
 
-    for (id, execution) in all_executions {
-        let should_remove = match &execution.source {
-            // Remove WhiteWhaleRewards source
-            Source::WhiteWhaleRewards {
-                ..
-            } => true,
-            // Remove ClaimContract with WhiteWhaleRewards claim type
-            Source::ClaimContract {
-                claim_type: ClaimType::WhiteWhaleRewards,
-            } => true,
-            // Remove ClaimContract with AllianceRewards claim type
-            Source::ClaimContract {
-                claim_type: ClaimType::AllianceRewards,
-            } => true,
-            // Keep all other sources
-            _ => false,
-        };
+    // for (id, execution) in all_executions {
+    //     let should_remove = match &execution.source {
+    //         // Remove WhiteWhaleRewards source
+    //         Source::WhiteWhaleRewards {
+    //             ..
+    //         } => true,
+    //         // Remove ClaimContract with WhiteWhaleRewards claim type
+    //         Source::ClaimContract {
+    //             claim_type: ClaimType::WhiteWhaleRewards,
+    //         } => true,
+    //         // Remove ClaimContract with AllianceRewards claim type
+    //         Source::ClaimContract {
+    //             claim_type: ClaimType::AllianceRewards,
+    //         } => true,
+    //         // Keep all other sources
+    //         _ => false,
+    //     };
 
-        if should_remove {
-            state.executions.remove(deps.storage, id)?;
-            state.last_execution.remove(deps.storage, id);
+    //     if should_remove {
+    //         state.executions.remove(deps.storage, id)?;
+    //         state.last_execution.remove(deps.storage, id);
 
-            let source = execution.source.try_get_uniq_key();
-            if let Some(source) = source {
-                state.execution_user_source.remove(deps.storage, (execution.user, source));
-            }
+    //         let source = execution.source.try_get_uniq_key();
+    //         if let Some(source) = source {
+    //             state.execution_user_source.remove(deps.storage, (execution.user, source));
+    //         }
 
-            attrs.push(attr("removed_id", id.to_string()));
-            removed_count += 1;
-        }
-    }
+    //         attrs.push(attr("removed_id", id.to_string()));
+    //         removed_count += 1;
+    //     }
+    // }
 
     Ok(Response::new()
         .add_attribute("new_contract_name", CONTRACT_NAME)
-        .add_attribute("new_contract_version", CONTRACT_VERSION)
-        .add_attribute("removed_alliance_whitewhale_executions", removed_count.to_string())
-        .add_attributes(attrs))
+        .add_attribute("new_contract_version", CONTRACT_VERSION))
 }
