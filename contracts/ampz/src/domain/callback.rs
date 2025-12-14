@@ -526,7 +526,7 @@ pub fn callback(
                 } => {
                     attrs.push(attr("type", "ampz_execute_contract"));
 
-                    if env.contract.address == contract {
+                    if env.contract.address == *contract {
                         return Err(ContractError::CannotExecuteSelf {});
                     }
 

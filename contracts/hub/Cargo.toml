@@ -34,6 +34,3 @@ cw-multi-test = { git = "https://github.com/erisprotocol/cw-multi-test.git", def
 anyhow = "1"
 eris-tests = { path = "../../packages/eris-tests" }
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
-
-[net]
-git-fetch-with-cli = true

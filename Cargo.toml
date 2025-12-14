@@ -1,14 +1,14 @@
 [workspace]
 members = [
-    "contracts/hub",
-    "contracts/amp-extractor",
-    "contracts/token",
+    # "contracts/hub",
+    # "contracts/amp-extractor",
+    # "contracts/token",
     "contracts/ampz",
-    "contracts/amp-compounder/*",
-    "contracts/amp-compounder/compound_proxy",
-    "contracts/amp-compounder/fees_collector",
-    "contracts/amp-governance/*",
-    "contracts/arb-vault",
+    # "contracts/amp-compounder/*",
+    # "contracts/amp-compounder/compound_proxy",
+    # "contracts/amp-compounder/fees_collector",
+    # "contracts/amp-governance/*",
+    # "contracts/arb-vault",
     "packages/*",
 ]
 
@@ -30,6 +30,3 @@ codegen-units = 1
 panic = 'abort'
 incremental = false
 overflow-checks = true
-
-[net]
-git-fetch-with-cli = true
