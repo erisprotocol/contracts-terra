@@ -84,7 +84,7 @@ impl ExecutionExt for Execution {
                 // this checks if there is a configured route from the source asset to the destination asset
                 let from_assets = self.get_source_assets(deps, state, Some(asset_info))?;
 
-                let zapper = state.zapper.load(deps.storage)?;
+                let zapper = state.zapperv2.load(deps.storage)?;
 
                 for from in from_assets {
                     if !zapper.query_support_swap(
@@ -103,6 +103,11 @@ impl ExecutionExt for Execution {
                     let capa = state.capapult.load(deps.storage)?;
                     self.check_path_to(deps, state, token_asset_info(capa.stable_cw))?;
                 },
+                RepayMarket::Creda {
+                    asset_info,
+                } => {
+                    self.check_path_to(deps, state, asset_info.clone())?;
+                },
             },
             DestinationState::DepositCollateral {
                 market,
@@ -115,6 +120,11 @@ impl ExecutionExt for Execution {
                     }
                     self.check_path_to(deps, state, asset_info.clone())?;
                 },
+                DepositMarket::Creda {
+                    asset_info,
+                } => {
+                    self.check_path_to(deps, state, asset_info.clone())?;
+                },
             },
             DestinationState::DepositTAmplifier {
                 receiver,
@@ -124,11 +134,11 @@ impl ExecutionExt for Execution {
                 self.check_path_to(deps, state, asset_info.clone())?;
             },
 
-            DestinationState::LiquidityAlliance {
-                gauge,
-                lp_info,
-                compounding,
-            } => todo!(),
+            DestinationState::Tla {
+                ..
+            } => {
+                // TODO: validate?
+            },
         }
 
         Ok(())
@@ -136,7 +146,7 @@ impl ExecutionExt for Execution {
 
     fn check_path_to(&self, deps: &DepsMut, state: &State, asset_info: AssetInfo) -> CustomResult {
         let from_assets = self.get_source_assets(deps, state, None)?;
-        let zapper = state.zapper.load(deps.storage)?;
+        let zapper = state.zapperv2.load(deps.storage)?;
 
         for from in from_assets {
             if !zapper.query_support_swap(&deps.querier, from.clone(), asset_info.clone())? {
@@ -196,14 +206,15 @@ impl ExecutionExt for Execution {
                     // for claiming staking rewards only check the default chain denom
                     vec![default_asset]
                 },
+
+                eris::ampz::ClaimType::TlaRewards => {
+                    let tla = state.tla.load(deps.storage)?;
+                    vec![token_asset_info(tla.amp_luna_addr.clone())]
+                },
             },
             Source::WhiteWhaleRewards {
                 ..
             } => state.whitewhale.load(deps.storage)?.coins,
-
-            Source::LiquidityAlliance {
-                assets,
-            } => todo!(),
         };
         Ok(from_assets)
     }

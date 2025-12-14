@@ -40,6 +40,7 @@ fn check_execution_interval() {
         destination: eris::ampz::DestinationRuntime::DepositAmplifier {
             receiver: None,
         },
+        source: eris::ampz::Source::Claim,
         executor: Addr::unchecked("controller"),
     };
 

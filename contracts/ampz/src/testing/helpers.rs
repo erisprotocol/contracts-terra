@@ -1,6 +1,7 @@
 use std::convert::TryInto;
 
 use astroport::asset::{native_asset, native_asset_info, token_asset_info};
+use cosmwasm_schema::schemars::Map;
 use cosmwasm_std::testing::{
     mock_env, mock_info, BankQuerier, MockApi, MockStorage, StakingQuerier, MOCK_CONTRACT_ADDR,
 };
@@ -12,8 +13,8 @@ use eris::constants::{DAY, HOUR};
 use serde::de::DeserializeOwned;
 
 use eris::ampz::{
-    AstroportConfig, CallbackMsg, CapapultConfig, ExecuteMsg, Execution, FeeConfig, InstantiateMsg,
-    QueryMsg, Schedule, WhiteWhaleConfig,
+    AstroportConfig, CallbackMsg, CapapultConfig, CredaConfig, ExecuteMsg, Execution, FeeConfig,
+    GaugeConfig, InstantiateMsg, QueryMsg, Schedule, TlaConfig, WhiteWhaleConfig,
 };
 
 use crate::constants::CONTRACT_DENOM;
@@ -130,6 +131,7 @@ pub(super) fn setup_test() -> OwnedDeps<MockStorage, MockApi, CustomQuerier> {
             fee: FeeConfig {
                 fee_bps: 100u16.try_into().unwrap(),
                 operator_bps: 200u16.try_into().unwrap(),
+                tla_source_fee: 750u16.try_into().unwrap(),
                 receiver: "fee_receiver".into(),
             },
             capapult: CapapultConfig {
@@ -137,6 +139,29 @@ pub(super) fn setup_test() -> OwnedDeps<MockStorage, MockApi, CustomQuerier> {
                 overseer: "capapult_overseer".into(),
                 custody: "capapult_custody".into(),
                 stable_cw: "solid".into(),
+            },
+            tla: TlaConfig {
+                amp_luna_addr: "amp_luna".to_string(),
+                compounder: "tla_compounder".to_string(),
+                gauges: {
+                    let mut gauges = Map::new();
+                    gauges.insert(
+                        "gauge_1".to_string(),
+                        GaugeConfig {
+                            staking: "gauge_1_staking".to_string(),
+                            connector: "gauge_1_connector".to_string(),
+                        },
+                    );
+                    gauges
+                },
+            },
+            alliance: eris::ampz::AllianceConfig {
+                claim_coins: vec![],
+                contract: "alliance_contract".to_string(),
+                tamplifiers: vec![],
+            },
+            creda: CredaConfig {
+                portfolio: "creda_portfolio".to_string(),
             },
             arb_vault: "arb_vault".to_string(),
         },
@@ -190,6 +215,7 @@ pub(super) fn finish_amplifier(
         destination: eris::ampz::DestinationRuntime::DepositAmplifier {
             receiver: None,
         },
+        source: eris::ampz::Source::Claim,
         executor: Addr::unchecked(executor),
     };
 

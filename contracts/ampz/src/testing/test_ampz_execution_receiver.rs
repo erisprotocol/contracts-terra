@@ -39,6 +39,7 @@ fn check_callback_deposit_amplifier_receiver() {
                 destination: eris::ampz::DestinationRuntime::DepositAmplifier {
                     receiver: Some(receiver.clone()),
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("executor"),
             },
         }),
@@ -77,6 +78,7 @@ fn check_callback_deposit_amplifier_receiver() {
                 destination: eris::ampz::DestinationRuntime::DepositAmplifier {
                     receiver: Some(receiver.clone()),
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("user"),
             },
         }),
@@ -110,6 +112,7 @@ fn check_callback_deposit_amplifier_receiver() {
                 destination: eris::ampz::DestinationRuntime::DepositAmplifier {
                     receiver: Some(receiver.clone()),
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("controller"),
             },
         }),
@@ -157,6 +160,7 @@ fn check_callback_deposit_farm_receiver() {
                     ],
                     farm: "farm".to_string(),
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("executor"),
             },
         }),
@@ -226,6 +230,7 @@ fn check_callback_swap_to() {
                     receiver: Some(receiver.clone()),
                     asset_info: native_asset_info("ibc/xxx".to_string()),
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("executor"),
             },
         }),

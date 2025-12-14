@@ -58,6 +58,7 @@ fn check_execution_source_claim_deposit_amplifier() {
         destination: eris::ampz::DestinationRuntime::DepositAmplifier {
             receiver: None,
         },
+        source: eris::ampz::Source::Claim,
         executor: Addr::unchecked("controller"),
     };
 
@@ -140,6 +141,10 @@ fn check_execution_source_wallet_native_deposit_amplifier() {
     let finish_execution = CallbackMsg::FinishExecution {
         destination: eris::ampz::DestinationRuntime::DepositAmplifier {
             receiver: None,
+        },
+        source: eris::ampz::Source::Wallet {
+            over: native_asset(CONTRACT_DENOM.into(), Uint128::new(100)),
+            max_amount: Some(Uint128::new(10)),
         },
         executor: Addr::unchecked("controller"),
     };
@@ -289,6 +294,10 @@ fn check_execution_source_wallet_cw20_deposit_amplifier() {
             destination: eris::ampz::DestinationRuntime::DepositAmplifier {
                 receiver: None,
             },
+            source: eris::ampz::Source::Wallet {
+                over: token_asset(astro(), Uint128::new(100)),
+                max_amount: Some(Uint128::new(10)),
+            },
             executor: Addr::unchecked("controller"),
         }
         .into_cosmos_msg(&Addr::unchecked(MOCK_CONTRACT_ADDR), 1, &user())
@@ -393,6 +402,9 @@ fn check_execution_source_astro_deposit_amplifier() {
             destination: eris::ampz::DestinationRuntime::DepositAmplifier {
                 receiver: None,
             },
+            source: eris::ampz::Source::AstroRewards {
+                lps: vec!["lp1".into(), "lp2".into()],
+            },
             executor: Addr::unchecked("controller"),
         }
         .into_cosmos_msg(&Addr::unchecked(MOCK_CONTRACT_ADDR), 1, &user())
@@ -476,6 +488,10 @@ fn check_execution_source_wallet_cw20_repay() {
     let finish = CallbackMsg::FinishExecution {
         destination: eris::ampz::DestinationRuntime::Repay {
             market: eris::ampz::RepayMarket::Capapult,
+        },
+        source: eris::ampz::Source::Wallet {
+            over: token_asset(astro(), Uint128::new(5)),
+            max_amount: Some(Uint128::new(50)),
         },
         executor: Addr::unchecked("controller"),
     };
@@ -595,6 +611,10 @@ fn check_execution_source_wallet_cw20_deposit_collateral() {
                 asset_info: eriscw_assetinfo,
             },
         },
+        source: eris::ampz::Source::Wallet {
+            over: token_asset(astro(), Uint128::new(5)),
+            max_amount: Some(Uint128::new(50)),
+        },
         executor: Addr::unchecked("controller"),
     };
 
@@ -701,6 +721,10 @@ fn check_execution_source_wallet_deposit_collateral_same_asset() {
                 asset_info: eriscw_assetinfo,
             },
         },
+        source: eris::ampz::Source::Wallet {
+            over: token_asset(eriscw.clone(), Uint128::new(5)),
+            max_amount: Some(Uint128::new(500)),
+        },
         executor: Addr::unchecked("controller"),
     };
 
@@ -760,6 +784,7 @@ fn check_execution_source_claim_deposit_arbvault() {
         destination: eris::ampz::DestinationRuntime::DepositArbVault {
             receiver: None,
         },
+        source: eris::ampz::Source::Claim,
         executor: Addr::unchecked("controller"),
     };
 
@@ -906,6 +931,10 @@ fn check_execution_source_wallet_cw20_deposit_arbvault() {
         CallbackMsg::FinishExecution {
             destination: eris::ampz::DestinationRuntime::DepositArbVault {
                 receiver: None,
+            },
+            source: eris::ampz::Source::Wallet {
+                over: token_asset(astro(), Uint128::new(100)),
+                max_amount: Some(Uint128::new(10)),
             },
             executor: Addr::unchecked("controller"),
         }

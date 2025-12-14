@@ -30,3 +30,6 @@ codegen-units = 1
 panic = 'abort'
 incremental = false
 overflow-checks = true
+
+[net]
+git-fetch-with-cli = true

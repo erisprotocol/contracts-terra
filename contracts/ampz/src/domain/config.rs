@@ -1,6 +1,6 @@
 use cosmwasm_std::{DepsMut, Env, MessageInfo, Response, StdError, StdResult};
 use eris::{
-    adapters::{arb_vault::ArbVault, compounder::Compounder, farm::Farm, hub::Hub},
+    adapters::{arb_vault::ArbVault, farm::Farm, hub::Hub, zapper::Zapper},
     ampz::ExecuteMsg,
 };
 use itertools::Itertools;
@@ -30,6 +30,8 @@ pub fn update_config(
             capapult,
             alliance,
             whitewhale,
+            tla,
+            creda,
         } => {
             let state = State::default();
             state.assert_owner(deps.storage, &info.sender)?;
@@ -88,9 +90,15 @@ pub fn update_config(
             if let Some(whitewhale) = whitewhale {
                 state.whitewhale.save(deps.storage, &whitewhale.validate(deps.api)?)?;
             }
+            if let Some(tla) = tla {
+                state.tla.save(deps.storage, &tla.validate(deps.api)?)?;
+            }
+            if let Some(creda) = creda {
+                state.creda.save(deps.storage, &creda.validate(deps.api)?)?;
+            }
 
             if let Some(zapper) = zapper {
-                state.zapper.save(deps.storage, &Compounder(deps.api.addr_validate(&zapper)?))?;
+                state.zapperv2.save(deps.storage, &Zapper(deps.api.addr_validate(&zapper)?))?;
             }
 
             if let Some(hub) = hub {

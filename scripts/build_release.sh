@@ -24,4 +24,6 @@ fi
 docker run --env $1 --rm -v "/$projectPath":/code \
   --mount type=bind,source=/$projectPath-cache/target,target=/target \
   --mount type=bind,source=/$projectPath-cache/registry,target=/usr/local/cargo/registry \
+  --mount type=bind,source=/$projectPath-cache,target=/usr/local/cargo/git \
+  --dns 8.8.8.8 --dns 8.8.4.4 \
   cosmwasm/optimizer:0.16.0

@@ -67,11 +67,11 @@ impl DestinationStateExt for DestinationState {
                 msg,
                 asset_info,
             },
-            DestinationState::LiquidityAlliance {
+            DestinationState::Tla {
                 gauge,
                 lp_info,
                 compounding,
-            } => DestinationRuntime::LiquidityAlliance {
+            } => DestinationRuntime::Tla {
                 asset_infos,
                 gauge,
                 lp_info,

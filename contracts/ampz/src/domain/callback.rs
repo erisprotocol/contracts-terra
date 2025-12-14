@@ -5,11 +5,16 @@ use cosmwasm_std::{
     attr, Addr, Attribute, CosmosMsg, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
     Uint128,
 };
-use eris::adapters::compounder::Compounder;
 use eris::adapters::hub::Hub;
-use eris::ampz::{CallbackMsg, CallbackWrapper, DepositMarket, DestinationRuntime, RepayMarket};
+use eris::adapters::msgs_zapper::PostActionCreate;
+use eris::adapters::zapper::Zapper;
+use eris::ampz::{
+    CallbackMsg, CallbackWrapper, ClaimType, DepositMarket, DestinationRuntime, RepayMarket, Source,
+};
 
 use crate::adapters::capapult::{CapapultLocker, CapapultMarket};
+use crate::adapters::creda::CredaPortfolio;
+use crate::adapters::tla::TlaConnector;
 use crate::constants::CONTRACT_DENOM;
 use crate::error::{ContractError, ContractResult};
 use crate::protos::msgex::{CosmosMsgEx, CosmosMsgsEx};
@@ -71,6 +76,25 @@ pub fn callback(
                     .deposit(balances, funds)?
                     .to_authz_msg(user, &env)?,
             );
+        },
+        CallbackMsg::AuthzWithdrawZasset {
+            connector,
+            zasset_denom,
+        } => {
+            attrs.push(attr("type", "authz_withdraw_zasset"));
+
+            let zasset_info = native_asset_info(zasset_denom.clone());
+            let current_zasset_balance = zasset_info.query_pool(&deps.querier, user.clone())?;
+            let zasset = zasset_info.with_balance(current_zasset_balance);
+            attrs.push(attr("withdraw", zasset.to_string()));
+
+            if !zasset.amount.is_zero() {
+                msgs.push(
+                    TlaConnector(connector)
+                        .withdraw_msg(zasset.to_coin()?, None)?
+                        .to_authz_msg(user, &env)?,
+                );
+            }
         },
         CallbackMsg::AuthzLockWwLp {
             lp_balance,
@@ -137,19 +161,12 @@ pub fn callback(
                 attrs.push(attr("skipped-swap", "1"));
                 attrs.push(attr("to", into.to_string()));
             } else {
-                let zapper = state.zapper.load(deps.storage)?;
+                let zapper = state.zapperv2.load(deps.storage)?;
 
-                let (funds, mut allowances) = funds_or_allowance(&env, &zapper.0, &balances, None)?;
-
-                for asset in balances.iter() {
-                    attrs.push(attr("from", asset.to_string()));
-                }
-
-                let multi_swap_msg = zapper.multi_swap_msg(balances, into.clone(), funds, None)?;
+                let mut multi_swap_msg = zapper.swap_msgs(into.clone(), balances, None, None)?;
 
                 // it uses the ERIS zapper multi-swap feature
-                msgs.append(&mut allowances);
-                msgs.push(multi_swap_msg);
+                msgs.append(&mut multi_swap_msg);
                 attrs.push(attr("to", into.to_string()));
             }
         },
@@ -157,6 +174,7 @@ pub fn callback(
         CallbackMsg::FinishExecution {
             destination,
             executor,
+            source,
         } => {
             match destination {
                 DestinationRuntime::DepositAmplifier {
@@ -171,8 +189,9 @@ pub fn callback(
                         return Err(ContractError::NothingToDeposit {});
                     }
 
-                    let balances =
-                        pay_fees(&state, &deps, &mut msgs, &mut attrs, balances, executor, &user)?;
+                    let balances = pay_fees(
+                        &state, &deps, &mut msgs, &mut attrs, balances, executor, &user, &source,
+                    )?;
 
                     // always 1 result if it inputs a non-zero token
                     let balance = balances.first().unwrap();
@@ -210,6 +229,7 @@ pub fn callback(
 
                         let balances = pay_fees(
                             &state, &deps, &mut msgs, &mut attrs, balances, executor, &user,
+                            &source,
                         )?;
 
                         // always 1 result if it inputs a non-zero token
@@ -245,8 +265,9 @@ pub fn callback(
                         return Err(ContractError::NothingToDeposit {});
                     }
 
-                    let balances =
-                        pay_fees(&state, &deps, &mut msgs, &mut attrs, balances, executor, &user)?;
+                    let balances = pay_fees(
+                        &state, &deps, &mut msgs, &mut attrs, balances, executor, &user, &source,
+                    )?;
 
                     // always 1 result if it inputs a non-zero token
                     let balance = balances.first().unwrap();
@@ -268,8 +289,9 @@ pub fn callback(
                     attrs.push(attr("type", "deposit_farm"));
                     let balances =
                         asset_infos.query_balances(&deps.querier, &env.contract.address)?;
-                    let balances =
-                        pay_fees(&state, &deps, &mut msgs, &mut attrs, balances, executor, &user)?;
+                    let balances = pay_fees(
+                        &state, &deps, &mut msgs, &mut attrs, balances, executor, &user, &source,
+                    )?;
 
                     let receiver: String = receiver.unwrap_or(user).into();
                     deposit_in_farm(&deps, farm, &env, receiver, balances, &mut msgs)?;
@@ -280,11 +302,12 @@ pub fn callback(
                     dex,
                 } => {
                     attrs.push(attr("type", "deposit_liquidity"));
-                    let zapper = state.zapper.load(deps.storage)?;
+                    let zapper = state.zapperv2.load(deps.storage)?;
                     let balances =
                         asset_infos.query_balances(&deps.querier, &env.contract.address)?;
-                    let balances =
-                        pay_fees(&state, &deps, &mut msgs, &mut attrs, balances, executor, &user)?;
+                    let balances = pay_fees(
+                        &state, &deps, &mut msgs, &mut attrs, balances, executor, &user, &source,
+                    )?;
 
                     deposit_in_dex(
                         &deps,
@@ -321,6 +344,49 @@ pub fn callback(
                         },
                     }
                 },
+                DestinationRuntime::Tla {
+                    asset_infos,
+                    gauge,
+                    lp_info,
+                    compounding,
+                } => {
+                    attrs.push(attr("type", "deposit_tla"));
+                    let tla = state.tla.load(deps.storage)?;
+                    let ve3_zapper = state.zapperv2.load(deps.storage)?;
+                    let balances =
+                        asset_infos.query_balances(&deps.querier, &env.contract.address)?;
+                    let balances = pay_fees(
+                        &state, &deps, &mut msgs, &mut attrs, balances, executor, &user, &source,
+                    )?;
+
+                    let gauge_config = tla
+                        .gauges
+                        .get(&gauge)
+                        .ok_or(ContractError::TlaGaugeNotSupported(gauge.to_string()))?;
+
+                    for asset in balances.iter() {
+                        msgs.push(asset.transfer_msg(&ve3_zapper.0)?);
+                    }
+
+                    let msg = ve3_zapper.zap(
+                        lp_info,
+                        asset_infos,
+                        None,
+                        Some(if compounding {
+                            PostActionCreate::LiquidStake {
+                                compounder: tla.compounder,
+                                gauge: gauge.clone(),
+                                receiver: Some(user.to_string()),
+                            }
+                        } else {
+                            PostActionCreate::Stake {
+                                asset_staking: gauge_config.staking.clone(),
+                                receiver: Some(user.to_string()),
+                            }
+                        }),
+                    )?;
+                    msgs.push(msg);
+                },
                 DestinationRuntime::SendSwapResultToUser {
                     asset_info,
                     receiver,
@@ -331,7 +397,7 @@ pub fn callback(
                     let receiver = receiver.unwrap_or_else(|| user.clone());
                     pay_fees_and_send_to_receiver(
                         &deps, &env, &state, &mut msgs, &mut attrs, asset_info, executor, &user,
-                        &receiver,
+                        &receiver, &source,
                     )?;
                 },
                 DestinationRuntime::Repay {
@@ -350,7 +416,7 @@ pub fn callback(
                                 &deps, &env, &state, &mut msgs, &mut attrs, asset_info, executor,
                                 &user,
                                 // in case of capa, it can only execute the deposit for the user
-                                &user,
+                                &user, &source,
                             )?;
 
                             let capapult_market = CapapultMarket(capa.market);
@@ -374,6 +440,28 @@ pub fn callback(
                             // this is done through authz as we need to pay from the user wallet
                             msgs.push(repay_loan_msg.to_authz_msg(user, &env)?)
                         },
+                        RepayMarket::Creda {
+                            asset_info,
+                        } => {
+                            attrs.push(attr("market", "creda"));
+
+                            let creda_config = state.creda.load(deps.storage)?;
+                            let creda = CredaPortfolio(creda_config.portfolio);
+                            // send fees and rest of the funds back to the user
+                            let asset = pay_fees_and_send_to_receiver(
+                                &deps, &env, &state, &mut msgs, &mut attrs, asset_info, executor,
+                                &user,
+                                // in case of creda, we still return funds to the user first, so that overpayment is returned to the user wallet
+                                &user, &source,
+                            )?;
+
+                            // pay down the max amount possible for the loan
+                            let repay_asset = asset;
+                            let repay_loan_msg = creda.repay(repay_asset, None)?;
+
+                            // this is done through authz as we need to pay from the user wallet
+                            msgs.push(repay_loan_msg.to_authz_msg(user, &env)?)
+                        },
                     }
                 },
                 DestinationRuntime::DepositCollateral {
@@ -393,7 +481,7 @@ pub fn callback(
                                 &deps, &env, &state, &mut msgs, &mut attrs, asset_info, executor,
                                 &user,
                                 // in case of capa, it can only execute the deposit for the user
-                                &user,
+                                &user, &source,
                             )?;
 
                             // top up the collateral in capapult (increase allowance + lock_collateral)
@@ -408,6 +496,27 @@ pub fn callback(
                                 deposit_collateral_msgs.to_authz_msg(user.to_string(), &env)?,
                             );
                         },
+                        DepositMarket::Creda {
+                            asset_info,
+                        } => {
+                            attrs.push(attr("market", "creda"));
+
+                            let creda_config = state.creda.load(deps.storage)?;
+                            let creda = CredaPortfolio(creda_config.portfolio);
+
+                            let balances = vec![asset_info]
+                                .query_balances(&deps.querier, &env.contract.address)?;
+                            let balances = pay_fees(
+                                &state, &deps, &mut msgs, &mut attrs, balances, executor, &user,
+                                &source,
+                            )?;
+
+                            // deposit collateral into creda
+                            let deposit_collateral_msg =
+                                creda.deposit(balances[0].clone(), Some(user.to_string()))?;
+
+                            msgs.push(deposit_collateral_msg)
+                        },
                     }
                 },
                 DestinationRuntime::ExecuteContract {
@@ -419,17 +528,12 @@ pub fn callback(
 
                     let balances =
                         vec![asset_info].query_balances(&deps.querier, &env.contract.address)?;
-                    let balances =
-                        pay_fees(&state, &deps, &mut msgs, &mut attrs, balances, executor, &user)?;
+                    let balances = pay_fees(
+                        &state, &deps, &mut msgs, &mut attrs, balances, executor, &user, &source,
+                    )?;
                     let msg = balances[0].send_or_execute_msg_binary(contract, msg)?;
                     msgs.push(msg);
                 },
-                DestinationRuntime::LiquidityAlliance {
-                    asset_infos,
-                    gauge,
-                    lp_info,
-                    compounding,
-                } => todo!(),
             };
 
             state.is_executing.remove(deps.storage);
@@ -453,6 +557,7 @@ fn pay_fees_and_send_to_receiver(
     executor: Addr,
     user: &Addr,
     receiver: &Addr,
+    source: &Source,
 ) -> Result<Asset, ContractError> {
     // this method, queries the contract for the expected asset, pays fees on it and sends it to the receiver.
     let amount = asset_info.query_pool(&deps.querier, env.contract.address.to_string())?;
@@ -460,13 +565,14 @@ fn pay_fees_and_send_to_receiver(
         return Err(ContractError::NothingToDeposit {});
     }
     let balances = vec![asset_info.with_balance(amount)];
-    let mut balances = pay_fees(state, deps, msgs, attrs, balances, executor, user)?;
+    let mut balances = pay_fees(state, deps, msgs, attrs, balances, executor, user, source)?;
     let balance = balances.remove(0);
     msgs.push(balance.transfer_msg(receiver)?);
 
     Ok(balance)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn pay_fees(
     state: &State,
     deps: &DepsMut,
@@ -475,6 +581,7 @@ fn pay_fees(
     balances: Vec<Asset>,
     executor: Addr,
     user: &Addr,
+    source: &Source,
 ) -> StdResult<Vec<Asset>> {
     let fee = state.fee.load(deps.storage)?;
 
@@ -485,7 +592,14 @@ fn pay_fees(
         fee.operator_bps
     };
 
-    let total_fee_bps = operator_bps.checked_add(fee.fee_bps)?;
+    let protocol_fee = match source {
+        Source::ClaimContract {
+            claim_type: ClaimType::TlaRewards,
+        } => fee.tla_source_fee,
+        _ => fee.fee_bps,
+    };
+
+    let total_fee_bps = operator_bps.checked_add(protocol_fee)?;
     // when no total fee, nothing needs to be paid
     if total_fee_bps.is_zero() {
         add_balances_to_attributes(&balances, attrs);
@@ -499,7 +613,7 @@ fn pay_fees(
     for asset in balances {
         if !asset.amount.is_zero() {
             let mut operator_fee_amount = asset.amount * operator_bps.decimal();
-            let mut protocol_fee_amount = asset.amount * fee.fee_bps.decimal();
+            let mut protocol_fee_amount = asset.amount * protocol_fee.decimal();
 
             let deposit_amount =
                 asset.amount.checked_sub(operator_fee_amount)?.checked_sub(protocol_fee_amount)?;
@@ -557,23 +671,29 @@ fn deposit_in_farm(
 
 fn deposit_in_dex(
     deps: &DepsMut,
-    zapper: Compounder,
-    env: &Env,
+    zapper: Zapper,
+    _env: &Env,
     lp_token: String,
     receiver: Addr,
     balances: Vec<Asset>,
     msgs: &mut Vec<CosmosMsg>,
 ) -> Result<(), StdError> {
     let lp_token = deps.api.addr_validate(&lp_token)?;
-    let (funds, mut allowances) = funds_or_allowance(env, &zapper.0, &balances, None)?;
-    msgs.append(&mut allowances);
-    msgs.push(zapper.compound_msg(
-        balances,
-        funds,
+
+    for balance in &balances {
+        msgs.push(balance.transfer_msg(&zapper.0)?);
+    }
+
+    msgs.push(zapper.zap(
+        AssetInfo::Token {
+            contract_addr: lp_token,
+        },
+        balances.iter().map(|a| a.info.clone()).collect(),
         None,
-        None,
-        &lp_token,
-        Some(receiver.to_string()),
+        Some(PostActionCreate::SendResult {
+            receiver: Some(receiver.to_string()),
+        }),
     )?);
+
     Ok(())
 }

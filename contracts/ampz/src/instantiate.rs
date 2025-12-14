@@ -1,7 +1,7 @@
 use cosmwasm_std::{DepsMut, Env, Response, StdResult};
 use cw2::set_contract_version;
 use eris::{
-    adapters::{arb_vault::ArbVault, compounder::Compounder, farm::Farm, hub::Hub},
+    adapters::{arb_vault::ArbVault, farm::Farm, hub::Hub, zapper::Zapper},
     ampz::InstantiateMsg,
     helper::dedupe,
 };
@@ -17,7 +17,7 @@ pub fn exec_instantiate(deps: DepsMut, _env: Env, msg: InstantiateMsg) -> StdRes
     let state = State::default();
 
     state.controller.save(deps.storage, &deps.api.addr_validate(&msg.controller)?)?;
-    state.zapper.save(deps.storage, &Compounder(deps.api.addr_validate(&msg.zapper)?))?;
+    state.zapperv2.save(deps.storage, &Zapper(deps.api.addr_validate(&msg.zapper)?))?;
     state.astroport.save(deps.storage, &msg.astroport.validate(deps.api)?)?;
     state.capapult.save(deps.storage, &msg.capapult.validate(deps.api)?)?;
 
@@ -38,6 +38,11 @@ pub fn exec_instantiate(deps: DepsMut, _env: Env, msg: InstantiateMsg) -> StdRes
 
     state.id.save(deps.storage, &1u128)?;
     state.fee.save(deps.storage, &msg.fee.validate(deps.api)?)?;
+
+    state.tla.save(deps.storage, &msg.tla.validate(deps.api)?)?;
+    state.creda.save(deps.storage, &msg.creda.validate(deps.api)?)?;
+    state.whitewhale.save(deps.storage, &msg.whitewhale.validate(deps.api)?)?;
+    state.alliance.save(deps.storage, &msg.alliance.validate(deps.api)?)?;
 
     Ok(Response::new().add_attribute("action", "ampz/exec_instantiate"))
 }

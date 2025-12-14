@@ -89,4 +89,6 @@ pub enum ContractError {
 
     #[error("The t-asset for {0} is not supported")]
     TAssetNotSupported(AssetInfo),
+    #[error("The gauge {0} is not supported")]
+    TlaGaugeNotSupported(String),
 }

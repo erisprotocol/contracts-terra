@@ -32,12 +32,15 @@ pub fn config(deps: Deps) -> StdResult<ConfigResponse> {
             custody: a.custody.into(),
             stable_cw: a.stable_cw.into(),
         })?,
-        zapper: state.zapper.load(deps.storage)?.0.into(),
+        zapper: state.zapperv2.load(deps.storage)?.0.into(),
         fee: state.fee.load(deps.storage).map(|f| FeeConfig {
             fee_bps: f.fee_bps,
             operator_bps: f.operator_bps,
+            tla_source_fee: f.tla_source_fee,
             receiver: f.receiver.into(),
         })?,
+        creda: state.creda.load(deps.storage)?,
+        tla: state.tla.load(deps.storage)?,
     })
 }
 

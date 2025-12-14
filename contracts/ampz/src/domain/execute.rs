@@ -141,6 +141,35 @@ pub fn execute_id(deps: DepsMut, env: Env, info: MessageInfo, id: u128) -> Contr
                         msgs.push(msg);
                     }
                 },
+                eris::ampz::ClaimType::TlaRewards => {
+                    let tla = state.tla.load(deps.storage)?;
+                    for gauge_config in tla.gauges.values() {
+                        let msg =
+                            crate::adapters::tla::TlaAssetStaking(gauge_config.staking.clone())
+                                .claim_rewards_msg(None, None)?
+                                .to_authz_msg(&user, &env)?;
+
+                        msgs.push(msg);
+
+                        msgs.push(
+                            CallbackMsg::AuthzWithdrawZasset {
+                                connector: gauge_config.connector.clone(),
+                                zasset_denom: format!(
+                                    "factory/{}/zluna",
+                                    gauge_config.connector.clone()
+                                ),
+                            }
+                            .into_cosmos_msg(
+                                &env.contract.address,
+                                id,
+                                &user,
+                            )?,
+                        );
+                    }
+
+                    asset_infos = vec![token_asset_info(tla.amp_luna_addr.clone())];
+                    user_balance_start = asset_infos.query_balances(&deps.querier, &user)?;
+                },
             }
         },
         Source::WhiteWhaleRewards {
@@ -161,9 +190,6 @@ pub fn execute_id(deps: DepsMut, env: Env, info: MessageInfo, id: u128) -> Contr
 
             msgs.append(&mut claim_msgs);
         },
-        Source::LiquidityAlliance {
-            assets,
-        } => todo!(),
     }
 
     state.last_execution.save(deps.storage, id, &env.block.time.seconds())?;
@@ -198,6 +224,7 @@ pub fn execute_id(deps: DepsMut, env: Env, info: MessageInfo, id: u128) -> Contr
         CallbackMsg::FinishExecution {
             destination: execution.destination.to_runtime(asset_infos),
             executor: info.sender,
+            source: execution.source.clone(),
         }
         .into_cosmos_msg(&env.contract.address, id, &user)?,
     );
@@ -244,6 +271,9 @@ fn get_swap_asset(
         DestinationState::DepositLiquidity {
             ..
         } => None,
+        DestinationState::Tla {
+            ..
+        } => None,
         DestinationState::ExecuteContract {
             asset_info,
             ..
@@ -259,6 +289,9 @@ fn get_swap_asset(
                 let capa = state.capapult.load(deps.storage)?;
                 Some(token_asset_info(capa.stable_cw))
             },
+            RepayMarket::Creda {
+                asset_info,
+            } => Some(asset_info.clone()),
         },
         DestinationState::DepositCollateral {
             market,
@@ -266,15 +299,13 @@ fn get_swap_asset(
             DepositMarket::Capapult {
                 asset_info,
             } => Some(asset_info.clone()),
+            DepositMarket::Creda {
+                asset_info,
+            } => Some(asset_info.clone()),
         },
         DestinationState::DepositTAmplifier {
             asset_info,
             ..
         } => Some(asset_info.clone()),
-        DestinationState::LiquidityAlliance {
-            gauge,
-            lp_info,
-            compounding,
-        } => todo!(),
     })
 }

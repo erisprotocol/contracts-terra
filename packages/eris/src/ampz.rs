@@ -5,6 +5,7 @@ use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{
     to_json_binary, Addr, Api, Binary, Coin, CosmosMsg, StdError, StdResult, Uint128, WasmMsg,
 };
+use schemars::Map;
 
 use crate::{adapters::generator::Generator, helpers::bps::BasicPoints};
 
@@ -26,6 +27,9 @@ pub struct InstantiateMsg {
     pub astroport: AstroportConfig<String>,
     pub whitewhale: WhiteWhaleConfig<String>,
     pub capapult: CapapultConfig<String>,
+    pub tla: TlaConfig<String>,
+    pub creda: CredaConfig<String>,
+    pub alliance: AllianceConfig<String>,
     pub fee: FeeConfig<String>,
 }
 
@@ -45,21 +49,20 @@ pub enum Source {
         over: Asset,
         max_amount: Option<Uint128>,
     },
-    LiquidityAlliance {
-        assets: Vec<String>,
-    },
 }
 
 #[cw_serde]
 pub enum ClaimType {
     WhiteWhaleRewards,
     AllianceRewards,
+    TlaRewards,
 }
 impl fmt::Display for ClaimType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             ClaimType::WhiteWhaleRewards => write!(f, "WhiteWhaleRewards"),
             ClaimType::AllianceRewards => write!(f, "AllianceRewards"),
+            ClaimType::TlaRewards => write!(f, "TlaRewards"),
         }
     }
 }
@@ -99,9 +102,6 @@ impl Source {
                 ..
             } => Some("whitewhale_rewards".to_string()),
             Source::Wallet {
-                ..
-            }
-            | Source::LiquidityAlliance {
                 ..
             } => {
                 // wallet is allowed to be defined multiple times
@@ -149,6 +149,54 @@ impl WhiteWhaleConfig<String> {
                 .into_iter()
                 .map(|lp| api.addr_validate(&lp))
                 .collect::<StdResult<Vec<_>>>()?,
+        })
+    }
+}
+
+#[cw_serde]
+pub struct TlaConfig<T> {
+    pub compounder: T,
+    pub amp_luna_addr: T,
+    pub gauges: Map<String, GaugeConfig<T>>,
+}
+
+#[cw_serde]
+pub struct GaugeConfig<T> {
+    pub staking: T,
+    pub connector: T,
+    //denom_zasset
+    // factory/{connector}/zluna
+}
+impl TlaConfig<String> {
+    pub fn validate(self, api: &dyn Api) -> StdResult<TlaConfig<Addr>> {
+        Ok(TlaConfig {
+            compounder: api.addr_validate(&self.compounder)?,
+            amp_luna_addr: api.addr_validate(&self.amp_luna_addr)?,
+            gauges: self
+                .gauges
+                .into_iter()
+                .map(|(k, v)| {
+                    Ok((
+                        k,
+                        GaugeConfig {
+                            staking: api.addr_validate(&v.staking)?,
+                            connector: api.addr_validate(&v.connector)?,
+                        },
+                    ))
+                })
+                .collect::<StdResult<Map<String, GaugeConfig<Addr>>>>()?,
+        })
+    }
+}
+
+#[cw_serde]
+pub struct CredaConfig<T> {
+    pub portfolio: T,
+}
+impl CredaConfig<String> {
+    pub fn validate(self, api: &dyn Api) -> StdResult<CredaConfig<Addr>> {
+        Ok(CredaConfig {
+            portfolio: api.addr_validate(&self.portfolio)?,
         })
     }
 }
@@ -237,6 +285,8 @@ pub enum ExecuteMsg {
         capapult: Option<CapapultConfig<String>>,
         whitewhale: Option<WhiteWhaleConfig<String>>,
         alliance: Option<AllianceConfig<String>>,
+        tla: Option<TlaConfig<String>>,
+        creda: Option<CredaConfig<String>>,
         fee: Option<FeeConfig<String>>,
     },
 }
@@ -245,6 +295,7 @@ pub enum ExecuteMsg {
 pub struct FeeConfig<T> {
     pub fee_bps: BasicPoints,
     pub operator_bps: BasicPoints,
+    pub tla_source_fee: BasicPoints,
     pub receiver: T,
 }
 
@@ -256,10 +307,14 @@ impl FeeConfig<String> {
         if self.operator_bps.u16() > 500 {
             return Err(StdError::generic_err("max operator fee is 5 %"));
         }
+        if self.tla_source_fee.u16() > 2000 {
+            return Err(StdError::generic_err("max tla fee is 20 %"));
+        }
 
         Ok(FeeConfig {
             fee_bps: self.fee_bps,
             operator_bps: self.operator_bps,
+            tla_source_fee: self.tla_source_fee,
             receiver: api.addr_validate(&self.receiver)?,
         })
     }
@@ -317,7 +372,7 @@ pub enum DestinationState {
         contract: Addr,
         msg: Binary,
     },
-    LiquidityAlliance {
+    Tla {
         gauge: String,
         lp_info: AssetInfo,
         compounding: bool,
@@ -368,7 +423,7 @@ pub enum DestinationRuntime {
         msg: Binary,
         asset_info: AssetInfo,
     },
-    LiquidityAlliance {
+    Tla {
         asset_infos: Vec<AssetInfo>,
 
         gauge: String,
@@ -383,11 +438,19 @@ pub enum DepositMarket {
         // specifies which asset to deposit into capapult
         asset_info: AssetInfo,
     },
+    Creda {
+        // specifies which asset to deposit into creda
+        asset_info: AssetInfo,
+    },
 }
 
 #[cw_serde]
 pub enum RepayMarket {
     Capapult,
+    Creda {
+        // specifies which asset to repay into creda
+        asset_info: AssetInfo,
+    },
 }
 
 /// This structure describes the callback messages of the contract.
@@ -403,12 +466,19 @@ pub enum CallbackMsg {
         unbonding_duration: u64,
     },
 
+    AuthzWithdrawZasset {
+        connector: Addr,
+        zasset_denom: String,
+    },
+
     Swap {
         asset_infos: Vec<AssetInfo>,
         into: AssetInfo,
     },
 
     FinishExecution {
+        // source is needed for fee calculation
+        source: Source,
         destination: DestinationRuntime,
         executor: Addr,
     },
@@ -495,6 +565,9 @@ pub struct ConfigResponse {
     pub capapult: CapapultConfig<String>,
 
     pub fee: FeeConfig<String>,
+
+    pub tla: TlaConfig<Addr>,
+    pub creda: CredaConfig<Addr>,
 }
 
 #[cw_serde]

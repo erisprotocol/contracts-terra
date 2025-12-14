@@ -9,6 +9,8 @@ use cw20::{Cw20ExecuteMsg, Expiration};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::adapters::msgs_zapper::AssetInfoUnchecked;
+
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
 pub struct Ics20TransferMsg {
@@ -16,8 +18,26 @@ pub struct Ics20TransferMsg {
     pub remote_address: String,
 }
 
+pub trait AssetInfoEx {
+    fn to_new(&self) -> AssetInfoUnchecked;
+}
+
+impl AssetInfoEx for AssetInfo {
+    fn to_new(&self) -> AssetInfoUnchecked {
+        match self {
+            AssetInfo::Token {
+                contract_addr,
+            } => AssetInfoUnchecked::Cw20(contract_addr.to_string()),
+            AssetInfo::NativeToken {
+                denom,
+            } => AssetInfoUnchecked::Native(denom.clone()),
+        }
+    }
+}
+
 pub trait AssetInfosEx {
     fn query_balances(&self, querier: &QuerierWrapper, address: &Addr) -> StdResult<Vec<Asset>>;
+    fn to_new(&self) -> Vec<AssetInfoUnchecked>;
 }
 
 impl AssetInfosEx for Vec<AssetInfo> {
@@ -34,6 +54,10 @@ impl AssetInfosEx for Vec<AssetInfo> {
             .collect::<StdResult<_>>()?;
 
         Ok(assets.into_iter().collect())
+    }
+
+    fn to_new(&self) -> Vec<AssetInfoUnchecked> {
+        self.iter().map(|asset| asset.to_new()).collect()
     }
 }
 
@@ -120,6 +144,8 @@ pub trait AssetEx {
         contract: A,
         msg: Binary,
     ) -> Result<CosmosMsg, StdError>;
+
+    fn to_coin(&self) -> StdResult<Coin>;
 }
 
 impl AssetEx for Asset {
@@ -309,7 +335,20 @@ impl AssetEx for Asset {
                 msg,
                 funds: vec![coin(self.amount.u128(), denom)],
             })),
-            _ => Err(StdError::generic_err("only cw20 or native".to_string())),
+        }
+    }
+
+    fn to_coin(&self) -> StdResult<Coin> {
+        match &self.info {
+            AssetInfo::Token {
+                ..
+            } => Err(StdError::generic_err("Cannot convert CW20 token to Coin")),
+            AssetInfo::NativeToken {
+                denom,
+            } => Ok(Coin {
+                denom: denom.to_string(),
+                amount: self.amount,
+            }),
         }
     }
 }

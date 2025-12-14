@@ -1,15 +1,15 @@
+use crate::adapters::capapult::{CapapultLocker, CapapultMarket};
+use crate::adapters::creda::CredaPortfolio;
+use crate::protos::msgex::{CosmosMsgEx, CosmosMsgsEx};
+use crate::testing::helpers::mock_env_at_timestamp_height;
+use crate::{contract::execute, error::ContractError};
 use cosmwasm_std::testing::{mock_env, mock_info};
 use eris::adapters::ampz::Ampz;
 use eris::adapters::arb_vault::ArbVault;
 use eris::adapters::asset::AssetEx;
-use eris::adapters::compounder::Compounder;
 use eris::adapters::farm::Farm;
 use eris::adapters::hub::Hub;
-
-use crate::adapters::capapult::{CapapultLocker, CapapultMarket};
-use crate::protos::msgex::{CosmosMsgEx, CosmosMsgsEx};
-use crate::testing::helpers::mock_env_at_timestamp_height;
-use crate::{contract::execute, error::ContractError};
+use eris::adapters::zapper::Zapper;
 
 use super::helpers::{mock_env_at_timestamp, setup_test};
 use std::vec;
@@ -214,36 +214,31 @@ fn check_callback_swap() {
 
     assert_eq!(
         res.messages[0].msg,
-        token_asset(astro(), Uint128::new(10))
-            .increase_allowance_msg(
-                "zapper".into(),
-                Some(cw20::Expiration::AtHeight(env.block.height + 1))
-            )
-            .unwrap()
+        token_asset(astro(), Uint128::new(10)).transfer_msg(&Addr::unchecked("zapper")).unwrap()
     );
     assert_eq!(
         res.messages[1].msg,
         token_asset(Addr::unchecked("some"), Uint128::new(20))
-            .increase_allowance_msg(
-                "zapper".into(),
-                Some(cw20::Expiration::AtHeight(env.block.height + 1))
-            )
+            .transfer_msg(&Addr::unchecked("zapper"))
             .unwrap()
     );
     assert_eq!(
         res.messages[2].msg,
-        Compounder(Addr::unchecked("zapper"))
-            .multi_swap_msg(
+        Zapper(Addr::unchecked("zapper"))
+            .swap_msgs(
+                native_asset_info(CONTRACT_DENOM.into()),
                 vec![
                     native_asset("small".into(), Uint128::new(1)),
                     token_asset(astro(), Uint128::new(10)),
                     token_asset(Addr::unchecked("some"), Uint128::new(20)),
                 ],
-                native_asset_info(CONTRACT_DENOM.into()),
-                coins(1, "small"),
+                None,
                 None
             )
-            .unwrap(),
+            .unwrap()
+            .into_iter()
+            .last()
+            .unwrap()
     );
 }
 
@@ -262,6 +257,7 @@ fn check_callback_deposit_amplifier() {
                 destination: eris::ampz::DestinationRuntime::DepositAmplifier {
                     receiver: None,
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("executor"),
             },
         }),
@@ -283,6 +279,7 @@ fn check_callback_deposit_amplifier() {
                 destination: eris::ampz::DestinationRuntime::DepositAmplifier {
                     receiver: None,
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("executor"),
             },
         }),
@@ -319,6 +316,7 @@ fn check_callback_deposit_amplifier() {
                 destination: eris::ampz::DestinationRuntime::DepositAmplifier {
                     receiver: None,
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("user"),
             },
         }),
@@ -350,6 +348,7 @@ fn check_callback_deposit_amplifier() {
                 destination: eris::ampz::DestinationRuntime::DepositAmplifier {
                     receiver: None,
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("controller"),
             },
         }),
@@ -387,6 +386,7 @@ fn check_callback_deposit_farm() {
                     farm: "farm".to_string(),
                     receiver: None,
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("executor"),
             },
         }),
@@ -415,6 +415,7 @@ fn check_callback_deposit_farm() {
                     ],
                     farm: "farm".to_string(),
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("executor"),
             },
         }),
@@ -481,6 +482,7 @@ fn check_callback_deposit_farm() {
                     ],
                     farm: "farm".to_string(),
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("user"),
             },
         }),
@@ -538,6 +540,7 @@ fn check_callback_deposit_farm() {
                     ],
                     farm: "farm".to_string(),
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("controller"),
             },
         }),
@@ -595,6 +598,7 @@ fn check_callback_swap_to() {
                     receiver: None,
                     asset_info: native_asset_info("ibc/xxx".to_string()),
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("executor"),
             },
         }),
@@ -617,6 +621,7 @@ fn check_callback_swap_to() {
                     receiver: None,
                     asset_info: native_asset_info("ibc/xxx".to_string()),
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("executor"),
             },
         }),
@@ -655,6 +660,7 @@ fn check_callback_swap_to() {
                     receiver: None,
                     asset_info: native_asset_info("ibc/xxx".to_string()),
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("user"),
             },
         }),
@@ -688,6 +694,7 @@ fn check_callback_swap_to() {
                     receiver: None,
                     asset_info: native_asset_info("ibc/xxx".to_string()),
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("controller"),
             },
         }),
@@ -724,6 +731,7 @@ fn check_callback_repay_capa() {
                 destination: eris::ampz::DestinationRuntime::Repay {
                     market: eris::ampz::RepayMarket::Capapult,
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("executor"),
             },
         }),
@@ -746,6 +754,7 @@ fn check_callback_repay_capa() {
                 destination: eris::ampz::DestinationRuntime::Repay {
                     market: eris::ampz::RepayMarket::Capapult,
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("executor"),
             },
         }),
@@ -787,6 +796,7 @@ fn check_callback_repay_capa() {
                 destination: eris::ampz::DestinationRuntime::Repay {
                     market: eris::ampz::RepayMarket::Capapult,
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("user"),
             },
         }),
@@ -825,6 +835,7 @@ fn check_callback_repay_capa() {
                 destination: eris::ampz::DestinationRuntime::Repay {
                     market: eris::ampz::RepayMarket::Capapult,
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("controller"),
             },
         }),
@@ -872,6 +883,7 @@ fn check_callback_lock_collateral_capa() {
                         asset_info: eriscw_assetinfo.clone(),
                     },
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("executor"),
             },
         }),
@@ -896,6 +908,7 @@ fn check_callback_lock_collateral_capa() {
                         asset_info: eriscw_assetinfo.clone(),
                     },
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("executor"),
             },
         }),
@@ -944,6 +957,7 @@ fn check_callback_lock_collateral_capa() {
                         asset_info: eriscw_assetinfo.clone(),
                     },
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("user"),
             },
         }),
@@ -987,6 +1001,7 @@ fn check_callback_lock_collateral_capa() {
                         asset_info: eriscw_assetinfo,
                     },
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("controller"),
             },
         }),
@@ -1031,6 +1046,7 @@ fn check_callback_deposit_arb_vault() {
                 destination: eris::ampz::DestinationRuntime::DepositArbVault {
                     receiver: None,
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("executor"),
             },
         }),
@@ -1052,6 +1068,7 @@ fn check_callback_deposit_arb_vault() {
                 destination: eris::ampz::DestinationRuntime::DepositArbVault {
                     receiver: None,
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("executor"),
             },
         }),
@@ -1090,6 +1107,7 @@ fn check_callback_deposit_arb_vault() {
                 destination: eris::ampz::DestinationRuntime::DepositArbVault {
                     receiver: None,
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("user"),
             },
         }),
@@ -1123,6 +1141,7 @@ fn check_callback_deposit_arb_vault() {
                 destination: eris::ampz::DestinationRuntime::DepositArbVault {
                     receiver: None,
                 },
+                source: eris::ampz::Source::Claim,
                 executor: Addr::unchecked("controller"),
             },
         }),
@@ -1142,5 +1161,501 @@ fn check_callback_deposit_arb_vault() {
         ArbVault(Addr::unchecked("arb_vault"))
             .deposit_msg(CONTRACT_DENOM, 97, Some("user".into()))
             .unwrap(),
+    );
+}
+
+#[test]
+fn check_callback_repay_creda() {
+    let mut deps = setup_test();
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info("user", &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::Repay {
+                    market: eris::ampz::RepayMarket::Creda {
+                        asset_info: native_asset_info(CONTRACT_DENOM.into()),
+                    },
+                },
+                source: eris::ampz::Source::Claim,
+                executor: Addr::unchecked("executor"),
+            },
+        }),
+    )
+    .unwrap_err();
+
+    assert_eq!(res, ContractError::CallbackOnlyCalledByContract {});
+
+    deps.querier.bank_querier.update_balance(MOCK_CONTRACT_ADDR, coins(100, CONTRACT_DENOM));
+
+    // any executor
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info(MOCK_CONTRACT_ADDR, &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::Repay {
+                    market: eris::ampz::RepayMarket::Creda {
+                        asset_info: native_asset_info(CONTRACT_DENOM.into()),
+                    },
+                },
+                source: eris::ampz::Source::Claim,
+                executor: Addr::unchecked("executor"),
+            },
+        }),
+    )
+    .unwrap();
+    assert_eq!(res.messages.len(), 4);
+    assert_eq!(
+        res.messages[0].msg,
+        native_asset(CONTRACT_DENOM.into(), Uint128::new(1))
+            .transfer_msg(&Addr::unchecked("fee_receiver"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[1].msg,
+        native_asset(CONTRACT_DENOM.into(), Uint128::new(2))
+            .transfer_msg(&Addr::unchecked("executor"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[2].msg,
+        native_asset(CONTRACT_DENOM.into(), Uint128::new(97))
+            .transfer_msg(&Addr::unchecked("user"))
+            .unwrap(),
+    );
+    assert_eq!(
+        res.messages[3].msg,
+        CredaPortfolio(Addr::unchecked("creda_portfolio"))
+            .repay(native_asset(CONTRACT_DENOM.into(), Uint128::new(97)), None)
+            .unwrap()
+            .to_authz_msg("user", &mock_env())
+            .unwrap()
+    );
+
+    // user as executor "manual execution"
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info(MOCK_CONTRACT_ADDR, &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::Repay {
+                    market: eris::ampz::RepayMarket::Creda {
+                        asset_info: native_asset_info(CONTRACT_DENOM.into()),
+                    },
+                },
+                source: eris::ampz::Source::Claim,
+                executor: Addr::unchecked("user"),
+            },
+        }),
+    )
+    .unwrap();
+
+    assert_eq!(res.messages.len(), 3);
+    assert_eq!(
+        res.messages[0].msg,
+        native_asset(CONTRACT_DENOM.into(), Uint128::new(1))
+            .transfer_msg(&Addr::unchecked("fee_receiver"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[1].msg,
+        native_asset(CONTRACT_DENOM.into(), Uint128::new(99))
+            .transfer_msg(&Addr::unchecked("user"))
+            .unwrap(),
+    );
+    assert_eq!(
+        res.messages[2].msg,
+        CredaPortfolio(Addr::unchecked("creda_portfolio"))
+            .repay(native_asset(CONTRACT_DENOM.into(), Uint128::new(99)), None)
+            .unwrap()
+            .to_authz_msg("user", &mock_env())
+            .unwrap()
+    );
+
+    // protocol controller as executor
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info(MOCK_CONTRACT_ADDR, &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::Repay {
+                    market: eris::ampz::RepayMarket::Creda {
+                        asset_info: native_asset_info(CONTRACT_DENOM.into()),
+                    },
+                },
+                source: eris::ampz::Source::Claim,
+                executor: Addr::unchecked("controller"),
+            },
+        }),
+    )
+    .unwrap();
+
+    assert_eq!(res.messages.len(), 3);
+    assert_eq!(
+        res.messages[0].msg,
+        native_asset(CONTRACT_DENOM.into(), Uint128::new(3))
+            .transfer_msg(&Addr::unchecked("fee_receiver"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[1].msg,
+        native_asset(CONTRACT_DENOM.into(), Uint128::new(97))
+            .transfer_msg(&Addr::unchecked("user"))
+            .unwrap(),
+    );
+    assert_eq!(
+        res.messages[2].msg,
+        CredaPortfolio(Addr::unchecked("creda_portfolio"))
+            .repay(native_asset(CONTRACT_DENOM.into(), Uint128::new(97)), None)
+            .unwrap()
+            .to_authz_msg("user", &mock_env())
+            .unwrap()
+    );
+}
+
+#[test]
+fn check_callback_supply_creda() {
+    let mut deps = setup_test();
+
+    let eriscw = Addr::unchecked("eriscw");
+    let eriscw_assetinfo = token_asset_info(eriscw.clone());
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info("user", &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::DepositCollateral {
+                    market: eris::ampz::DepositMarket::Creda {
+                        asset_info: eriscw_assetinfo.clone(),
+                    },
+                },
+                source: eris::ampz::Source::Claim,
+                executor: Addr::unchecked("executor"),
+            },
+        }),
+    )
+    .unwrap_err();
+
+    assert_eq!(res, ContractError::CallbackOnlyCalledByContract {});
+
+    deps.querier.set_cw20_balance(MOCK_CONTRACT_ADDR, "eriscw", 100);
+
+    // any executor
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info(MOCK_CONTRACT_ADDR, &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::DepositCollateral {
+                    market: eris::ampz::DepositMarket::Creda {
+                        asset_info: eriscw_assetinfo.clone(),
+                    },
+                },
+                source: eris::ampz::Source::Claim,
+                executor: Addr::unchecked("executor"),
+            },
+        }),
+    )
+    .unwrap();
+    assert_eq!(res.messages.len(), 3);
+    assert_eq!(
+        res.messages[0].msg,
+        token_asset(eriscw.clone(), Uint128::new(1))
+            .transfer_msg(&Addr::unchecked("fee_receiver"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[1].msg,
+        token_asset(eriscw.clone(), Uint128::new(2))
+            .transfer_msg(&Addr::unchecked("executor"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[2].msg,
+        CredaPortfolio(Addr::unchecked("creda_portfolio"))
+            .deposit(token_asset(eriscw.clone(), Uint128::new(97)), Some("user".to_string()))
+            .unwrap()
+    );
+
+    // user as executor "manual execution"
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info(MOCK_CONTRACT_ADDR, &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::DepositCollateral {
+                    market: eris::ampz::DepositMarket::Creda {
+                        asset_info: eriscw_assetinfo.clone(),
+                    },
+                },
+                source: eris::ampz::Source::Claim,
+                executor: Addr::unchecked("user"),
+            },
+        }),
+    )
+    .unwrap();
+
+    assert_eq!(res.messages.len(), 2);
+    assert_eq!(
+        res.messages[0].msg,
+        token_asset(eriscw.clone(), Uint128::new(1))
+            .transfer_msg(&Addr::unchecked("fee_receiver"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[1].msg,
+        CredaPortfolio(Addr::unchecked("creda_portfolio"))
+            .deposit(token_asset(eriscw.clone(), Uint128::new(99)), Some("user".to_string()))
+            .unwrap()
+    );
+
+    // protocol controller as executor
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info(MOCK_CONTRACT_ADDR, &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::DepositCollateral {
+                    market: eris::ampz::DepositMarket::Creda {
+                        asset_info: eriscw_assetinfo.clone(),
+                    },
+                },
+                source: eris::ampz::Source::Claim,
+                executor: Addr::unchecked("controller"),
+            },
+        }),
+    )
+    .unwrap();
+
+    assert_eq!(res.messages.len(), 2);
+    assert_eq!(
+        res.messages[0].msg,
+        token_asset(eriscw.clone(), Uint128::new(3))
+            .transfer_msg(&Addr::unchecked("fee_receiver"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[1].msg,
+        CredaPortfolio(Addr::unchecked("creda_portfolio"))
+            .deposit(token_asset(eriscw.clone(), Uint128::new(97)), Some("user".to_string()))
+            .unwrap()
+    );
+}
+
+#[test]
+fn check_callback_deposit_tla() {
+    let mut deps = setup_test();
+
+    let amp_luna = Addr::unchecked("amp_luna");
+    let lp_token = Addr::unchecked("lp_token");
+    let _amp_luna_assetinfo = token_asset_info(amp_luna.clone());
+    let lp_assetinfo = token_asset_info(lp_token.clone());
+
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info("user", &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::Tla {
+                    asset_infos: vec![native_asset_info(CONTRACT_DENOM.into())],
+                    gauge: "gauge_1".to_string(),
+                    lp_info: lp_assetinfo.clone(),
+                    compounding: false,
+                },
+                source: eris::ampz::Source::Claim,
+                executor: Addr::unchecked("executor"),
+            },
+        }),
+    )
+    .unwrap_err();
+
+    assert_eq!(res, ContractError::CallbackOnlyCalledByContract {});
+
+    deps.querier.bank_querier.update_balance(MOCK_CONTRACT_ADDR, coins(100, CONTRACT_DENOM));
+
+    // any executor - non-compounding (regular staking)
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info(MOCK_CONTRACT_ADDR, &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::Tla {
+                    asset_infos: vec![native_asset_info(CONTRACT_DENOM.into())],
+                    gauge: "gauge_1".to_string(),
+                    lp_info: lp_assetinfo.clone(),
+                    compounding: false,
+                },
+                source: eris::ampz::Source::Claim,
+                executor: Addr::unchecked("executor"),
+            },
+        }),
+    )
+    .unwrap();
+    assert_eq!(res.messages.len(), 4);
+    assert_eq!(
+        res.messages[0].msg,
+        native_asset(CONTRACT_DENOM.into(), Uint128::new(1))
+            .transfer_msg(&Addr::unchecked("fee_receiver"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[1].msg,
+        native_asset(CONTRACT_DENOM.into(), Uint128::new(2))
+            .transfer_msg(&Addr::unchecked("executor"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[2].msg,
+        native_asset(CONTRACT_DENOM.into(), Uint128::new(97))
+            .transfer_msg(&Addr::unchecked("zapper"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[3].msg,
+        Zapper(Addr::unchecked("zapper"))
+            .zap(
+                lp_assetinfo.clone(),
+                vec![native_asset_info(CONTRACT_DENOM.into())],
+                None,
+                Some(eris::adapters::msgs_zapper::PostActionCreate::Stake {
+                    asset_staking: Addr::unchecked("gauge_1_staking"),
+                    receiver: Some("user".to_string()),
+                })
+            )
+            .unwrap()
+    );
+
+    // user as executor "manual execution" - non-compounding
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info(MOCK_CONTRACT_ADDR, &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::Tla {
+                    asset_infos: vec![native_asset_info(CONTRACT_DENOM.into())],
+                    gauge: "gauge_1".to_string(),
+                    lp_info: lp_assetinfo.clone(),
+                    compounding: false,
+                },
+                source: eris::ampz::Source::Claim,
+                executor: Addr::unchecked("user"),
+            },
+        }),
+    )
+    .unwrap();
+
+    assert_eq!(res.messages.len(), 3);
+    assert_eq!(
+        res.messages[0].msg,
+        native_asset(CONTRACT_DENOM.into(), Uint128::new(1))
+            .transfer_msg(&Addr::unchecked("fee_receiver"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[1].msg,
+        native_asset(CONTRACT_DENOM.into(), Uint128::new(99))
+            .transfer_msg(&Addr::unchecked("zapper"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[2].msg,
+        Zapper(Addr::unchecked("zapper"))
+            .zap(
+                lp_assetinfo.clone(),
+                vec![native_asset_info(CONTRACT_DENOM.into())],
+                None,
+                Some(eris::adapters::msgs_zapper::PostActionCreate::Stake {
+                    asset_staking: Addr::unchecked("gauge_1_staking"),
+                    receiver: Some("user".to_string()),
+                })
+            )
+            .unwrap()
+    );
+
+    // protocol controller as executor - compounding
+    let res = execute(
+        deps.as_mut(),
+        mock_env_at_timestamp(1000),
+        mock_info(MOCK_CONTRACT_ADDR, &[]),
+        ExecuteMsg::Callback(CallbackWrapper {
+            id: 1,
+            user: Addr::unchecked("user"),
+            message: CallbackMsg::FinishExecution {
+                destination: eris::ampz::DestinationRuntime::Tla {
+                    asset_infos: vec![native_asset_info(CONTRACT_DENOM.into())],
+                    gauge: "gauge_1".to_string(),
+                    lp_info: lp_assetinfo.clone(),
+                    compounding: true,
+                },
+                source: eris::ampz::Source::Claim,
+                executor: Addr::unchecked("controller"),
+            },
+        }),
+    )
+    .unwrap();
+
+    assert_eq!(res.messages.len(), 3);
+    assert_eq!(
+        res.messages[0].msg,
+        native_asset(CONTRACT_DENOM.into(), Uint128::new(3))
+            .transfer_msg(&Addr::unchecked("fee_receiver"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[1].msg,
+        native_asset(CONTRACT_DENOM.into(), Uint128::new(97))
+            .transfer_msg(&Addr::unchecked("zapper"))
+            .unwrap()
+    );
+    assert_eq!(
+        res.messages[2].msg,
+        Zapper(Addr::unchecked("zapper"))
+            .zap(
+                lp_assetinfo.clone(),
+                vec![native_asset_info(CONTRACT_DENOM.into())],
+                None,
+                Some(eris::adapters::msgs_zapper::PostActionCreate::LiquidStake {
+                    compounder: Addr::unchecked("tla_compounder"),
+                    gauge: "gauge_1".to_string(),
+                    receiver: Some("user".to_string()),
+                })
+            )
+            .unwrap()
     );
 }

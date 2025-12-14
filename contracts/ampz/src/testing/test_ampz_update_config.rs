@@ -2,10 +2,11 @@ use std::convert::TryInto;
 use std::vec;
 
 use astroport::asset::{native_asset_info, token_asset_info};
+use cosmwasm_schema::schemars::Map;
 use cosmwasm_std::testing::{mock_env, mock_info};
 use cosmwasm_std::{coins, Addr};
 
-use eris::ampz::{AstroportConfig, ConfigResponse, ExecuteMsg, FeeConfig, QueryMsg};
+use eris::ampz::{AstroportConfig, ConfigResponse, ExecuteMsg, FeeConfig, QueryMsg, TlaConfig};
 
 use crate::constants::CONTRACT_DENOM;
 use crate::contract::execute;
@@ -38,6 +39,7 @@ fn check_default_config() {
             fee: FeeConfig {
                 fee_bps: 100u16.try_into().unwrap(),
                 operator_bps: 200u16.try_into().unwrap(),
+                tla_source_fee: 750u16.try_into().unwrap(),
                 receiver: "fee_receiver".into()
             },
             capapult: eris::ampz::CapapultConfig {
@@ -47,6 +49,14 @@ fn check_default_config() {
                 stable_cw: "solid".into(),
             },
             arb_vault: "arb_vault".into(),
+            creda: eris::ampz::CredaConfig {
+                portfolio: Addr::unchecked("creda_portfolio"),
+            },
+            tla: TlaConfig {
+                amp_luna_addr: Addr::unchecked("amp_luna"),
+                compounder: Addr::unchecked("tla_compounder"),
+                gauges: Map::new(),
+            }
         }
     );
 }
@@ -72,6 +82,7 @@ fn check_update_config() {
             fee: Some(FeeConfig {
                 fee_bps: 10u16.try_into().unwrap(),
                 operator_bps: 20u16.try_into().unwrap(),
+                tla_source_fee: 750u16.try_into().unwrap(),
                 receiver: "new_fee_receiver".into(),
             }),
             capapult: None,
@@ -79,6 +90,8 @@ fn check_update_config() {
             whitewhale: None,
             hub: Some("new_hub".into()),
             arb_vault: Some("new_arb_vault".into()),
+            creda: None,
+            tla: None,
         },
     )
     .unwrap_err();
@@ -102,6 +115,7 @@ fn check_update_config() {
             fee: Some(FeeConfig {
                 fee_bps: 10u16.try_into().unwrap(),
                 operator_bps: 20u16.try_into().unwrap(),
+                tla_source_fee: 750u16.try_into().unwrap(),
                 receiver: "new_fee_receiver".into(),
             }),
             capapult: None,
@@ -109,6 +123,8 @@ fn check_update_config() {
             whitewhale: None,
             hub: Some("new_hub".into()),
             arb_vault: Some("new_arb_vault".into()),
+            creda: None,
+            tla: None,
         },
     )
     .unwrap();
@@ -130,6 +146,7 @@ fn check_update_config() {
             fee: FeeConfig {
                 fee_bps: 10u16.try_into().unwrap(),
                 operator_bps: 20u16.try_into().unwrap(),
+                tla_source_fee: 750u16.try_into().unwrap(),
                 receiver: "new_fee_receiver".into()
             },
             capapult: eris::ampz::CapapultConfig {
@@ -139,6 +156,15 @@ fn check_update_config() {
                 stable_cw: "solid".into(),
             },
             arb_vault: "new_arb_vault".into(),
+
+            creda: eris::ampz::CredaConfig {
+                portfolio: Addr::unchecked("creda_portfolio"),
+            },
+            tla: TlaConfig {
+                amp_luna_addr: Addr::unchecked("amp_luna"),
+                compounder: Addr::unchecked("tla_compounder"),
+                gauges: Map::new(),
+            }
         }
     );
 
@@ -159,6 +185,7 @@ fn check_update_config() {
             fee: Some(FeeConfig {
                 fee_bps: 10u16.try_into().unwrap(),
                 operator_bps: 20u16.try_into().unwrap(),
+                tla_source_fee: 750u16.try_into().unwrap(),
                 receiver: "new_fee_receiver".into(),
             }),
             capapult: None,
@@ -166,6 +193,8 @@ fn check_update_config() {
             arb_vault: Some("new_arb_vault".into()),
             alliance: None,
             whitewhale: None,
+            creda: None,
+            tla: None,
         },
     )
     .unwrap();
@@ -187,6 +216,7 @@ fn check_update_config() {
             fee: FeeConfig {
                 fee_bps: 10u16.try_into().unwrap(),
                 operator_bps: 20u16.try_into().unwrap(),
+                tla_source_fee: 750u16.try_into().unwrap(),
                 receiver: "new_fee_receiver".into()
             },
             capapult: eris::ampz::CapapultConfig {
@@ -196,6 +226,14 @@ fn check_update_config() {
                 stable_cw: "solid".into(),
             },
             arb_vault: "new_arb_vault".into(),
+            creda: eris::ampz::CredaConfig {
+                portfolio: Addr::unchecked("creda_portfolio"),
+            },
+            tla: TlaConfig {
+                amp_luna_addr: Addr::unchecked("amp_luna"),
+                compounder: Addr::unchecked("tla_compounder"),
+                gauges: Map::new(),
+            }
         }
     );
 }
@@ -221,6 +259,8 @@ fn update_config_unauthorized() {
             capapult: None,
             alliance: None,
             whitewhale: None,
+            creda: None,
+            tla: None,
         },
     )
     .unwrap_err();

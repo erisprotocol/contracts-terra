@@ -1,11 +1,10 @@
 use cosmwasm_std::{Addr, Order, StdResult, Storage};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 use eris::{
-    adapters::{
-        arb_vault::ArbVault, compounder::Compounder, farm::Farm, generator::Generator, hub::Hub,
-    },
+    adapters::{arb_vault::ArbVault, farm::Farm, generator::Generator, hub::Hub, zapper::Zapper},
     ampz::{
-        AllianceConfig, AstroportConfig, CapapultConfig, Execution, FeeConfig, WhiteWhaleConfig,
+        AllianceConfig, AstroportConfig, CapapultConfig, CredaConfig, Execution, FeeConfig,
+        TlaConfig, WhiteWhaleConfig,
     },
 };
 
@@ -15,7 +14,7 @@ pub(crate) struct State<'a> {
     // controller that can execute executions without receiving operation fees
     pub controller: Item<'a, Addr>,
     // addr of the zapper contract to execute multi swaps
-    pub zapper: Item<'a, Compounder>,
+    pub zapperv2: Item<'a, Zapper>,
     // config regarding supported astroport tokens and generator address
     pub astroport: Item<'a, AstroportConfig<Generator>>,
     // config regarding supported whitewhale
@@ -24,6 +23,9 @@ pub(crate) struct State<'a> {
     pub alliance: Item<'a, AllianceConfig<Addr>>,
 
     pub capapult: Item<'a, CapapultConfig<Addr>>,
+
+    pub tla: Item<'a, TlaConfig<Addr>>,
+    pub creda: Item<'a, CredaConfig<Addr>>,
 
     /// Account who can call certain privileged functions
     pub owner: Item<'a, Addr>,
@@ -62,7 +64,7 @@ impl Default for State<'static> {
 
         Self {
             owner: Item::new("owner"),
-            zapper: Item::new("zapper"),
+            zapperv2: Item::new("zapperv2"),
             controller: Item::new("controller"),
             new_owner: Item::new("new_owner"),
             farms: Item::new("farms"),
@@ -72,6 +74,8 @@ impl Default for State<'static> {
             whitewhale: Item::new("whitewhale"),
             alliance: Item::new("tassets"),
             capapult: Item::new("capapult"),
+            tla: Item::new("tla"),
+            creda: Item::new("creda"),
 
             id: Item::new("id"),
 
