@@ -526,6 +526,10 @@ pub fn callback(
                 } => {
                     attrs.push(attr("type", "ampz_execute_contract"));
 
+                    if env.contract.address == contract {
+                        return Err(ContractError::CannotExecuteSelf {});
+                    }
+
                     let balances =
                         vec![asset_info].query_balances(&deps.querier, &env.contract.address)?;
                     let balances = pay_fees(

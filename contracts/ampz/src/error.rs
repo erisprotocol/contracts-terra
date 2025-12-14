@@ -91,4 +91,7 @@ pub enum ContractError {
     TAssetNotSupported(AssetInfo),
     #[error("The gauge {0} is not supported")]
     TlaGaugeNotSupported(String),
+
+    #[error("Cannot execute ampz contract")]
+    CannotExecuteSelf {},
 }

@@ -23,7 +23,7 @@ pub fn add_execution(
 
     let state = State::default();
 
-    execution.validate(&deps, &state)?;
+    execution.validate(&deps, &state, &env)?;
 
     let source = execution.source.try_get_uniq_key();
     let new_id = state.id.load(deps.storage)?;

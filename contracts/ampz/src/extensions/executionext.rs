@@ -1,5 +1,5 @@
 use astroport::asset::{native_asset_info, token_asset_info, AssetInfo};
-use cosmwasm_std::DepsMut;
+use cosmwasm_std::{DepsMut, Env};
 use eris::ampz::{DepositMarket, Execution, RepayMarket};
 use eris::{
     adapters::farm::Farm,
@@ -15,7 +15,7 @@ use crate::{
 };
 
 pub(crate) trait ExecutionExt {
-    fn validate(&self, deps: &DepsMut, state: &State) -> CustomResult<()>;
+    fn validate(&self, deps: &DepsMut, state: &State, env: &Env) -> CustomResult<()>;
     fn get_source_assets(
         &self,
         deps: &DepsMut,
@@ -27,7 +27,7 @@ pub(crate) trait ExecutionExt {
 }
 
 impl ExecutionExt for Execution {
-    fn validate(&self, deps: &DepsMut, state: &State) -> CustomResult<()> {
+    fn validate(&self, deps: &DepsMut, state: &State, env: &Env) -> CustomResult<()> {
         match &self.destination {
             DestinationState::DepositAmplifier {
                 receiver,
@@ -38,6 +38,10 @@ impl ExecutionExt for Execution {
                 contract,
                 ..
             } => {
+                if env.contract.address == *contract {
+                    return Err(ContractError::CannotExecuteSelf {});
+                }
+
                 deps.api.addr_validate(contract.as_str())?;
             },
             DestinationState::DepositArbVault {
